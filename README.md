@@ -5,7 +5,7 @@
 
   <h1>putio-cli</h1>
 
-  <p>Agent-first CLI for the put.io API.</p>
+  <p>Agent-first CLI for the put.io API</p>
   <p>Built for deterministic automation first, with readable terminal output when humans are driving.</p>
 
   <p>
