@@ -21,8 +21,15 @@ const mocks = vi.hoisted(() => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
+  const continueTransfersMock = vi.fn(() =>
+    Effect.succeed({
+      cursor: null,
+      transfers: [],
+    }),
+  );
   const listTransfersMock = vi.fn(() =>
     Effect.succeed({
+      cursor: null,
       transfers: [
         {
           id: 7,
@@ -74,8 +81,22 @@ const mocks = vi.hoisted(() => {
   const moveFilesMock = vi.fn(() => Effect.succeed([]));
   const renameFileMock = vi.fn(() => Effect.void);
   const deleteFilesMock = vi.fn(() => Effect.succeed({ skipped: 1 }));
+  const continueFilesMock = vi.fn(() =>
+    Effect.succeed({
+      cursor: null,
+      files: [],
+      total: 1,
+    }),
+  );
+  const continueSearchFilesMock = vi.fn(() =>
+    Effect.succeed({
+      cursor: null,
+      files: [],
+    }),
+  );
   const listFilesMock = vi.fn(() =>
     Effect.succeed({
+      cursor: null,
       files: [
         {
           file_type: "FOLDER",
@@ -84,10 +105,12 @@ const mocks = vi.hoisted(() => {
           size: 0,
         },
       ],
+      total: 1,
     }),
   );
   const searchFilesMock = vi.fn(() =>
     Effect.succeed({
+      cursor: null,
       files: [
         {
           file_type: "VIDEO",
@@ -204,6 +227,8 @@ const mocks = vi.hoisted(() => {
       list: listEventsMock,
     },
     files: {
+      continue: continueFilesMock,
+      continueSearch: continueSearchFilesMock,
       createFolder: createFolderMock,
       delete: deleteFilesMock,
       list: listFilesMock,
@@ -215,6 +240,7 @@ const mocks = vi.hoisted(() => {
       addMany: addTransfersMock,
       cancel: cancelTransfersMock,
       clean: cleanTransfersMock,
+      continue: continueTransfersMock,
       get: getTransferMock,
       list: listTransfersMock,
       reannounce: reannounceTransferMock,
@@ -227,6 +253,9 @@ const mocks = vi.hoisted(() => {
     cancelTransfersMock,
     cleanTransfersMock,
     clearPersistedStateMock,
+    continueFilesMock,
+    continueSearchFilesMock,
+    continueTransfersMock,
     createDownloadLinksMock,
     createFolderMock,
     deleteFilesMock,
@@ -500,6 +529,22 @@ describe("cli command paths", () => {
     );
   });
 
+  it("selects top-level whoami fields for json output", async () => {
+    await expect(
+      runCliInTest(["putio", "whoami", "--fields", "info", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        info: expect.objectContaining({
+          username: "altay",
+        }),
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
   it("executes events list with filtering", async () => {
     await expect(
       runCliInTest([
@@ -529,6 +574,20 @@ describe("cli command paths", () => {
             type: "transfer_completed",
           }),
         ],
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("selects top-level event list fields for json output", async () => {
+    await expect(
+      runCliInTest(["putio", "events", "list", "--fields", "events", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        events: expect.arrayContaining([expect.objectContaining({ id: 101 })]),
       },
       "json",
       expect.any(Function),
@@ -617,7 +676,31 @@ describe("cli command paths", () => {
         },
         links_status: "COMPLETED",
       }),
-    ).toContain("Download links (1)");
+    ).toContain('"links_status": "COMPLETED"');
+  });
+
+  it("selects top-level download-links fields for json output", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "download-links",
+        "get",
+        "--id",
+        "55",
+        "--fields",
+        "links_status",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        links_status: "COMPLETED",
+      },
+      "json",
+      expect.any(Function),
+    );
   });
 
   it("executes brand and version commands", async () => {
@@ -714,6 +797,65 @@ describe("cli command paths", () => {
     );
   });
 
+  it("selects top-level file list fields for json output", async () => {
+    await expect(
+      runCliInTest(["putio", "files", "list", "--fields", "files,total", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        files: expect.arrayContaining([expect.objectContaining({ id: 1 })]),
+        total: 1,
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("collects all file list pages when page-all is set", async () => {
+    mocks.listFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: "cursor-1",
+        files: [{ id: 1, name: "Movies" }],
+        total: 3,
+      }),
+    );
+    mocks.continueFilesMock.mockImplementationOnce((cursor) =>
+      Effect.succeed({
+        cursor: cursor === "cursor-1" ? "cursor-2" : null,
+        files: cursor === "cursor-1" ? [{ id: 2, name: "Shows" }] : [{ id: 3, name: "Music" }],
+        total: 3,
+      }),
+    );
+    mocks.continueFilesMock.mockImplementationOnce(() =>
+      Effect.succeed({
+        cursor: null,
+        files: [{ id: 3, name: "Music" }],
+        total: 3,
+      }),
+    );
+
+    await expect(
+      runCliInTest(["putio", "files", "list", "--page-all", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.continueFilesMock).toHaveBeenCalledWith("cursor-1", { per_page: 20 });
+    expect(mocks.continueFilesMock).toHaveBeenCalledWith("cursor-2", { per_page: 20 });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        cursor: null,
+        files: [
+          { id: 1, name: "Movies" },
+          { id: 2, name: "Shows" },
+          { id: 3, name: "Music" },
+        ],
+        total: 3,
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
   it("executes files rename", async () => {
     await expect(
       runCliInTest([
@@ -786,12 +928,185 @@ describe("cli command paths", () => {
     });
   });
 
+  it("selects top-level file search fields for json output", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "search",
+        "--query",
+        "movie",
+        "--fields",
+        "files",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        files: expect.arrayContaining([expect.objectContaining({ id: 2 })]),
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("collects all file search pages when page-all is set", async () => {
+    mocks.searchFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: "cursor-1",
+        files: [{ id: 2, name: "movie-1.mkv" }],
+      }),
+    );
+    mocks.continueSearchFilesMock.mockImplementationOnce((cursor) =>
+      Effect.succeed({
+        cursor: cursor === "cursor-1" ? "cursor-2" : null,
+        files:
+          cursor === "cursor-1"
+            ? [{ id: 3, name: "movie-2.mkv" }]
+            : [{ id: 4, name: "movie-3.mkv" }],
+      }),
+    );
+    mocks.continueSearchFilesMock.mockImplementationOnce(() =>
+      Effect.succeed({
+        cursor: null,
+        files: [{ id: 4, name: "movie-3.mkv" }],
+      }),
+    );
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "search",
+        "--query",
+        "movie",
+        "--page-all",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.continueSearchFilesMock).toHaveBeenCalledWith("cursor-1", { per_page: 20 });
+    expect(mocks.continueSearchFilesMock).toHaveBeenCalledWith("cursor-2", { per_page: 20 });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        cursor: null,
+        files: [
+          { id: 2, name: "movie-1.mkv" },
+          { id: 3, name: "movie-2.mkv" },
+          { id: 4, name: "movie-3.mkv" },
+        ],
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("selects top-level search alias fields for json output", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "search",
+        "--query",
+        "movie",
+        "--fields",
+        "files",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        files: expect.arrayContaining([expect.objectContaining({ id: 2 })]),
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("rejects fields in terminal mode without calling the sdk", async () => {
+    await expect(runCliInTest(["putio", "whoami", "--fields", "info"])).rejects.toMatchObject({
+      message: "`--fields` requires `--output json`.",
+    });
+
+    expect(mocks.getAccountInfoMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown fields with a tagged input error", async () => {
+    await expect(
+      runCliInTest(["putio", "files", "list", "--fields", "nope", "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining("Unknown `--fields` value for `files list`"),
+    });
+
+    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
+  });
+
   it("executes transfers list", async () => {
     await expect(
       runCliInTest(["putio", "transfers", "list", "--per-page", "5", "--output", "json"]),
     ).resolves.toBeUndefined();
 
     expect(mocks.listTransfersMock).toHaveBeenCalledWith({ per_page: 5 });
+  });
+
+  it("selects top-level transfer list fields for json output", async () => {
+    await expect(
+      runCliInTest(["putio", "transfers", "list", "--fields", "transfers", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        transfers: expect.arrayContaining([expect.objectContaining({ id: 7 })]),
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("collects all transfer pages when page-all is set", async () => {
+    mocks.listTransfersMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: "cursor-1",
+        transfers: [{ id: 7, name: "ubuntu.iso" }],
+      }),
+    );
+    mocks.continueTransfersMock.mockImplementationOnce((cursor) =>
+      Effect.succeed({
+        cursor: cursor === "cursor-1" ? "cursor-2" : null,
+        transfers:
+          cursor === "cursor-1" ? [{ id: 8, name: "fedora.iso" }] : [{ id: 9, name: "debian.iso" }],
+      }),
+    );
+    mocks.continueTransfersMock.mockImplementationOnce(() =>
+      Effect.succeed({
+        cursor: null,
+        transfers: [{ id: 9, name: "debian.iso" }],
+      }),
+    );
+
+    await expect(
+      runCliInTest(["putio", "transfers", "list", "--page-all", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.continueTransfersMock).toHaveBeenCalledWith("cursor-1", { per_page: 20 });
+    expect(mocks.continueTransfersMock).toHaveBeenCalledWith("cursor-2", { per_page: 20 });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        cursor: null,
+        transfers: [
+          { id: 7, name: "ubuntu.iso" },
+          { id: 8, name: "fedora.iso" },
+          { id: 9, name: "debian.iso" },
+        ],
+      },
+      "json",
+      expect.any(Function),
+    );
   });
 
   it("executes transfers add", async () => {
@@ -931,6 +1246,32 @@ describe("cli command paths", () => {
         transfer: expect.objectContaining({
           id: 7,
           status: "COMPLETED",
+        }),
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("selects top-level transfer watch fields for json output", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "transfers",
+        "watch",
+        "--id",
+        "7",
+        "--fields",
+        "transfer",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        transfer: expect.objectContaining({
+          id: 7,
         }),
       },
       "json",

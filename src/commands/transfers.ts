@@ -3,14 +3,19 @@ import { Clock, Duration, Effect, Option, Schema } from "effect";
 
 import {
   CliCommandInputError,
+  collectAllCursorPages,
   dryRunOption,
+  fieldsOption,
   getOption,
   jsonOption,
   outputOption,
+  pageAllOption,
   parseRepeatedIntegerOption,
   resolveMutationInput,
+  resolveReadOutputControls,
   withAuthedSdk,
   writeDryRunPlan,
+  writeReadOutput,
 } from "../internal/command.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -140,24 +145,51 @@ export const renderTransferWatchFinishedTerminal = (value: {
 const transfersList = Command.make(
   "list",
   {
+    fields: fieldsOption,
     output: outputOption,
+    pageAll: pageAllOption,
     perPage: perPageOption,
   },
-  ({ output, perPage }) =>
+  ({ fields, output, pageAll, perPage }) =>
     Effect.gen(function* () {
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+        pageAll,
+      });
+      const perPageValue = Option.getOrElse(perPage, () => 20);
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.transfers.command.loading"),
-          output: getOption(output),
+          output: controls.output,
         },
         withAuthedSdk(({ sdk }) =>
-          sdk.transfers.list({
-            per_page: Option.getOrElse(perPage, () => 20),
-          }),
+          sdk.transfers
+            .list({
+              per_page: perPageValue,
+            })
+            .pipe(
+              Effect.flatMap((initial) =>
+                collectAllCursorPages({
+                  command: "transfers list",
+                  continueWithCursor: (cursor) =>
+                    sdk.transfers.continue(cursor, { per_page: perPageValue }),
+                  initial,
+                  itemKey: "transfers",
+                  pageAll: controls.pageAll,
+                }),
+              ),
+            ),
         ),
       );
 
-      yield* writeOutput(result, getOption(output), renderTransfersTerminal);
+      yield* writeReadOutput({
+        command: "transfers list",
+        output: controls.output,
+        renderTerminalValue: renderTransfersTerminal,
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
     }),
 );
 
@@ -361,13 +393,18 @@ const transfersReannounce = Command.make(
 const transfersWatch = Command.make(
   "watch",
   {
+    fields: fieldsOption,
     id: transferIdOption,
     intervalSeconds: intervalSecondsOption,
     output: outputOption,
     timeoutSeconds: timeoutSecondsOption,
   },
-  ({ id, intervalSeconds, output, timeoutSeconds }) =>
+  ({ fields, id, intervalSeconds, output, timeoutSeconds }) =>
     Effect.gen(function* () {
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+      });
       const intervalMs =
         Math.max(
           1,
@@ -383,7 +420,7 @@ const transfersWatch = Command.make(
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.transfers.command.watching", { id }),
-          output: getOption(output),
+          output: controls.output,
         },
         Effect.gen(function* () {
           while (true) {
@@ -408,17 +445,22 @@ const transfersWatch = Command.make(
         }),
       );
 
-      yield* writeOutput(result, getOption(output), (value) =>
-        [
-          renderTransferWatchFinishedTerminal({
-            id: value.transfer.id,
-            status: value.transfer.status,
-            timedOut: value.timedOut,
-          }),
-          "",
-          renderTransfersTerminal({ transfers: [value.transfer] }),
-        ].join("\n"),
-      );
+      yield* writeReadOutput({
+        command: "transfers watch",
+        output: controls.output,
+        renderTerminalValue: (value) =>
+          [
+            renderTransferWatchFinishedTerminal({
+              id: value.transfer.id,
+              status: value.transfer.status,
+              timedOut: value.timedOut,
+            }),
+            "",
+            renderTransfersTerminal({ transfers: [value.transfer] }),
+          ].join("\n"),
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
     }),
 );
 

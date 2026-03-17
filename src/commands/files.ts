@@ -3,14 +3,19 @@ import { Effect, Option, Schema } from "effect";
 
 import {
   CliCommandInputError,
+  collectAllCursorPages,
   dryRunOption,
+  fieldsOption,
   getOption,
   jsonOption,
   outputOption,
+  pageAllOption,
   parseRepeatedIntegerOption,
   resolveMutationInput,
+  resolveReadOutputControls,
   withAuthedSdk,
   writeDryRunPlan,
+  writeReadOutput,
 } from "../internal/command.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -171,7 +176,9 @@ export const renderFilesMovedTerminal = (value: {
 const filesList = Command.make(
   "list",
   {
+    fields: fieldsOption,
     output: outputOption,
+    pageAll: pageAllOption,
     parentId: parentIdOption,
     perPage: perPageOption,
     contentType: contentTypeOption,
@@ -179,29 +186,51 @@ const filesList = Command.make(
     fileType: fileTypeOption,
     sortBy: sortByOption,
   },
-  ({ output, parentId, perPage, contentType, hidden, fileType, sortBy }) =>
+  ({ fields, output, pageAll, parentId, perPage, contentType, hidden, fileType, sortBy }) =>
     Effect.gen(function* () {
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+        pageAll,
+      });
+      const parent = Option.getOrElse(parentId, () => 0);
+      const perPageValue = Option.getOrElse(perPage, () => 20);
+      const query = {
+        content_type: Option.getOrUndefined(contentType),
+        file_type: Option.getOrUndefined(fileType),
+        hidden: hidden ? 1 : undefined,
+        per_page: perPageValue,
+        sort_by: Option.getOrUndefined(sortBy),
+        total: 1,
+      } as const;
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.loading"),
-          output: getOption(output),
+          output: controls.output,
         },
         withAuthedSdk(({ sdk }) =>
-          sdk.files.list(
-            Option.getOrElse(parentId, () => 0),
-            {
-              content_type: Option.getOrUndefined(contentType),
-              file_type: Option.getOrUndefined(fileType),
-              hidden: hidden ? 1 : undefined,
-              per_page: Option.getOrElse(perPage, () => 20),
-              sort_by: Option.getOrUndefined(sortBy),
-              total: 1,
-            },
+          sdk.files.list(parent, query).pipe(
+            Effect.flatMap((initial) =>
+              collectAllCursorPages({
+                command: "files list",
+                continueWithCursor: (cursor) =>
+                  sdk.files.continue(cursor, { per_page: perPageValue }),
+                initial,
+                itemKey: "files",
+                pageAll: controls.pageAll,
+              }),
+            ),
           ),
         ),
       );
 
-      yield* writeOutput(result, getOption(output), renderFilesTerminal);
+      yield* writeReadOutput({
+        command: "files list",
+        output: controls.output,
+        renderTerminalValue: renderFilesTerminal,
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
     }),
 );
 
@@ -389,28 +418,54 @@ const filesMove = Command.make(
 const filesSearchCommand = Command.make(
   "search",
   {
+    fields: fieldsOption,
     output: outputOption,
+    pageAll: pageAllOption,
     perPage: perPageOption,
     query: queryOption,
     fileType: fileTypeOption,
   },
-  ({ output, perPage, query, fileType }) =>
+  ({ fields, output, pageAll, perPage, query, fileType }) =>
     Effect.gen(function* () {
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+        pageAll,
+      });
+      const perPageValue = Option.getOrElse(perPage, () => 20);
+      const searchQuery = {
+        per_page: perPageValue,
+        query,
+        type: Option.getOrUndefined(fileType),
+      } as const;
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.searching", { query }),
-          output: getOption(output),
+          output: controls.output,
         },
         withAuthedSdk(({ sdk }) =>
-          sdk.files.search({
-            per_page: Option.getOrElse(perPage, () => 20),
-            query,
-            type: Option.getOrUndefined(fileType),
-          }),
+          sdk.files.search(searchQuery).pipe(
+            Effect.flatMap((initial) =>
+              collectAllCursorPages({
+                command: "files search",
+                continueWithCursor: (cursor) =>
+                  sdk.files.continueSearch(cursor, { per_page: perPageValue }),
+                initial,
+                itemKey: "files",
+                pageAll: controls.pageAll,
+              }),
+            ),
+          ),
         ),
       );
 
-      yield* writeOutput(result, getOption(output), renderFilesTerminal);
+      yield* writeReadOutput({
+        command: "files search",
+        output: controls.output,
+        renderTerminalValue: renderFilesTerminal,
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
     }),
 );
 

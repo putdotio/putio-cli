@@ -64,8 +64,15 @@ const createCommandPathMocks = () => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
+  const continueTransfersMock = vi.fn(() =>
+    Effect.succeed({
+      cursor: null,
+      transfers: [],
+    }),
+  );
   const listTransfersMock = vi.fn(() =>
     Effect.succeed({
+      cursor: null,
       transfers: [
         {
           id: 7,
@@ -117,8 +124,22 @@ const createCommandPathMocks = () => {
   const moveFilesMock = vi.fn(() => Effect.succeed([]));
   const renameFileMock = vi.fn(() => Effect.void);
   const deleteFilesMock = vi.fn(() => Effect.succeed({ skipped: 1 }));
+  const continueFilesMock = vi.fn(() =>
+    Effect.succeed({
+      cursor: null,
+      files: [],
+      total: 1,
+    }),
+  );
+  const continueSearchFilesMock = vi.fn(() =>
+    Effect.succeed({
+      cursor: null,
+      files: [],
+    }),
+  );
   const listFilesMock = vi.fn(() =>
     Effect.succeed({
+      cursor: null,
       files: [
         {
           file_type: "FOLDER",
@@ -127,10 +148,12 @@ const createCommandPathMocks = () => {
           size: 0,
         },
       ],
+      total: 1,
     }),
   );
   const searchFilesMock = vi.fn(() =>
     Effect.succeed({
+      cursor: null,
       files: [
         {
           file_type: "VIDEO",
@@ -201,6 +224,8 @@ const createCommandPathMocks = () => {
       list: listEventsMock,
     },
     files: {
+      continue: continueFilesMock,
+      continueSearch: continueSearchFilesMock,
       createFolder: createFolderMock,
       delete: deleteFilesMock,
       list: listFilesMock,
@@ -212,6 +237,7 @@ const createCommandPathMocks = () => {
       addMany: addTransfersMock,
       cancel: cancelTransfersMock,
       clean: cleanTransfersMock,
+      continue: continueTransfersMock,
       get: getTransferMock,
       list: listTransfersMock,
       reannounce: reannounceTransferMock,
@@ -224,6 +250,9 @@ const createCommandPathMocks = () => {
     cancelTransfersMock,
     cleanTransfersMock,
     clearPersistedStateMock,
+    continueFilesMock,
+    continueSearchFilesMock,
+    continueTransfersMock,
     createDownloadLinksMock,
     createFolderMock,
     deleteFilesMock,
@@ -273,6 +302,12 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
   mocks.provideSdkMock.mockImplementation((_config, program) => program);
   mocks.getCodeMock.mockImplementation(() => Effect.succeed({ code: "PUTIO1" }));
   mocks.checkCodeMatchMock.mockImplementation(() => Effect.succeed("token-123"));
+  mocks.continueTransfersMock.mockImplementation(() =>
+    Effect.succeed({
+      cursor: null,
+      transfers: [],
+    }),
+  );
   mocks.createFolderMock.mockImplementation(() =>
     Effect.succeed({
       id: 42,
@@ -283,8 +318,22 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
   mocks.moveFilesMock.mockImplementation(() => Effect.succeed([]));
   mocks.renameFileMock.mockImplementation(() => Effect.void);
   mocks.deleteFilesMock.mockImplementation(() => Effect.succeed({ skipped: 1 }));
+  mocks.continueFilesMock.mockImplementation(() =>
+    Effect.succeed({
+      cursor: null,
+      files: [],
+      total: 1,
+    }),
+  );
+  mocks.continueSearchFilesMock.mockImplementation(() =>
+    Effect.succeed({
+      cursor: null,
+      files: [],
+    }),
+  );
   mocks.listFilesMock.mockImplementation(() =>
     Effect.succeed({
+      cursor: null,
       files: [
         {
           file_type: "FOLDER",
@@ -293,10 +342,12 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
           size: 0,
         },
       ],
+      total: 1,
     }),
   );
   mocks.searchFilesMock.mockImplementation(() =>
     Effect.succeed({
+      cursor: null,
       files: [
         {
           file_type: "VIDEO",
@@ -314,6 +365,7 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
   mocks.cleanTransfersMock.mockImplementation(() => Effect.succeed({ deleted_ids: [8, 9] }));
   mocks.listTransfersMock.mockImplementation(() =>
     Effect.succeed({
+      cursor: null,
       transfers: [
         {
           id: 7,

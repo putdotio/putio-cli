@@ -1,10 +1,16 @@
 import { Command, Options } from "@effect/cli";
 import { Effect, Option } from "effect";
 
-import { getOption, outputOption, withAuthedSdk } from "../internal/command.js";
+import {
+  fieldsOption,
+  getOption,
+  outputOption,
+  resolveReadOutputControls,
+  withAuthedSdk,
+  writeReadOutput,
+} from "../internal/command.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
-import { writeOutput } from "../internal/output-service.js";
 import { renderEventsTerminal } from "../internal/terminal/events-terminal.js";
 const beforeOption = Options.integer("before").pipe(Options.optional);
 const perPageOption = Options.integer("per-page").pipe(Options.optional);
@@ -36,16 +42,21 @@ const eventsList = Command.make(
   "list",
   {
     before: beforeOption,
+    fields: fieldsOption,
     output: outputOption,
     perPage: perPageOption,
     type: eventTypeOption,
   },
-  ({ before, output, perPage, type }) =>
+  ({ before, fields, output, perPage, type }) =>
     Effect.gen(function* () {
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+      });
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.events.command.loading"),
-          output: getOption(output),
+          output: controls.output,
         },
         withAuthedSdk(({ sdk }) =>
           sdk.events.list({
@@ -60,7 +71,13 @@ const eventsList = Command.make(
         ),
       );
 
-      yield* writeOutput(result, getOption(output), renderEventsTerminal);
+      yield* writeReadOutput({
+        command: "events list",
+        output: controls.output,
+        renderTerminalValue: renderEventsTerminal,
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
     }),
 );
 

@@ -152,6 +152,24 @@ const jsonFlag = (): CommandOption => ({
   type: "string",
 });
 
+const fieldsFlag = (): CommandOption => ({
+  description: "Comma-separated top-level response fields. Requires `--output json`.",
+  name: "fields",
+  repeated: false,
+  required: false,
+  type: "string",
+});
+
+const pageAllFlag = (): CommandOption => ({
+  defaultValue: false,
+  description:
+    "Continue cursor-backed reads until the cursor is exhausted. Requires `--output json`.",
+  name: "page-all",
+  repeated: false,
+  required: false,
+  type: "boolean",
+});
+
 const booleanFlag = (
   name: string,
   options: {
@@ -363,9 +381,9 @@ export const commandCatalog = decodeCommandCatalog([
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "whoami",
-    input: { flags: [outputFlag()] },
+    input: { flags: [fieldsFlag(), outputFlag()] },
     kind: "read",
     purpose: translate("cli.metadata.whoami"),
   }),
@@ -396,19 +414,20 @@ export const commandCatalog = decodeCommandCatalog([
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "download-links get",
-    input: { flags: [integerFlag("id", { required: true }), outputFlag()] },
+    input: { flags: [fieldsFlag(), integerFlag("id", { required: true }), outputFlag()] },
     kind: "read",
     purpose: translate("cli.metadata.downloadLinksGet"),
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "events list",
     input: {
       flags: [
         integerFlag("before"),
+        fieldsFlag(),
         outputFlag(),
         integerFlag("per-page"),
         enumFlag("type", eventTypeChoices),
@@ -419,11 +438,13 @@ export const commandCatalog = decodeCommandCatalog([
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "files list",
     input: {
       flags: [
+        fieldsFlag(),
         outputFlag(),
+        pageAllFlag(),
         integerFlag("parent-id"),
         integerFlag("per-page"),
         stringFlag("content-type"),
@@ -502,11 +523,13 @@ export const commandCatalog = decodeCommandCatalog([
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "files search",
     input: {
       flags: [
+        fieldsFlag(),
         outputFlag(),
+        pageAllFlag(),
         integerFlag("per-page"),
         stringFlag("query", { required: true }),
         enumFlag("file-type", fileTypeChoices),
@@ -517,11 +540,13 @@ export const commandCatalog = decodeCommandCatalog([
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "search",
     input: {
       flags: [
+        fieldsFlag(),
         outputFlag(),
+        pageAllFlag(),
         integerFlag("per-page"),
         stringFlag("query", { required: true }),
         enumFlag("file-type", fileTypeChoices),
@@ -532,9 +557,9 @@ export const commandCatalog = decodeCommandCatalog([
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "transfers list",
-    input: { flags: [outputFlag(), integerFlag("per-page")] },
+    input: { flags: [fieldsFlag(), outputFlag(), pageAllFlag(), integerFlag("per-page")] },
     kind: "read",
     purpose: translate("cli.metadata.transfersList"),
   }),
@@ -597,10 +622,11 @@ export const commandCatalog = decodeCommandCatalog([
   }),
   command({
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "transfers watch",
     input: {
       flags: [
+        fieldsFlag(),
         integerFlag("id", { required: true }),
         integerFlag("interval-seconds"),
         outputFlag(),

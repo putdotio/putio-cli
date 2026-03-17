@@ -3,13 +3,16 @@ import { Data, Effect, Option, Schema } from "effect";
 
 import {
   dryRunOption,
+  fieldsOption,
   getOption,
   jsonOption,
   outputOption,
   parseRepeatedIntegerOption,
   resolveMutationInput,
+  resolveReadOutputControls,
   withAuthedSdk,
   writeDryRunPlan,
+  writeReadOutput,
 } from "../internal/command.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
@@ -98,20 +101,31 @@ const downloadLinksCreate = Command.make(
 const downloadLinksGet = Command.make(
   "get",
   {
+    fields: fieldsOption,
     id: downloadLinksIdOption,
     output: outputOption,
   },
-  ({ id, output }) =>
+  ({ fields, id, output }) =>
     Effect.gen(function* () {
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+      });
       const result = yield* withTerminalLoader(
         {
           message: `Loading download-links job ${id}...`,
-          output: getOption(output),
+          output: controls.output,
         },
         withAuthedSdk(({ sdk }) => sdk.downloadLinks.get(id)),
       );
 
-      yield* writeOutput(result, getOption(output), renderDownloadLinksTerminal);
+      yield* writeReadOutput({
+        command: "download-links get",
+        output: controls.output,
+        renderTerminalValue: renderDownloadLinksTerminal,
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
     }),
 );
 

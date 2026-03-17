@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { Effect, Option, Schema } from "effect";
 
-import { decodeJsonOption, parseRepeatedIntegers } from "./command.js";
+import {
+  collectAllCursorPages,
+  decodeJsonOption,
+  parseRepeatedIntegers,
+  resolveReadOutputControls,
+  selectTopLevelFields,
+} from "./command.js";
 
 describe("parseRepeatedIntegers", () => {
   it("parses repeated integer strings", () => {
@@ -41,5 +47,137 @@ describe("decodeJsonOption", () => {
     if (exit._tag === "Failure") {
       expect(String(exit.cause)).toContain("CliCommandInputError");
     }
+  });
+});
+
+describe("resolveReadOutputControls", () => {
+  it("parses requested fields for json output", async () => {
+    await expect(
+      Effect.runPromise(
+        resolveReadOutputControls({
+          fields: Option.some("info, auth"),
+          output: "json",
+          pageAll: false,
+        }),
+      ),
+    ).resolves.toEqual({
+      output: "json",
+      pageAll: false,
+      requestedFields: ["info", "auth"],
+    });
+  });
+
+  it("rejects fields in terminal mode", async () => {
+    await expect(
+      Effect.runPromiseExit(
+        resolveReadOutputControls({
+          fields: Option.some("info"),
+          output: "text",
+        }),
+      ),
+    ).resolves.toMatchObject({
+      _tag: "Failure",
+    });
+  });
+
+  it("rejects page-all in terminal mode", async () => {
+    await expect(
+      Effect.runPromiseExit(
+        resolveReadOutputControls({
+          fields: Option.none(),
+          output: "text",
+          pageAll: true,
+        }),
+      ),
+    ).resolves.toMatchObject({
+      _tag: "Failure",
+    });
+  });
+});
+
+describe("selectTopLevelFields", () => {
+  it("selects only the requested top-level fields", async () => {
+    await expect(
+      Effect.runPromise(
+        selectTopLevelFields({
+          command: "whoami",
+          requestedFields: ["info"],
+          value: {
+            auth: {
+              source: "env",
+            },
+            info: {
+              username: "altay",
+            },
+          },
+        }),
+      ),
+    ).resolves.toEqual({
+      info: {
+        username: "altay",
+      },
+    });
+  });
+
+  it("fails when an unknown top-level field is requested", async () => {
+    const exit = await Effect.runPromiseExit(
+      selectTopLevelFields({
+        command: "whoami",
+        requestedFields: ["nope"],
+        value: {
+          auth: {
+            source: "env",
+          },
+          info: {
+            username: "altay",
+          },
+        },
+      }),
+    );
+
+    expect(exit._tag).toBe("Failure");
+    if (exit._tag === "Failure") {
+      expect(String(exit.cause)).toContain("Unknown `--fields` value for `whoami`");
+      expect(String(exit.cause)).toContain("Valid top-level fields: `auth`, `info`");
+    }
+  });
+});
+
+describe("collectAllCursorPages", () => {
+  it("concatenates paged list responses until the cursor is exhausted", async () => {
+    const continueWithCursor = (cursor: string) =>
+      Effect.succeed(
+        cursor === "cursor-1"
+          ? {
+              cursor: "cursor-2",
+              files: [{ id: 2 }],
+              total: 3,
+            }
+          : {
+              cursor: null,
+              files: [{ id: 3 }],
+              total: 3,
+            },
+      );
+
+    await expect(
+      Effect.runPromise(
+        collectAllCursorPages({
+          command: "files list",
+          continueWithCursor,
+          initial: {
+            cursor: "cursor-1",
+            files: [{ id: 1 }],
+            total: 3,
+          },
+          itemKey: "files",
+          pageAll: true,
+        }),
+      ),
+    ).resolves.toEqual({
+      cursor: null,
+      files: [{ id: 1 }, { id: 2 }, { id: 3 }],
+      total: 3,
+    });
   });
 });

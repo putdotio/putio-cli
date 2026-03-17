@@ -7,8 +7,12 @@ describe("describeCli", () => {
     const metadata = describeCli();
     const describeCommand = metadata.commands.find((command) => command.command === "describe");
     const whoamiCommand = metadata.commands.find((command) => command.command === "whoami");
+    const filesListCommand = metadata.commands.find((command) => command.command === "files list");
     const filesDeleteCommand = metadata.commands.find(
       (command) => command.command === "files delete",
+    );
+    const transfersListCommand = metadata.commands.find(
+      (command) => command.command === "transfers list",
     );
 
     expect(metadata.binary).toBe("putio");
@@ -53,6 +57,36 @@ describe("describeCli", () => {
     });
     expect(whoamiCommand).toMatchObject({
       auth: { required: true },
+      capabilities: {
+        fieldSelection: true,
+      },
+      input: {
+        flags: expect.arrayContaining([
+          expect.objectContaining({
+            name: "fields",
+            type: "string",
+          }),
+        ]),
+      },
+      kind: "read",
+    });
+    expect(filesListCommand).toMatchObject({
+      capabilities: {
+        fieldSelection: true,
+      },
+      input: {
+        flags: expect.arrayContaining([
+          expect.objectContaining({
+            name: "fields",
+            type: "string",
+          }),
+          expect.objectContaining({
+            defaultValue: false,
+            name: "page-all",
+            type: "boolean",
+          }),
+        ]),
+      },
       kind: "read",
     });
     expect(filesDeleteCommand).toMatchObject({
@@ -90,6 +124,22 @@ describe("describeCli", () => {
         },
       },
       kind: "write",
+    });
+    expect(transfersListCommand).toMatchObject({
+      capabilities: {
+        fieldSelection: true,
+      },
+      input: {
+        flags: expect.arrayContaining([
+          expect.objectContaining({
+            name: "fields",
+          }),
+          expect.objectContaining({
+            name: "page-all",
+          }),
+        ]),
+      },
+      kind: "read",
     });
     expect(metadata.auth.envPrecedence).toEqual(["PUTIO_CLI_TOKEN"]);
     expect(metadata.auth.loginAppId).toBe("8993");
