@@ -40,32 +40,33 @@ npm install --global @putdotio/cli
 
 This path requires Node `24.14+`.
 
-Install manually from GitHub Releases if you prefer to handle the binary yourself or you are on Windows:
+Install manually from GitHub Releases if you prefer to handle the archive yourself or you are on Windows:
 
 1. Download the matching asset from [GitHub Releases](https://github.com/putdotio/putio-cli/releases/latest).
 2. Download the matching `.sha256` file for that asset.
 3. Verify the checksum.
-4. Mark the binary executable on macOS/Linux and place it on your `PATH`.
+4. Extract the archive and place `putio` on your `PATH`.
 
 Example asset names:
 
-- `putio-darwin-arm64`
-- `putio-linux-x64`
-- `putio-win32-x64.exe`
+- `putio-cli-1.0.2-darwin-arm64.tar.gz`
+- `putio-cli-1.0.2-linux-amd64.tar.gz`
+- `putio-cli-1.0.2-windows-amd64.zip`
 
 Verify a release binary on macOS or Linux:
 
 ```bash
-shasum -a 256 -c putio-linux-x64.sha256
-chmod +x putio-linux-x64
-mv putio-linux-x64 /usr/local/bin/putio
+shasum -a 256 -c putio-cli-1.0.2-linux-amd64.tar.gz.sha256
+tar -xzf putio-cli-1.0.2-linux-amd64.tar.gz
+chmod +x putio
+mv putio /usr/local/bin/putio
 ```
 
 Verify a release binary on Windows PowerShell:
 
 ```powershell
-$expected = (Get-Content .\putio-win32-x64.exe.sha256).Split()[0]
-$actual = (Get-FileHash .\putio-win32-x64.exe -Algorithm SHA256).Hash.ToLower()
+$expected = (Get-Content .\putio-cli-1.0.2-windows-amd64.zip.sha256).Split()[0]
+$actual = (Get-FileHash .\putio-cli-1.0.2-windows-amd64.zip -Algorithm SHA256).Hash.ToLower()
 if ($actual -ne $expected) { throw "Checksum mismatch" }
 ```
 

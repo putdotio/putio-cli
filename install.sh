@@ -6,6 +6,7 @@ REPO_OWNER="${PUTIO_CLI_REPO_OWNER:-putdotio}"
 REPO_NAME="${PUTIO_CLI_REPO_NAME:-putio-cli}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="${PUTIO_CLI_VERSION:-latest}"
+RESOLVED_VERSION="$VERSION"
 
 fail() {
   printf '%s\n' "putio installer: $*" >&2
@@ -30,13 +31,13 @@ detect_platform() {
 
   case "$arch" in
     arm64|aarch64) architecture="arm64" ;;
-    x86_64|amd64) architecture="x64" ;;
+    x86_64|amd64) architecture="amd64" ;;
     *)
       fail "unsupported architecture: $arch"
       ;;
   esac
 
-  asset_name="putio-${platform}-${architecture}"
+  asset_name="putio-cli-${RESOLVED_VERSION#v}-${platform}-${architecture}.tar.gz"
 }
 
 checksum_command() {
@@ -73,7 +74,7 @@ download_url() {
     return
   fi
 
-  printf '%s/download/v%s/%s\n' "$repo_base" "${VERSION#v}" "$asset"
+  printf '%s/download/v%s/%s\n' "$repo_base" "${RESOLVED_VERSION#v}" "$asset"
 }
 
 download_file() {
@@ -130,6 +131,15 @@ need_command uname
 need_command mktemp
 need_command chmod
 need_command mv
+need_command tar
+
+if [ "$VERSION" = "latest" ]; then
+  if command -v curl >/dev/null 2>&1; then
+    RESOLVED_VERSION="$(curl --fail --location --silent --show-error "https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/latest" -o /dev/null -w '%{url_effective}' | sed 's#.*/v##')"
+  else
+    fail "latest installation requires curl so the installer can resolve the newest release tag"
+  fi
+fi
 
 detect_platform
 ensure_install_dir
@@ -137,18 +147,19 @@ ensure_install_dir
 work_dir="$(mktemp -d)"
 trap 'rm -rf "$work_dir"' EXIT INT TERM
 
-binary_path="$work_dir/$asset_name"
+archive_path="$work_dir/$asset_name"
 checksum_path="$work_dir/$asset_name.sha256"
 
 printf '%s\n' "putio installer: downloading $asset_name"
-download_file "$(download_url "$asset_name")" "$binary_path"
+download_file "$(download_url "$asset_name")" "$archive_path"
 download_file "$(download_url "$asset_name.sha256")" "$checksum_path"
 
 printf '%s\n' "putio installer: verifying checksum"
-verify_checksum "$checksum_path" "$binary_path"
+verify_checksum "$checksum_path" "$archive_path"
 
-chmod +x "$binary_path"
-mv "$binary_path" "$INSTALL_DIR/putio"
+tar -xzf "$archive_path" -C "$work_dir"
+chmod +x "$work_dir/putio"
+mv "$work_dir/putio" "$INSTALL_DIR/putio"
 
 printf '%s\n' "putio installer: installed to $INSTALL_DIR/putio"
 print_path_hint

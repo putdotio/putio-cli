@@ -32,7 +32,6 @@
     "build": "vp pack",
     "build:sea": "node ./scripts/build-sea.mjs",
     "check": "vp check .",
-    "checksums:sea": "node ./scripts/write-sea-checksums.mjs",
     "coverage": "vitest run --coverage",
     "dev": "vp pack --watch",
     "smoke:pack": "node ./scripts/smoke-packed-install.mjs",

@@ -1,101 +1,24 @@
-name: CI
+name: Backfill Release Assets
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to backfill, for example v1.0.1
+        required: true
+        type: string
+      update_homebrew_tap:
+        description: Also update putdotio/homebrew-tap
+        required: true
+        default: true
+        type: boolean
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  verify:
-    if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
-    name: Verify CLI
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: ".node-version"
-          cache: true
-
-      - name: Install dependencies
-        run: vp install
-
-      - name: Verify repository
-        run: vp run verify
-
-      - name: Smoke test packed install surface
-        run: vp run smoke:pack
-
-  release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
-    name: Release CLI
-    needs:
-      - verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-    outputs:
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
-      new_release_git_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
-      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
-        with:
-          node-version-file: ".node-version"
-          cache: true
-
-      - name: Install dependencies
-        run: vp install
-
-      - name: Build package
-        run: vp run build
-
-      - name: Release package
-        id: semantic
-        uses: cycjimmy/semantic-release-action@v4
-        with:
-          extra_plugins: |
-            @semantic-release/commit-analyzer
-            @semantic-release/release-notes-generator
-            @semantic-release/npm
-            @semantic-release/github
-            @semantic-release/git
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   build-binaries:
-    if: needs.release.outputs.new_release_published == 'true'
     name: Build ${{ matrix.os }} release assets
-    needs:
-      - release
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     permissions:
@@ -124,7 +47,7 @@ jobs:
           fetch-depth: 0
 
       - name: Check out release tag
-        run: git checkout ${{ needs.release.outputs.new_release_git_tag }}
+        run: git checkout ${{ inputs.tag_name }}
 
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@v1
@@ -144,7 +67,7 @@ jobs:
       - name: Package release assets
         shell: pwsh
         run: |
-          $version = "${{ needs.release.outputs.new_release_version }}"
+          $version = "${{ inputs.tag_name }}".TrimStart("v")
           $assetBase = "putio-cli-$version-${{ matrix.asset_os }}-${{ matrix.asset_arch }}"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -173,15 +96,14 @@ jobs:
       - name: Upload binary assets to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release.outputs.new_release_git_tag }}
+          tag_name: ${{ inputs.tag_name }}
           files: |
             .artifacts/release/*
 
   update-homebrew-tap:
-    if: needs.release.outputs.new_release_published == 'true' && secrets.HOMEBREW_TAP_TOKEN != ''
+    if: inputs.update_homebrew_tap && secrets.HOMEBREW_TAP_TOKEN != ''
     name: Update Homebrew tap
     needs:
-      - release
       - build-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -204,7 +126,7 @@ jobs:
             output = shell_output("#{bin}/putio version")
             assert_match "putio", output
             assert_match version.to_s, output
-          version: ${{ needs.release.outputs.new_release_version }}
+          version: ${{ inputs.tag_name }}
           target_darwin_arm64: true
           target_linux_amd64: true
           skip_checksum: true
