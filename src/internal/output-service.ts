@@ -150,7 +150,7 @@ export const formatCliErrorJson = (error: unknown) => {
   return renderJson(toCliErrorJson(localized));
 };
 
-export type CliOutput = {
+export type CliOutputService = {
   readonly formatError: (error: unknown, output: string | undefined) => string;
   readonly error: (message: string) => Effect.Effect<void>;
   readonly write: <A>(
@@ -160,9 +160,12 @@ export type CliOutput = {
   ) => Effect.Effect<void>;
 };
 
-export const CliOutput = Context.GenericTag<CliOutput>("@putdotio/cli/CliOutput");
+export class CliOutput extends Context.Tag("@putdotio/cli/CliOutput")<
+  CliOutput,
+  CliOutputService
+>() {}
 
-const makeCliOutput = (): CliOutput => ({
+export const makeCliOutput = (): CliOutputService => ({
   formatError: (error, output) =>
     normalizeOutputMode(output) === "json" ? formatCliErrorJson(error) : formatCliError(error),
   error: (message) => Console.error(sanitizeTerminalText(message)),
@@ -174,7 +177,7 @@ const makeCliOutput = (): CliOutput => ({
     ),
 });
 
-export const CliOutputLive = Layer.succeed(CliOutput, makeCliOutput());
+export const CliOutputLive = Layer.sync(CliOutput, makeCliOutput);
 
 export const writeOutput = <A>(
   value: A,

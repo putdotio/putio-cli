@@ -2,14 +2,12 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { NodeContext } from "@effect/platform-node";
-import * as NodeTerminal from "@effect/platform-node/NodeTerminal";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, Effect } from "effect";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { runCli as executeCli } from "./cli.js";
-import { CliOutputLive } from "./internal/output-service.js";
-import { CliRuntime, makeCliRuntime } from "./internal/runtime.js";
+import { makeCliAppLayer } from "./internal/app-layer.js";
+import { makeCliRuntime } from "./internal/runtime.js";
 
 const errorText = (error: unknown) =>
   typeof error === "object" && error !== null && "message" in error
@@ -56,14 +54,14 @@ const runCli = async (argv: ReadonlyArray<string>): Promise<CliExecution> => {
                 ]),
               ),
             ),
-            Effect.provideService(
-              CliRuntime,
-              makeCliRuntime({
-                argv: processArgv,
-                homeDirectory: configDir,
-              }),
+            Effect.provide(
+              makeCliAppLayer(
+                makeCliRuntime({
+                  argv: processArgv,
+                  homeDirectory: configDir,
+                }),
+              ),
             ),
-            Effect.provide(Layer.mergeAll(NodeContext.layer, NodeTerminal.layer, CliOutputLive)),
           ),
         ),
       ),

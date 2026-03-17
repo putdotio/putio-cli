@@ -2,12 +2,12 @@ import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { NodeContext } from "@effect/platform-node";
 import { Cause, ConfigProvider, Effect, Exit, Option } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { makeCliAppLayer } from "./app-layer.js";
 import { buildConfigPath } from "./config.js";
-import { CliRuntime, makeCliRuntime } from "./runtime.js";
+import { makeCliRuntime } from "./runtime.js";
 import {
   AuthStateError,
   clearPersistedState,
@@ -18,7 +18,7 @@ import {
 } from "./state.js";
 
 const makeRuntimeLayer = (homeDirectory = "/Users/tester") =>
-  Effect.provideService(CliRuntime, makeCliRuntime({ homeDirectory }));
+  Effect.provide(makeCliAppLayer(makeCliRuntime({ homeDirectory })));
 
 const expectFailure = <E>(exit: Exit.Exit<unknown, E>): E => {
   if (Exit.isSuccess(exit)) {
@@ -75,10 +75,7 @@ describe("resolveConfigPath", () => {
           apiBaseUrl: "https://api.put.io",
         },
         configPath,
-      ).pipe(
-        Effect.provideService(CliRuntime, makeCliRuntime()),
-        Effect.provide(NodeContext.layer),
-      ),
+      ).pipe(Effect.provide(makeCliAppLayer(makeCliRuntime()))),
     );
 
     const file = await stat(configPath);
@@ -103,8 +100,7 @@ describe("resolveConfigPath", () => {
             ]),
           ),
         ),
-        Effect.provideService(CliRuntime, makeCliRuntime({ homeDirectory: "/Users/tester" })),
-        Effect.provide(NodeContext.layer),
+        Effect.provide(makeCliAppLayer(makeCliRuntime({ homeDirectory: "/Users/tester" }))),
       ),
     );
 
@@ -120,9 +116,7 @@ describe("resolveConfigPath", () => {
     const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
     const configPath = join(dir, "missing.json");
 
-    const state = await Effect.runPromise(
-      loadPersistedState(configPath).pipe(makeRuntimeLayer(), Effect.provide(NodeContext.layer)),
-    );
+    const state = await Effect.runPromise(loadPersistedState(configPath).pipe(makeRuntimeLayer()));
 
     expect(state).toBeNull();
   });
@@ -134,7 +128,7 @@ describe("resolveConfigPath", () => {
     await writeFile(configPath, "{ definitely not json", "utf8");
 
     const exit = await Effect.runPromiseExit(
-      loadPersistedState(configPath).pipe(makeRuntimeLayer(), Effect.provide(NodeContext.layer)),
+      loadPersistedState(configPath).pipe(makeRuntimeLayer()),
     );
 
     expect(Exit.isFailure(exit)).toBe(true);
@@ -153,7 +147,7 @@ describe("resolveConfigPath", () => {
     await writeFile(configPath, JSON.stringify({ api_base_url: "" }), "utf8");
 
     const exit = await Effect.runPromiseExit(
-      loadPersistedState(configPath).pipe(makeRuntimeLayer(), Effect.provide(NodeContext.layer)),
+      loadPersistedState(configPath).pipe(makeRuntimeLayer()),
     );
 
     expect(Exit.isFailure(exit)).toBe(true);
@@ -178,9 +172,7 @@ describe("resolveConfigPath", () => {
       "utf8",
     );
 
-    await Effect.runPromise(
-      clearPersistedState(configPath).pipe(makeRuntimeLayer(), Effect.provide(NodeContext.layer)),
-    );
+    await Effect.runPromise(clearPersistedState(configPath).pipe(makeRuntimeLayer()));
 
     const contents = JSON.parse(await readFile(configPath, "utf8")) as {
       api_base_url: string;
@@ -210,7 +202,7 @@ describe("resolveConfigPath", () => {
           token: "fresh-token",
         },
         configPath,
-      ).pipe(makeRuntimeLayer(), Effect.provide(NodeContext.layer)),
+      ).pipe(makeRuntimeLayer()),
     );
 
     expect(result.state).toEqual({
@@ -232,9 +224,7 @@ describe("resolveConfigPath", () => {
       "utf8",
     );
 
-    await Effect.runPromise(
-      clearPersistedState(configPath).pipe(makeRuntimeLayer(), Effect.provide(NodeContext.layer)),
-    );
+    await Effect.runPromise(clearPersistedState(configPath).pipe(makeRuntimeLayer()));
 
     await expect(readFile(configPath, "utf8")).rejects.toThrow();
   });
@@ -250,7 +240,7 @@ describe("resolveConfigPath", () => {
           apiBaseUrl: "https://api.put.io",
         },
         configPath,
-      ).pipe(makeRuntimeLayer(), Effect.provide(NodeContext.layer)),
+      ).pipe(makeRuntimeLayer()),
     );
 
     const authState = await Effect.runPromise(
@@ -264,7 +254,6 @@ describe("resolveConfigPath", () => {
           ),
         ),
         makeRuntimeLayer(),
-        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -300,7 +289,6 @@ describe("resolveConfigPath", () => {
           ),
         ),
         makeRuntimeLayer(),
-        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -335,7 +323,6 @@ describe("resolveConfigPath", () => {
           ),
         ),
         makeRuntimeLayer(),
-        Effect.provide(NodeContext.layer),
       ),
     );
 
@@ -359,7 +346,6 @@ describe("resolveConfigPath", () => {
           ),
         ),
         makeRuntimeLayer(),
-        Effect.provide(NodeContext.layer),
       ),
     );
 

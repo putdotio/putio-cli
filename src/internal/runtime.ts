@@ -8,7 +8,7 @@ export type CliSpinner = {
   readonly stop: Effect.Effect<void>;
 };
 
-export type CliRuntime = {
+export type CliRuntimeService = {
   readonly argv: ReadonlyArray<string>;
   readonly isInteractiveTerminal: boolean;
   readonly setExitCode: (code: number) => Effect.Effect<void>;
@@ -20,7 +20,10 @@ export type CliRuntime = {
   readonly dirname: (path: string) => string;
 };
 
-export const CliRuntime = Context.GenericTag<CliRuntime>("@putdotio/cli/CliRuntime");
+export class CliRuntime extends Context.Tag("@putdotio/cli/CliRuntime")<
+  CliRuntime,
+  CliRuntimeService
+>() {}
 
 const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
   const command =
@@ -51,7 +54,7 @@ export const makeCliRuntime = (
     readonly homeDirectory?: string;
     readonly hostName?: string;
   } = {},
-): CliRuntime => {
+): CliRuntimeService => {
   const argv = options.argv ?? process.argv;
   const platform = options.platform ?? process.platform;
   const homeDirectory = options.homeDirectory ?? homedir();
@@ -99,4 +102,4 @@ export const makeCliRuntime = (
   };
 };
 
-export const CliRuntimeLive = Layer.succeed(CliRuntime, makeCliRuntime());
+export const CliRuntimeLive = Layer.sync(CliRuntime, () => makeCliRuntime());

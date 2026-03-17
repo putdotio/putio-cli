@@ -1,6 +1,7 @@
 import { ConfigProvider, Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { makeCliAppLayer } from "./app-layer.js";
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 import {
   buildDeviceLinkUrl,
@@ -30,7 +31,7 @@ describe("resolveAuthFlowConfig", () => {
   it("uses the built-in official app id and sensible defaults", async () => {
     const result = await Effect.runPromise(
       resolveAuthFlowConfig().pipe(
-        Effect.provideService(CliRuntime, makeCliRuntime({ hostName: "cli-test-host" })),
+        Effect.provide(makeCliAppLayer(makeCliRuntime({ hostName: "cli-test-host" }))),
       ),
     );
 
@@ -50,7 +51,7 @@ describe("resolveAuthFlowConfig", () => {
             ]),
           ),
         ),
-        Effect.provideService(CliRuntime, makeCliRuntime({ hostName: "cli-test-host" })),
+        Effect.provide(makeCliAppLayer(makeCliRuntime({ hostName: "cli-test-host" }))),
       ),
     );
 

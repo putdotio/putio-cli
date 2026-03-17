@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { NodeContext, NodeRuntime } from "@effect/platform-node";
-import * as NodeTerminal from "@effect/platform-node/NodeTerminal";
-import { Cause, Effect, Layer } from "effect";
+import { NodeRuntime } from "@effect/platform-node";
+import { Cause, Effect } from "effect";
 
 import { runCli } from "./cli.js";
-import { CliOutput, CliOutputLive, detectOutputModeFromArgv } from "./internal/output-service.js";
-import { CliRuntime, CliRuntimeLive } from "./internal/runtime.js";
+import { makeCliAppLayer } from "./internal/app-layer.js";
+import { CliOutput, detectOutputModeFromArgv } from "./internal/output-service.js";
+import { CliRuntime } from "./internal/runtime.js";
 
 NodeRuntime.runMain(
   Effect.scoped(
@@ -21,9 +21,7 @@ NodeRuntime.runMain(
           yield* runtime.setExitCode(1);
         }),
       ),
-      Effect.provide(
-        Layer.mergeAll(NodeContext.layer, NodeTerminal.layer, CliOutputLive, CliRuntimeLive),
-      ),
+      Effect.provide(makeCliAppLayer()),
     ),
   ),
 );
