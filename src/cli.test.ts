@@ -105,7 +105,27 @@ describe("cli argv parsing", () => {
       expect.arrayContaining([
         expect.objectContaining({
           auth: { required: true },
+          capabilities: expect.objectContaining({
+            dryRun: true,
+            rawJsonInput: true,
+          }),
           command: "files delete",
+          input: expect.objectContaining({
+            flags: expect.arrayContaining([
+              expect.objectContaining({
+                name: "id",
+                repeated: true,
+                type: "integer",
+              }),
+              expect.objectContaining({
+                name: "json",
+                type: "string",
+              }),
+            ]),
+            json: expect.objectContaining({
+              kind: "object",
+            }),
+          }),
           kind: "write",
         }),
       ]),

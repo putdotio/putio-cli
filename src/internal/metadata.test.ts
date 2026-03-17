@@ -57,6 +57,38 @@ describe("describeCli", () => {
     });
     expect(filesDeleteCommand).toMatchObject({
       auth: { required: true },
+      capabilities: {
+        dryRun: true,
+        rawJsonInput: true,
+      },
+      input: {
+        flags: expect.arrayContaining([
+          expect.objectContaining({
+            name: "dry-run",
+            required: false,
+            type: "boolean",
+          }),
+          expect.objectContaining({
+            name: "json",
+            required: false,
+            type: "string",
+          }),
+          expect.objectContaining({
+            name: "id",
+            repeated: true,
+            type: "integer",
+          }),
+        ]),
+        json: {
+          kind: "object",
+          properties: expect.arrayContaining([
+            expect.objectContaining({
+              name: "ids",
+              required: true,
+            }),
+          ]),
+        },
+      },
       kind: "write",
     });
     expect(metadata.auth.envPrecedence).toEqual(["PUTIO_CLI_TOKEN"]);
