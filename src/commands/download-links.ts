@@ -15,6 +15,18 @@ import {
   writeDryRunPlan,
   writeReadOutput,
 } from "../internal/command.js";
+import {
+  dryRunFlag,
+  fieldsFlag,
+  integerFlag,
+  jsonFlag,
+  jsonShapeFromSchema,
+  outputFlag,
+  repeatedIntegerFlag,
+  stringFlag,
+  type CommandSpec,
+} from "../internal/command-specs.js";
+import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderDownloadLinksTerminal } from "../internal/terminal/download-links-terminal.js";
@@ -130,3 +142,44 @@ const downloadLinksGet = Command.make(
 export const downloadLinksCommand = Command.make("download-links", {}, () => Effect.void).pipe(
   Command.withSubcommands([downloadLinksCreate, downloadLinksGet]),
 );
+
+export const downloadLinksCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "download-links create",
+    input: {
+      flags: [
+        stringFlag("cursor"),
+        dryRunFlag(),
+        repeatedIntegerFlag("exclude-id"),
+        repeatedIntegerFlag("id"),
+        jsonFlag(),
+        outputFlag(),
+      ],
+      json: jsonShapeFromSchema(DownloadLinksCreateInputSchema, [
+        "Provide at least one ids entry or a cursor value.",
+      ]),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.downloadLinksCreate"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "download-links get",
+    input: { flags: [fieldsFlag(), integerFlag("id", { required: true }), outputFlag()] },
+    kind: "read",
+    purpose: translate("cli.metadata.downloadLinksGet"),
+  },
+] satisfies ReadonlyArray<CommandSpec>;

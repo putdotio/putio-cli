@@ -1,6 +1,7 @@
 import { Command } from "@effect/cli";
 import { Effect } from "effect";
 
+import { translate } from "../i18n/index.js";
 import {
   fieldsOption,
   getOption,
@@ -9,6 +10,7 @@ import {
   withAuthedSdk,
   writeReadOutput,
 } from "../internal/command.js";
+import { fieldsFlag, outputFlag, type CommandSpec } from "../internal/command-specs.js";
 import { renderWhoamiTerminal } from "../internal/terminal/whoami-terminal.js";
 
 export const whoamiCommand = Command.make(
@@ -48,3 +50,19 @@ export const whoamiCommand = Command.make(
       });
     }),
 );
+
+export const whoamiCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "whoami",
+    input: { flags: [fieldsFlag(), outputFlag()] },
+    kind: "read",
+    purpose: translate("cli.metadata.whoami"),
+  },
+] satisfies ReadonlyArray<CommandSpec>;

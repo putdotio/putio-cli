@@ -1,6 +1,7 @@
 import { Options } from "@effect/cli";
 import { Data, Effect, Option, Schema } from "effect";
 
+import { type CliConfigError } from "./config.js";
 import type { ResolvedAuthState } from "./state.js";
 import {
   isStructuredOutputMode,
@@ -10,7 +11,7 @@ import {
   type OutputMode,
 } from "./output-service.js";
 import { CliRuntime } from "./runtime.js";
-import { provideSdk, sdk } from "./sdk.js";
+import { CliSdk, sdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
 
 export const outputOption = Options.choice("output", ["json", "text", "ndjson"] as const).pipe(
@@ -410,15 +411,16 @@ export const withAuthedSdk = <A, E, R>(
 ) =>
   Effect.gen(function* () {
     const auth = yield* resolveAuthState();
+    const cliSdk = yield* CliSdk;
 
-    return yield* provideSdk(
+    return yield* cliSdk.provide(
       {
         token: auth.token,
         apiBaseUrl: auth.apiBaseUrl,
       },
       program({
         auth,
-        sdk,
+        sdk: cliSdk.client,
       }),
     );
-  });
+  }) as Effect.Effect<A, E | CliConfigError, R>;

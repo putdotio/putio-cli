@@ -17,6 +17,20 @@ import {
   writeDryRunPlan,
   writeReadPages,
 } from "../internal/command.js";
+import {
+  booleanFlag,
+  dryRunFlag,
+  enumFlag,
+  fieldsFlag,
+  integerFlag,
+  jsonFlag,
+  jsonShapeFromSchema,
+  outputFlag,
+  pageAllFlag,
+  repeatedIntegerFlag,
+  stringFlag,
+  type CommandSpec,
+} from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
@@ -469,3 +483,155 @@ export const filesCommand = Command.make("files", {}, () => Effect.void).pipe(
     filesDelete,
   ]),
 );
+
+export const filesCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: true,
+    },
+    command: "files list",
+    input: {
+      flags: [
+        fieldsFlag(),
+        outputFlag(),
+        pageAllFlag(),
+        integerFlag("parent-id"),
+        integerFlag("per-page"),
+        stringFlag("content-type"),
+        booleanFlag("hidden", { defaultValue: false }),
+        enumFlag("file-type", fileTypeChoices),
+        enumFlag("sort-by", fileSortChoices),
+      ],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.filesList"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: true,
+    },
+    command: "files search",
+    input: {
+      flags: [
+        fieldsFlag(),
+        outputFlag(),
+        pageAllFlag(),
+        integerFlag("per-page"),
+        stringFlag("query", { required: true }),
+        enumFlag("file-type", fileTypeChoices),
+      ],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.filesSearch"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files mkdir",
+    input: {
+      flags: [dryRunFlag(), jsonFlag(), outputFlag(), integerFlag("parent-id"), stringFlag("name")],
+      json: jsonShapeFromSchema(FilesMkdirInputSchema, [
+        "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
+      ]),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesMkdir"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files rename",
+    input: {
+      flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), stringFlag("name"), outputFlag()],
+      json: jsonShapeFromSchema(FilesRenameInputSchema, [
+        "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
+      ]),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesRename"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files move",
+    input: {
+      flags: [
+        dryRunFlag(),
+        repeatedIntegerFlag("id"),
+        jsonFlag(),
+        outputFlag(),
+        integerFlag("parent-id"),
+      ],
+      json: jsonShapeFromSchema(FilesMoveInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesMove"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files delete",
+    input: {
+      flags: [
+        dryRunFlag(),
+        repeatedIntegerFlag("id"),
+        jsonFlag(),
+        outputFlag(),
+        booleanFlag("skip-trash", { defaultValue: false }),
+      ],
+      json: jsonShapeFromSchema(FilesDeleteInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesDelete"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: true,
+    },
+    command: "search",
+    input: {
+      flags: [
+        fieldsFlag(),
+        outputFlag(),
+        pageAllFlag(),
+        integerFlag("per-page"),
+        stringFlag("query", { required: true }),
+        enumFlag("file-type", fileTypeChoices),
+      ],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.search"),
+  },
+] satisfies ReadonlyArray<CommandSpec>;

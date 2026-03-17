@@ -114,7 +114,13 @@ export const sanitizeTerminalValue = (value: unknown): unknown => {
 };
 
 const joinPath = (segments: ReadonlyArray<string>) =>
-  segments.length === 0 ? "$" : `$.${segments.join(".")}`;
+  segments.reduce((path, segment) => {
+    if (segment.startsWith("[")) {
+      return `${path}${segment}`;
+    }
+
+    return path === "$" ? `$.${segment}` : `${path}.${segment}`;
+  }, "$");
 
 type StructuredSanitization = {
   readonly untrustedTextPaths: ReadonlyArray<string>;

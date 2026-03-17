@@ -18,6 +18,19 @@ import {
   writeReadOutput,
   writeReadPages,
 } from "../internal/command.js";
+import {
+  dryRunFlag,
+  fieldsFlag,
+  integerFlag,
+  jsonFlag,
+  jsonShapeFromSchema,
+  outputFlag,
+  pageAllFlag,
+  repeatedIntegerFlag,
+  repeatedStringFlag,
+  stringFlag,
+  type CommandSpec,
+} from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
@@ -527,3 +540,129 @@ export const transfersCommand = Command.make("transfers", {}, () => Effect.void)
     transfersWatch,
   ]),
 );
+
+export const transfersCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: true,
+    },
+    command: "transfers list",
+    input: {
+      flags: [fieldsFlag(), outputFlag(), pageAllFlag(), integerFlag("per-page")],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.transfersList"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "transfers add",
+    input: {
+      flags: [
+        dryRunFlag(),
+        outputFlag(),
+        stringFlag("callback-url"),
+        jsonFlag(),
+        integerFlag("save-parent-id"),
+        repeatedStringFlag("url"),
+      ],
+      json: jsonShapeFromSchema(TransfersAddInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.transfersAdd"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "transfers cancel",
+    input: {
+      flags: [dryRunFlag(), repeatedIntegerFlag("id"), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(TransfersCancelInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.transfersCancel"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "transfers retry",
+    input: {
+      flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.transfersRetry"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "transfers clean",
+    input: {
+      flags: [dryRunFlag(), repeatedIntegerFlag("id"), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(TransfersCleanInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.transfersClean"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "transfers reannounce",
+    input: {
+      flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.transfersReannounce"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: true,
+    },
+    command: "transfers watch",
+    input: {
+      flags: [
+        fieldsFlag(),
+        integerFlag("id", { required: true }),
+        integerFlag("interval-seconds"),
+        outputFlag(),
+        integerFlag("timeout-seconds"),
+      ],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.transfersWatch"),
+  },
+] satisfies ReadonlyArray<CommandSpec>;

@@ -10,6 +10,13 @@ import {
   waitForDeviceToken,
 } from "../internal/auth-flow.js";
 import { getOption, outputOption, validateResourceIdentifier } from "../internal/command.js";
+import {
+  booleanFlag,
+  integerFlag,
+  outputFlag,
+  stringFlag,
+  type CommandSpec,
+} from "../internal/command-specs.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
@@ -195,3 +202,70 @@ export const makeAuthCommand = () =>
   Command.make("auth", {}, () => Console.log(translate("cli.root.chooseAuthSubcommand"))).pipe(
     Command.withSubcommands([authStatus, authLogin, authLogout, authPreview]),
   );
+
+export const authCommandSpecs = [
+  {
+    auth: { required: false },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: false,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "auth login",
+    input: {
+      flags: [
+        booleanFlag("open", { defaultValue: false }),
+        outputFlag(),
+        integerFlag("timeout-seconds"),
+      ],
+    },
+    kind: "auth",
+    purpose: translate("cli.metadata.authLogin"),
+  },
+  {
+    auth: { required: false },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: false,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "auth status",
+    input: { flags: [outputFlag()] },
+    kind: "auth",
+    purpose: translate("cli.metadata.authStatus"),
+  },
+  {
+    auth: { required: false },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: false,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "auth logout",
+    input: { flags: [outputFlag()] },
+    kind: "auth",
+    purpose: translate("cli.metadata.authLogout"),
+  },
+  {
+    auth: { required: false },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: false,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "auth preview",
+    input: {
+      flags: [
+        stringFlag("code", { defaultValue: "PUTIO1" }),
+        booleanFlag("open", { defaultValue: false }),
+        outputFlag(),
+      ],
+    },
+    kind: "auth",
+    purpose: translate("cli.metadata.authPreview"),
+  },
+] satisfies ReadonlyArray<CommandSpec>;

@@ -9,6 +9,13 @@ import {
   withAuthedSdk,
   writeReadOutput,
 } from "../internal/command.js";
+import {
+  enumFlag,
+  fieldsFlag,
+  integerFlag,
+  outputFlag,
+  type CommandSpec,
+} from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { renderEventsTerminal } from "../internal/terminal/events-terminal.js";
@@ -85,3 +92,27 @@ const eventsList = Command.make(
 export const eventsCommand = Command.make("events", {}, () => Effect.void).pipe(
   Command.withSubcommands([eventsList]),
 );
+
+export const eventsCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "events list",
+    input: {
+      flags: [
+        integerFlag("before"),
+        fieldsFlag(),
+        outputFlag(),
+        integerFlag("per-page"),
+        enumFlag("type", eventTypeChoices),
+      ],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.eventsList"),
+  },
+] satisfies ReadonlyArray<CommandSpec>;

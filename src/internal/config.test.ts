@@ -58,4 +58,20 @@ describe("CliConfig", () => {
       webAppUrl: "https://app.put.io",
     });
   });
+
+  it("fails with a tagged config error when the API base URL is invalid", async () => {
+    await expect(
+      Effect.runPromise(
+        withRuntime(resolveCliRuntimeConfig(), [["PUTIO_CLI_API_BASE_URL", "not-a-url"]]),
+      ),
+    ).rejects.toThrow("Unable to resolve the CLI runtime configuration.");
+  });
+
+  it("fails with a tagged config error when the web app URL is invalid", async () => {
+    await expect(
+      Effect.runPromise(
+        withRuntime(resolveCliAuthFlowConfig(), [["PUTIO_CLI_WEB_APP_URL", "bad-url"]]),
+      ),
+    ).rejects.toThrow("Unable to resolve the CLI auth flow configuration.");
+  });
 });

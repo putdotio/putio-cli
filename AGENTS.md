@@ -11,9 +11,9 @@ Development instructions for agents working on this repository.
 
 ## Start Here
 
-- user docs: [README.md](/Users/altay/projects/putdotio/putio-cli/README.md)
-- contributor workflow: [CONTRIBUTING.md](/Users/altay/projects/putdotio/putio-cli/CONTRIBUTING.md)
-- architecture: [docs/ARCHITECTURE.md](/Users/altay/projects/putdotio/putio-cli/docs/ARCHITECTURE.md)
+- user docs: [README.md](README.md)
+- contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
+- architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Commands
 
@@ -40,7 +40,7 @@ Runtime proofs:
 - Prefer `Effect`, services, layers, `Schema`, and tagged errors over ad hoc control flow.
 - Treat JSON output as the machine contract and terminal output as a separate adapter layer.
 - Update docs when flags, command behavior, or architecture boundaries change.
-- When the public CLI surface changes, update [`skills/putio-cli/SKILL.md`](/Users/altay/projects/putdotio/putio-cli/skills/putio-cli/SKILL.md) so consumer-facing agent guidance stays accurate.
+- When the public CLI surface changes, update [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md) so consumer-facing agent guidance stays accurate.
 - Do not hardcode volatile metrics in docs.
 
 ## Testing

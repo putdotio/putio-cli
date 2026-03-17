@@ -105,6 +105,12 @@ export const en = {
         title: "Command failed",
         message: "Command failed.",
       },
+      config: {
+        title: "Configuration error",
+        message: "The CLI configuration is invalid or incomplete.",
+        envHint: "Check the relevant `PUTIO_CLI_*` environment variables and try again.",
+        configHint: "If you use a persisted config file, verify that its JSON is valid.",
+      },
       downloadLinks: {
         badRequest: {
           title: "That download-links request is not valid",

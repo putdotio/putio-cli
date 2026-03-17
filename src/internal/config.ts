@@ -1,5 +1,5 @@
 import { DEFAULT_PUTIO_API_BASE_URL, DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
-import { Config, Context, Effect, Layer, Option, Schema } from "effect";
+import { Config, Context, Data, Effect, Layer, Option, Schema } from "effect";
 
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 import {
@@ -18,19 +18,41 @@ const NonEmptyStringSchema = Schema.String.pipe(
   }),
 );
 
+const UrlStringSchema = NonEmptyStringSchema.pipe(
+  Schema.filter(
+    (value): value is string => {
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    {
+      message: () => "Expected a valid absolute URL",
+    },
+  ),
+);
+
 const PutioCliAuthFlowConfigSchema = Schema.Struct({
   appId: NonEmptyStringSchema,
   clientName: NonEmptyStringSchema,
-  webAppUrl: NonEmptyStringSchema,
+  webAppUrl: UrlStringSchema,
 });
 
 type PutioCliAuthFlowConfig = Schema.Schema.Type<typeof PutioCliAuthFlowConfigSchema>;
 
-export type CliRuntimeConfig = {
-  readonly apiBaseUrl: string;
-  readonly configPath: string;
-  readonly token: string | undefined;
-};
+export const CliRuntimeConfigSchema = Schema.Struct({
+  apiBaseUrl: UrlStringSchema,
+  configPath: NonEmptyStringSchema,
+  token: Schema.optional(NonEmptyStringSchema),
+});
+
+export type CliRuntimeConfig = Schema.Schema.Type<typeof CliRuntimeConfigSchema>;
+
+export class CliConfigError extends Data.TaggedError("CliConfigError")<{
+  readonly message: string;
+}> {}
 
 export type CliConfigService = {
   readonly authFlowConfig: Effect.Effect<PutioCliAuthFlowConfig>;
@@ -66,6 +88,17 @@ export const buildConfigPath = (input: {
       : input.joinPath(input.homePath, ".config", "putio", "config.json");
 
 const decodeAuthFlowConfig = Schema.decodeUnknownSync(PutioCliAuthFlowConfigSchema);
+const decodeRuntimeConfig = Schema.decodeUnknownSync(CliRuntimeConfigSchema);
+
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error && error.message.trim().length > 0 ? error.message.trim() : undefined;
+
+const mapCliConfigError = (message: string) => (error: unknown) =>
+  error instanceof CliConfigError
+    ? error
+    : new CliConfigError({
+        message: getErrorMessage(error) ? `${message} ${getErrorMessage(error)}` : message,
+      });
 
 const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
   authFlowConfig: Effect.gen(function* () {
@@ -80,8 +113,11 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
       ),
     });
 
-    return decodeAuthFlowConfig(value);
-  }).pipe(Effect.orDie),
+    return yield* Effect.try({
+      try: () => decodeAuthFlowConfig(value),
+      catch: mapCliConfigError("Unable to resolve the CLI auth flow configuration."),
+    });
+  }).pipe(Effect.mapError(mapCliConfigError("Unable to resolve the CLI auth flow configuration."))),
   runtimeConfig: Effect.gen(function* () {
     const homePath = yield* runtime.getHomeDirectory;
     const apiBaseUrl = yield* optionalTrimmedString(ENV_API_BASE_URL).pipe(
@@ -91,17 +127,21 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
     const explicitConfigPath = yield* optionalTrimmedString(ENV_CLI_CONFIG_PATH);
     const xdgConfigHome = yield* optionalTrimmedString(ENV_XDG_CONFIG_HOME);
 
-    return {
-      apiBaseUrl,
-      configPath: buildConfigPath({
-        explicitConfigPath: Option.getOrUndefined(explicitConfigPath),
-        xdgConfigHome: Option.getOrUndefined(xdgConfigHome),
-        homePath,
-        joinPath: runtime.joinPath,
-      }),
-      token: Option.getOrUndefined(token),
-    } satisfies CliRuntimeConfig;
-  }).pipe(Effect.orDie),
+    return yield* Effect.try({
+      try: () =>
+        decodeRuntimeConfig({
+          apiBaseUrl,
+          configPath: buildConfigPath({
+            explicitConfigPath: Option.getOrUndefined(explicitConfigPath),
+            xdgConfigHome: Option.getOrUndefined(xdgConfigHome),
+            homePath,
+            joinPath: runtime.joinPath,
+          }),
+          token: Option.getOrUndefined(token),
+        }),
+      catch: mapCliConfigError("Unable to resolve the CLI runtime configuration."),
+    });
+  }).pipe(Effect.mapError(mapCliConfigError("Unable to resolve the CLI runtime configuration."))),
 });
 
 export const CliConfigLive = Layer.effect(CliConfig, Effect.map(CliRuntime, makeCliConfig));

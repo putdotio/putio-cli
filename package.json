@@ -30,11 +30,14 @@
   },
   "scripts": {
     "build": "vp pack",
+    "build:sea": "node ./scripts/build-sea.mjs",
     "check": "vp check .",
     "coverage": "vitest run --coverage",
     "dev": "vp pack --watch",
+    "smoke:pack": "node ./scripts/smoke-packed-install.mjs",
     "test": "vitest run",
     "prepublishOnly": "pnpm run build",
+    "verify:sea": "node ./scripts/verify-sea.mjs",
     "verify": "pnpm run check && pnpm run build && pnpm run test && pnpm run coverage"
   },
   "dependencies": {
@@ -49,6 +52,8 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^4.1.0",
+    "esbuild": "^0.27.0",
+    "postject": "^1.0.0-alpha.6",
     "typescript": "^5.9.3",
     "vite-plus": "0.1.11",
     "vitest": "^4.1.0"

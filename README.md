@@ -15,13 +15,17 @@
 
 ## Install
 
-Install the CLI globally:
+Install the CLI globally with npm:
 
 ```bash
 npm install --global @putdotio/cli
 ```
 
-Then run it as:
+The npm package currently requires Node `24.14+`.
+
+If you do not want to install Node, use a standalone binary from the GitHub Releases page when your platform asset is published there.
+
+Check that the binary is available:
 
 ```bash
 putio version
@@ -29,42 +33,56 @@ putio version
 
 ## Quick Start
 
-Inspect the machine-readable command surface:
+Inspect the machine-readable command surface before guessing flags or payloads:
 
 ```bash
 putio describe
 ```
 
-Check the currently resolved auth state:
+Start the device-link login flow:
 
 ```bash
-putio auth status --output json
+putio auth login --open
 ```
 
-Start the login flow:
+Then confirm the linked account:
 
 ```bash
-putio auth login
+putio whoami --output json
 ```
 
-`putio auth login` always prints the approval URL and code, so it works in headless and remote environments too.
+List a small structured file result:
+
+```bash
+putio files list --per-page 5 --fields files,total --output json
+```
+
+For larger reads, prefer streamed output:
+
+```bash
+putio transfers list --page-all --output ndjson
+```
 
 ## Usage Notes
 
 - Use `--output json` when you want a stable machine-readable contract for scripts, agents, and automation.
+- Use `--output ndjson` for large or continuous read workflows.
+- Use `--fields` to keep structured responses small.
+- Use `--dry-run` before mutating commands.
 - Set `PUTIO_CLI_TOKEN` when you want fully headless auth.
 - Use `PUTIO_CLI_CONFIG_PATH` to override the default config location.
+- `putio auth login` always prints the approval URL and code, so it still works in headless and remote environments.
 
 ## Docs
 
-- [Architecture](/Users/altay/projects/putdotio/putio-cli/docs/ARCHITECTURE.md)
-- [Contributing](/Users/altay/projects/putdotio/putio-cli/CONTRIBUTING.md)
-- [Security](/Users/altay/projects/putdotio/putio-cli/SECURITY.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Security](./SECURITY.md)
 
 ## Contributing
 
-Contributor setup, development workflow, and validation live in [CONTRIBUTING.md](/Users/altay/projects/putdotio/putio-cli/CONTRIBUTING.md).
+Contributor setup, development workflow, and validation live in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-This project is available under the MIT license. See [LICENSE](/Users/altay/projects/putdotio/putio-cli/LICENSE).
+This project is available under the MIT license. See [LICENSE](./LICENSE).

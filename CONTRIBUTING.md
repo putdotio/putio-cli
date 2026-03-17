@@ -4,7 +4,7 @@ Thanks for contributing to `putio-cli`.
 
 ## Setup
 
-Install the required toolchain and then install dependencies:
+Use the Node version required by [`package.json`](./package.json), then install dependencies:
 
 ```bash
 pnpm install
@@ -18,22 +18,27 @@ Start the local build watcher:
 pnpm run dev
 ```
 
-Build the CLI once:
+Build the CLI once and try the shipped entrypoint:
 
 ```bash
 pnpm run build
+./dist/bin.mjs describe
 ```
 
 ## Validation
 
-Run the repo checks before opening or updating a pull request:
+Run the main repository gate before opening or updating a pull request:
 
 ```bash
-pnpm run check
-pnpm run test
-pnpm run build
-pnpm run coverage
 pnpm run verify
+```
+
+Run focused checks when they match your change:
+
+```bash
+pnpm run smoke:pack
+pnpm run build:sea
+pnpm run verify:sea
 ```
 
 ## Development Notes
@@ -41,6 +46,8 @@ pnpm run verify
 - `verify` is the repository delivery gate.
 - Keep top-level user docs in `README.md` and contributor workflow here.
 - Put deeper implementation detail in `docs/` instead of growing the top-level docs.
+- Keep `AGENTS.md` as repo-development guidance and `skills/*` as consumer-facing agent guidance.
+- When the public CLI surface changes, update `skills/putio-cli/*` in the same change.
 
 ## Pull Requests
 

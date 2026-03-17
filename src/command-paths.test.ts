@@ -311,10 +311,15 @@ vi.mock("./internal/command.js", async () => {
   };
 });
 
-vi.mock("./internal/sdk.js", () => ({
-  provideSdk: mocks.provideSdkMock,
-  sdk: mocks.fakeSdk,
-}));
+vi.mock("./internal/sdk.js", async () => {
+  const actual = await vi.importActual<typeof import("./internal/sdk.js")>("./internal/sdk.js");
+
+  return {
+    ...actual,
+    provideSdk: mocks.provideSdkMock,
+    sdk: mocks.fakeSdk,
+  };
+});
 
 vi.mock("./internal/state.js", async () => {
   const actual = await vi.importActual<typeof import("./internal/state.js")>("./internal/state.js");

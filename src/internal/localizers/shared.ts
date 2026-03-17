@@ -176,6 +176,22 @@ const authFlowLocalizer: MatchConditionLocalizer<unknown> = {
   }),
 };
 
+const configLocalizer: MatchConditionLocalizer<unknown> = {
+  kind: "match_condition",
+  match: (error): error is { _tag: string } =>
+    isPlainRecord(error) && error._tag === "CliConfigError",
+  localize: (error) => ({
+    message: translate("cli.error.config.title"),
+    recoverySuggestion: {
+      type: "instruction",
+      description: getNestedErrorMessage(error) ?? translate("cli.error.config.message"),
+    },
+    meta: {
+      hints: [translate("cli.error.config.envHint"), translate("cli.error.config.configHint")],
+    },
+  }),
+};
+
 const genericLocalizer: GenericErrorLocalizer = {
   kind: "generic",
   localize: (error) => ({
@@ -193,5 +209,6 @@ export const cliSharedErrorLocalizers = [
   transportLocalizer,
   validationLocalizer,
   authFlowLocalizer,
+  configLocalizer,
   genericLocalizer,
 ] as const;
