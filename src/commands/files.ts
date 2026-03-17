@@ -1,11 +1,16 @@
 import { Command, Options } from "@effect/cli";
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 
 import {
+  CliCommandInputError,
+  dryRunOption,
   getOption,
+  jsonOption,
   outputOption,
   parseRepeatedIntegerOption,
+  resolveMutationInput,
   withAuthedSdk,
+  writeDryRunPlan,
 } from "../internal/command.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -14,10 +19,7 @@ import { renderFilesTerminal } from "../internal/terminal/files-terminal.js";
 const parentIdOption = Options.integer("parent-id").pipe(Options.optional);
 const perPageOption = Options.integer("per-page").pipe(Options.optional);
 const queryOption = Options.text("query");
-const fileIdOption = Options.integer("id");
 const fileIdsOption = parseRepeatedIntegerOption("id");
-const fileNameOption = Options.text("name");
-const requiredParentIdOption = Options.integer("parent-id");
 const contentTypeOption = Options.text("content-type").pipe(Options.optional);
 const hiddenOption = Options.boolean("hidden").pipe(Options.withDefault(false));
 const skipTrashOption = Options.boolean("skip-trash").pipe(Options.withDefault(false));
@@ -48,6 +50,64 @@ const fileSortChoices = [
   "WATCH_DESC",
 ] as const;
 const sortByOption = Options.choice("sort-by", fileSortChoices).pipe(Options.optional);
+const optionalFileIdOption = Options.integer("id").pipe(Options.optional);
+const optionalFileNameOption = Options.text("name").pipe(Options.optional);
+
+const NonEmptyStringSchema = Schema.String.pipe(
+  Schema.filter((value): value is string => value.trim().length > 0, {
+    message: () => "Expected a non-empty string",
+  }),
+);
+
+const NonEmptyIdsSchema = Schema.Array(Schema.Number).pipe(
+  Schema.filter((value): value is ReadonlyArray<number> => value.length > 0, {
+    message: () => "Expected at least one id",
+  }),
+);
+
+const FilesMkdirInputSchema = Schema.Struct({
+  name: NonEmptyStringSchema,
+  parent_id: Schema.optional(Schema.Number),
+});
+
+const FilesRenameInputSchema = Schema.Struct({
+  file_id: Schema.Number,
+  name: NonEmptyStringSchema,
+});
+
+const FilesDeleteInputSchema = Schema.Struct({
+  ids: NonEmptyIdsSchema,
+  skipTrash: Schema.optional(Schema.Boolean),
+});
+
+const FilesMoveInputSchema = Schema.Struct({
+  ids: NonEmptyIdsSchema,
+  parentId: Schema.Number,
+});
+
+const requiredValue = <A>(value: A | undefined, message: string) => {
+  if (value === undefined) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+const requiredNonEmptyText = (value: string | undefined, message: string) => {
+  if (value === undefined || value.trim().length === 0) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+const requiredIds = (value: ReadonlyArray<number>, message: string) => {
+  if (value.length === 0) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
 
 export const renderFileCreatedTerminal = (value: {
   readonly id: number;
@@ -148,23 +208,36 @@ const filesList = Command.make(
 const filesMkdir = Command.make(
   "mkdir",
   {
+    dryRun: dryRunOption,
+    json: jsonOption,
     output: outputOption,
     parentId: parentIdOption,
-    name: fileNameOption,
+    name: optionalFileNameOption,
   },
-  ({ output, parentId, name }) =>
+  ({ dryRun, output, parentId, name, json }) =>
     Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          name: requiredNonEmptyText(
+            getOption(name),
+            "Provide `--name` or `--json` for `files mkdir`.",
+          ),
+          parent_id: getOption(parentId),
+        }),
+        json,
+        schema: FilesMkdirInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files mkdir", input, getOption(output));
+      }
+
       const result = yield* withTerminalLoader(
         {
-          message: translate("cli.files.command.creatingFolder", { name }),
+          message: translate("cli.files.command.creatingFolder", { name: input.name }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) =>
-          sdk.files.createFolder({
-            name,
-            parent_id: Option.getOrElse(parentId, () => 0),
-          }),
-        ),
+        withAuthedSdk(({ sdk }) => sdk.files.createFolder(input)),
       );
 
       yield* writeOutput(result, getOption(output), renderFileCreatedTerminal);
@@ -174,54 +247,87 @@ const filesMkdir = Command.make(
 const filesRename = Command.make(
   "rename",
   {
-    id: fileIdOption,
-    name: fileNameOption,
+    dryRun: dryRunOption,
+    id: optionalFileIdOption,
+    json: jsonOption,
+    name: optionalFileNameOption,
     output: outputOption,
   },
-  ({ id, name, output }) =>
+  ({ dryRun, id, name, json, output }) =>
     Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          file_id: requiredValue(getOption(id), "Provide `--id` or `--json` for `files rename`."),
+          name: requiredNonEmptyText(
+            getOption(name),
+            "Provide `--name` or `--json` for `files rename`.",
+          ),
+        }),
+        json,
+        schema: FilesRenameInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files rename", input, getOption(output));
+      }
+
       yield* withTerminalLoader(
         {
-          message: translate("cli.files.command.renaming", { id, name }),
+          message: translate("cli.files.command.renaming", { id: input.file_id, name: input.name }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) =>
-          sdk.files.rename({
-            file_id: id,
-            name,
-          }),
-        ),
+        withAuthedSdk(({ sdk }) => sdk.files.rename(input)),
       );
 
-      yield* writeOutput({ fileId: id, name }, getOption(output), renderFileRenamedTerminal);
+      yield* writeOutput(
+        { fileId: input.file_id, name: input.name },
+        getOption(output),
+        renderFileRenamedTerminal,
+      );
     }),
 );
 
 const filesDelete = Command.make(
   "delete",
   {
+    dryRun: dryRunOption,
     id: fileIdsOption,
+    json: jsonOption,
     output: outputOption,
     skipTrash: skipTrashOption,
   },
-  ({ id, output, skipTrash }) =>
+  ({ dryRun, id, json, output, skipTrash }) =>
     Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          ids: requiredIds(id, "Provide at least one `--id` or `--json` for `files delete`."),
+          skipTrash,
+        }),
+        json,
+        schema: FilesDeleteInputSchema,
+      }).pipe(
+        Effect.map((value) => ({
+          ids: value.ids,
+          skipTrash: value.skipTrash ?? false,
+        })),
+      );
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files delete", input, getOption(output));
+      }
+
       const result = yield* withTerminalLoader(
         {
-          message: translate("cli.files.command.deleting", { count: id.length }),
+          message: translate("cli.files.command.deleting", { count: input.ids.length }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) =>
-          sdk.files.delete(id, {
-            skipTrash,
-          }),
-        ),
+        withAuthedSdk(({ sdk }) => sdk.files.delete(input.ids, { skipTrash: input.skipTrash })),
       );
 
       yield* writeOutput(
         {
-          ids: id,
-          skipTrash,
+          ids: input.ids,
+          skipTrash: input.skipTrash,
           skipped: result.skipped,
         },
         getOption(output),
@@ -233,25 +339,46 @@ const filesDelete = Command.make(
 const filesMove = Command.make(
   "move",
   {
+    dryRun: dryRunOption,
     id: fileIdsOption,
+    json: jsonOption,
     output: outputOption,
-    parentId: requiredParentIdOption,
+    parentId: parentIdOption,
   },
-  ({ id, output, parentId }) =>
+  ({ dryRun, id, json, output, parentId }) =>
     Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          ids: requiredIds(id, "Provide at least one `--id` or `--json` for `files move`."),
+          parentId: requiredValue(
+            getOption(parentId),
+            "Provide `--parent-id` or `--json` for `files move`.",
+          ),
+        }),
+        json,
+        schema: FilesMoveInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files move", input, getOption(output));
+      }
+
       const errors = yield* withTerminalLoader(
         {
-          message: translate("cli.files.command.moving", { count: id.length, parentId }),
+          message: translate("cli.files.command.moving", {
+            count: input.ids.length,
+            parentId: input.parentId,
+          }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) => sdk.files.move(id, parentId)),
+        withAuthedSdk(({ sdk }) => sdk.files.move(input.ids, input.parentId)),
       );
 
       yield* writeOutput(
         {
           errors,
-          ids: id,
-          parentId,
+          ids: input.ids,
+          parentId: input.parentId,
         },
         getOption(output),
         renderFilesMovedTerminal,

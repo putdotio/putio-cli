@@ -1,15 +1,22 @@
 import { Options } from "@effect/cli";
-import { Effect, Option } from "effect";
+import { Data, Effect, Option, Schema } from "effect";
 
 import type { ResolvedAuthState } from "./state.js";
+import { renderJson, writeOutput } from "./output-service.js";
 import { provideSdk, sdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
 
 export const outputOption = Options.choice("output", ["json", "text"] as const).pipe(
   Options.optional,
 );
+export const dryRunOption = Options.boolean("dry-run").pipe(Options.withDefault(false));
+export const jsonOption = Options.text("json").pipe(Options.optional);
 
 export const getOption = <A>(option: Option.Option<A>) => Option.getOrUndefined(option);
+
+export class CliCommandInputError extends Data.TaggedError("CliCommandInputError")<{
+  readonly message: string;
+}> {}
 
 const integerPattern = /^-?\d+$/;
 
@@ -33,6 +40,66 @@ export const parseRepeatedIntegerOption = (name: string) =>
   Options.text(name).pipe(
     Options.repeated,
     Options.filterMap(parseRepeatedIntegers, `Expected \`--${name}\` values to be integers.`),
+  );
+
+const mapInputError = (error: unknown, fallbackMessage: string) =>
+  error instanceof CliCommandInputError
+    ? error
+    : new CliCommandInputError({
+        message: fallbackMessage,
+      });
+
+export const decodeJsonOption = <A, I>(schema: Schema.Schema<A, I>, raw: string) =>
+  Effect.try({
+    try: () => JSON.parse(raw) as unknown,
+    catch: () =>
+      new CliCommandInputError({
+        message: "Expected `--json` to contain valid JSON.",
+      }),
+  }).pipe(
+    Effect.flatMap((value) =>
+      Effect.try({
+        try: () => Schema.decodeUnknownSync(schema)(value),
+        catch: () =>
+          new CliCommandInputError({
+            message: "Expected `--json` to match the command input schema.",
+          }),
+      }),
+    ),
+  );
+
+export const resolveMutationInput = <A, I>(input: {
+  readonly buildFromFlags: () => A;
+  readonly schema: Schema.Schema<A, I>;
+  readonly json: Option.Option<string>;
+}) =>
+  Option.match(input.json, {
+    onNone: () =>
+      Effect.try({
+        try: input.buildFromFlags,
+        catch: (error) => mapInputError(error, "Unable to resolve the command input."),
+      }),
+    onSome: (raw) => decodeJsonOption(input.schema, raw),
+  });
+
+type DryRunPlan<A> = {
+  readonly command: string;
+  readonly dryRun: true;
+  readonly request: A;
+};
+
+const renderDryRunPlanTerminal = <A>(value: DryRunPlan<A>) =>
+  [`Dry run: ${value.command}`, "No API call was made.", "", renderJson(value.request)].join("\n");
+
+export const writeDryRunPlan = <A>(command: string, request: A, output: string | undefined) =>
+  writeOutput(
+    {
+      command,
+      dryRun: true as const,
+      request,
+    },
+    output,
+    renderDryRunPlanTerminal,
   );
 
 export const withAuthedSdk = <A, E, R>(

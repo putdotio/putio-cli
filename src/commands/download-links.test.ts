@@ -1,8 +1,13 @@
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { renderDownloadLinksTerminal } from "../internal/terminal/download-links-terminal.js";
 
-import { resolveDownloadLinksCreateInput, toOptionalIds } from "./download-links.js";
+import {
+  DownloadLinksCreateInputSchema,
+  resolveDownloadLinksCreateInput,
+  toOptionalIds,
+} from "./download-links.js";
 
 describe("toOptionalIds", () => {
   it("normalizes empty repeated options to undefined", () => {
@@ -55,6 +60,20 @@ describe("resolveDownloadLinksCreateInput", () => {
         ids: undefined,
       }),
     ).toThrow("Provide at least one --id or a --cursor to create download links.");
+  });
+
+  it("accepts raw json that matches the create schema", () => {
+    const input = Schema.decodeUnknownSync(DownloadLinksCreateInputSchema)({
+      cursor: "cursor-1",
+      excludeIds: [2],
+      ids: [1],
+    });
+
+    expect(resolveDownloadLinksCreateInput(input)).toEqual({
+      cursor: "cursor-1",
+      excludeIds: [2],
+      ids: [1],
+    });
   });
 });
 

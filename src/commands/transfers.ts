@@ -1,11 +1,16 @@
 import { Command, Options } from "@effect/cli";
-import { Clock, Duration, Effect, Option } from "effect";
+import { Clock, Duration, Effect, Option, Schema } from "effect";
 
 import {
+  CliCommandInputError,
+  dryRunOption,
   getOption,
+  jsonOption,
   outputOption,
   parseRepeatedIntegerOption,
+  resolveMutationInput,
   withAuthedSdk,
+  writeDryRunPlan,
 } from "../internal/command.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -18,9 +23,66 @@ const transferIdsOption = parseRepeatedIntegerOption("id");
 const saveParentIdOption = Options.integer("save-parent-id").pipe(Options.optional);
 const intervalSecondsOption = Options.integer("interval-seconds").pipe(Options.optional);
 const timeoutSecondsOption = Options.integer("timeout-seconds").pipe(Options.optional);
-const urlOption = Options.text("url").pipe(Options.atLeast(1));
+const urlOption = Options.text("url").pipe(Options.repeated);
+const optionalTransferIdOption = Options.integer("id").pipe(Options.optional);
 
 const WATCH_TERMINAL_STATUSES = ["COMPLETED", "ERROR", "SEEDING"] as const;
+
+const NonEmptyStringSchema = Schema.String.pipe(
+  Schema.filter((value): value is string => value.trim().length > 0, {
+    message: () => "Expected a non-empty string",
+  }),
+);
+
+const NonEmptyIdsSchema = Schema.Array(Schema.Number).pipe(
+  Schema.filter((value): value is ReadonlyArray<number> => value.length > 0, {
+    message: () => "Expected at least one id",
+  }),
+);
+
+const TransferAddItemSchema = Schema.Struct({
+  callback_url: Schema.optional(NonEmptyStringSchema),
+  save_parent_id: Schema.optional(Schema.Number),
+  url: NonEmptyStringSchema,
+});
+
+const TransfersCancelInputSchema = Schema.Struct({
+  ids: NonEmptyIdsSchema,
+});
+
+const TransfersSingleIdInputSchema = Schema.Struct({
+  id: Schema.Number,
+});
+
+const TransfersCleanInputSchema = Schema.Struct({
+  ids: Schema.optional(NonEmptyIdsSchema),
+});
+
+const requiredTransferId = (value: number | undefined, message: string) => {
+  if (value === undefined) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+const requiredUrls = (value: ReadonlyArray<string>) => {
+  if (value.length === 0) {
+    throw new CliCommandInputError({
+      message: "Provide at least one `--url` or `--json` for `transfers add`.",
+    });
+  }
+
+  return value;
+};
+
+const requiredTransferIds = (value: ReadonlyArray<number>, message: string) => {
+  if (value.length === 0) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
 
 export const isTerminalTransferStatus = (status: string) =>
   WATCH_TERMINAL_STATUSES.includes(status as (typeof WATCH_TERMINAL_STATUSES)[number]);
@@ -102,30 +164,49 @@ const transfersList = Command.make(
 const transfersAdd = Command.make(
   "add",
   {
+    dryRun: dryRunOption,
     output: outputOption,
     callbackUrl: callbackUrlOption,
+    json: jsonOption,
     saveParentId: saveParentIdOption,
     url: urlOption,
   },
-  ({ output, callbackUrl, saveParentId, url }) =>
+  ({ dryRun, output, callbackUrl, json, saveParentId, url }) =>
     Effect.gen(function* () {
-      const input = {
-        callback_url: Option.getOrUndefined(callbackUrl),
-        save_parent_id: Option.getOrUndefined(saveParentId),
-      } as const;
-      const result = yield* withTerminalLoader(
-        {
-          message: translate("cli.transfers.command.adding", { count: url.length }),
-          output: getOption(output),
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => {
+          const sharedInput = {
+            callback_url: Option.getOrUndefined(callbackUrl),
+            save_parent_id: Option.getOrUndefined(saveParentId),
+          } as const;
+
+          return requiredUrls(url).map((currentUrl) => ({
+            ...sharedInput,
+            url: currentUrl,
+          }));
         },
-        withAuthedSdk(({ sdk }) =>
-          sdk.transfers.addMany(
-            url.map((currentUrl) => ({
-              ...input,
-              url: currentUrl,
-            })),
+        json,
+        schema: Schema.Array(TransferAddItemSchema).pipe(
+          Schema.filter(
+            (value): value is ReadonlyArray<Schema.Schema.Type<typeof TransferAddItemSchema>> =>
+              value.length > 0,
+            {
+              message: () => "Expected at least one transfer input",
+            },
           ),
         ),
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("transfers add", input, getOption(output));
+      }
+
+      const result = yield* withTerminalLoader(
+        {
+          message: translate("cli.transfers.command.adding", { count: input.length }),
+          output: getOption(output),
+        },
+        withAuthedSdk(({ sdk }) => sdk.transfers.addMany(input)),
       );
 
       yield* writeOutput(result, getOption(output), renderTransferAddResult);
@@ -135,15 +216,32 @@ const transfersAdd = Command.make(
 const transfersCancel = Command.make(
   "cancel",
   {
+    dryRun: dryRunOption,
     id: transferIdsOption,
+    json: jsonOption,
     output: outputOption,
   },
-  ({ id, output }) =>
+  ({ dryRun, id, json, output }) =>
     Effect.gen(function* () {
-      const result = yield* withAuthedSdk(({ sdk }) => sdk.transfers.cancel(id));
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          ids: requiredTransferIds(
+            id,
+            "Provide at least one `--id` or `--json` for `transfers cancel`.",
+          ),
+        }),
+        json,
+        schema: TransfersCancelInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("transfers cancel", input, getOption(output));
+      }
+
+      const result = yield* withAuthedSdk(({ sdk }) => sdk.transfers.cancel(input.ids));
 
       yield* writeOutput(result, getOption(output), () =>
-        translate("cli.transfers.command.cancelled", { ids: id.join(", ") }),
+        translate("cli.transfers.command.cancelled", { ids: input.ids.join(", ") }),
       );
     }),
 );
@@ -151,17 +249,34 @@ const transfersCancel = Command.make(
 const transfersRetry = Command.make(
   "retry",
   {
-    id: transferIdOption,
+    dryRun: dryRunOption,
+    id: optionalTransferIdOption,
+    json: jsonOption,
     output: outputOption,
   },
-  ({ id, output }) =>
+  ({ dryRun, id, json, output }) =>
     Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          id: requiredTransferId(
+            getOption(id),
+            "Provide `--id` or `--json` for `transfers retry`.",
+          ),
+        }),
+        json,
+        schema: TransfersSingleIdInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("transfers retry", input, getOption(output));
+      }
+
       const result = yield* withTerminalLoader(
         {
-          message: translate("cli.transfers.command.retrying", { id }),
+          message: translate("cli.transfers.command.retrying", { id: input.id }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) => sdk.transfers.retry(id)),
+        withAuthedSdk(({ sdk }) => sdk.transfers.retry(input.id)),
       );
 
       yield* writeOutput(result, getOption(output), (value) =>
@@ -173,14 +288,26 @@ const transfersRetry = Command.make(
 const transfersClean = Command.make(
   "clean",
   {
+    dryRun: dryRunOption,
     id: transferIdsOption.pipe(Options.optional),
+    json: jsonOption,
     output: outputOption,
   },
-  ({ id, output }) =>
+  ({ dryRun, id, json, output }) =>
     Effect.gen(function* () {
-      const result = yield* withAuthedSdk(({ sdk }) =>
-        sdk.transfers.clean(Option.getOrUndefined(id)),
-      );
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          ids: Option.getOrUndefined(id),
+        }),
+        json,
+        schema: TransfersCleanInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("transfers clean", input, getOption(output));
+      }
+
+      const result = yield* withAuthedSdk(({ sdk }) => sdk.transfers.clean(input.ids));
 
       yield* writeOutput(result, getOption(output), (value) =>
         value.deleted_ids.length > 0
@@ -195,20 +322,37 @@ const transfersClean = Command.make(
 const transfersReannounce = Command.make(
   "reannounce",
   {
-    id: transferIdOption,
+    dryRun: dryRunOption,
+    id: optionalTransferIdOption,
+    json: jsonOption,
     output: outputOption,
   },
-  ({ id, output }) =>
+  ({ dryRun, id, json, output }) =>
     Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          id: requiredTransferId(
+            getOption(id),
+            "Provide `--id` or `--json` for `transfers reannounce`.",
+          ),
+        }),
+        json,
+        schema: TransfersSingleIdInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("transfers reannounce", input, getOption(output));
+      }
+
       yield* withTerminalLoader(
         {
-          message: translate("cli.transfers.command.reannouncing", { id }),
+          message: translate("cli.transfers.command.reannouncing", { id: input.id }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) => sdk.transfers.reannounce(id)),
+        withAuthedSdk(({ sdk }) => sdk.transfers.reannounce(input.id)),
       );
 
-      yield* writeOutput({ id, reannounced: true }, getOption(output), (value) =>
+      yield* writeOutput({ id: input.id, reannounced: true }, getOption(output), (value) =>
         translate("cli.transfers.command.reannounced", { id: value.id }),
       );
     }),

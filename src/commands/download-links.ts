@@ -1,11 +1,15 @@
 import { Command, Options } from "@effect/cli";
-import { Data, Effect, Option } from "effect";
+import { Data, Effect, Option, Schema } from "effect";
 
 import {
+  dryRunOption,
   getOption,
+  jsonOption,
   outputOption,
   parseRepeatedIntegerOption,
+  resolveMutationInput,
   withAuthedSdk,
+  writeDryRunPlan,
 } from "../internal/command.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
@@ -24,35 +28,57 @@ const excludeIdsOption = parseRepeatedIntegerOption("exclude-id");
 export const toOptionalIds = (values: ReadonlyArray<number>) =>
   values.length > 0 ? values : undefined;
 
-export const resolveDownloadLinksCreateInput = (input: {
-  readonly cursor: string | undefined;
-  readonly excludeIds: ReadonlyArray<number> | undefined;
-  readonly ids: ReadonlyArray<number> | undefined;
-}) => {
-  if (!input.cursor && (!input.ids || input.ids.length === 0)) {
+export const DownloadLinksCreateInputSchema = Schema.Struct({
+  cursor: Schema.optional(Schema.String),
+  excludeIds: Schema.optional(Schema.Array(Schema.Number)),
+  ids: Schema.optional(Schema.Array(Schema.Number)),
+});
+
+export type DownloadLinksCreateInput = Schema.Schema.Type<typeof DownloadLinksCreateInputSchema>;
+
+export const resolveDownloadLinksCreateInput = (input: DownloadLinksCreateInput) => {
+  const normalized = {
+    cursor: input.cursor,
+    excludeIds: toOptionalIds(input.excludeIds ?? []),
+    ids: toOptionalIds(input.ids ?? []),
+  };
+
+  if (!normalized.cursor && !normalized.ids) {
     throw new DownloadLinksCommandError({
       message: "Provide at least one --id or a --cursor to create download links.",
     });
   }
 
-  return input;
+  return normalized;
 };
 
 const downloadLinksCreate = Command.make(
   "create",
   {
     cursor: cursorOption,
+    dryRun: dryRunOption,
     excludeIds: excludeIdsOption,
     ids: idsOption,
+    json: jsonOption,
     output: outputOption,
   },
-  ({ cursor, excludeIds, ids, output }) =>
+  ({ cursor, dryRun, excludeIds, ids, json, output }) =>
     Effect.gen(function* () {
-      const input = yield* Effect.succeed({
-        cursor: Option.getOrUndefined(cursor),
-        excludeIds: toOptionalIds(excludeIds),
-        ids: toOptionalIds(ids),
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () =>
+          resolveDownloadLinksCreateInput({
+            cursor: Option.getOrUndefined(cursor),
+            excludeIds: toOptionalIds(excludeIds),
+            ids: toOptionalIds(ids),
+          }),
+        json,
+        schema: DownloadLinksCreateInputSchema,
       }).pipe(Effect.map(resolveDownloadLinksCreateInput));
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("download-links create", input, getOption(output));
+      }
+
       const result = yield* withTerminalLoader(
         {
           message: "Creating download-links job...",

@@ -562,6 +562,36 @@ describe("cli command paths", () => {
     expect(renderWriteOutputValue(-1, { id: 55 })).toBe("download-links job id: 55");
   });
 
+  it("executes download-links create dry-run from raw json without hitting the sdk", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "download-links",
+        "create",
+        "--json",
+        '{"ids":[1,2],"excludeIds":[9]}',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.createDownloadLinksMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "download-links create",
+        dryRun: true,
+        request: {
+          cursor: undefined,
+          excludeIds: [9],
+          ids: [1, 2],
+        },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
   it("executes download-links get", async () => {
     await expect(
       runCliInTest(["putio", "download-links", "get", "--id", "55", "--output", "json"]),
@@ -705,6 +735,25 @@ describe("cli command paths", () => {
     });
   });
 
+  it("executes files rename from raw json", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "rename",
+        "--json",
+        '{"file_id":42,"name":"Projects 2027"}',
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.renameFileMock).toHaveBeenCalledWith({
+      file_id: 42,
+      name: "Projects 2027",
+    });
+  });
+
   it("executes files move", async () => {
     await expect(
       runCliInTest([
@@ -769,12 +818,62 @@ describe("cli command paths", () => {
     ]);
   });
 
+  it("executes transfers add from raw json", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "transfers",
+        "add",
+        "--json",
+        '[{"callback_url":"https://example.com/callback","save_parent_id":9,"url":"https://example.com/fedora.torrent"}]',
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.addTransfersMock).toHaveBeenCalledWith([
+      {
+        callback_url: "https://example.com/callback",
+        save_parent_id: 9,
+        url: "https://example.com/fedora.torrent",
+      },
+    ]);
+  });
+
   it("executes transfers cancel with repeated ids", async () => {
     await expect(
       runCliInTest(["putio", "transfers", "cancel", "--id", "8", "--id", "9", "--output", "json"]),
     ).resolves.toBeUndefined();
 
     expect(mocks.cancelTransfersMock).toHaveBeenCalledWith([8, 9]);
+  });
+
+  it("executes transfers cancel dry-run without hitting the sdk", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "transfers",
+        "cancel",
+        "--json",
+        '{"ids":[8,9]}',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.cancelTransfersMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "transfers cancel",
+        dryRun: true,
+        request: {
+          ids: [8, 9],
+        },
+      },
+      "json",
+      expect.any(Function),
+    );
   });
 
   it("executes transfers retry", async () => {
