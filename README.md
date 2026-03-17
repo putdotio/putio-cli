@@ -101,6 +101,7 @@ Persisted config shape:
 - `src/internal` contains runtime, auth, config, metadata, output, and shared command helpers
 - `src/internal/localizers` contains CLI-owned SDK error localization
 - `src/internal/terminal` contains terminal renderers and layout helpers
+- `docs/ARCHITECTURE.md` tracks the target agent-first Effect architecture
 
 ## Delivery Model
 

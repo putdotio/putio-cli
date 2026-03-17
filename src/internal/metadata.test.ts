@@ -5,31 +5,60 @@ import { describeCli } from "./metadata.js";
 describe("describeCli", () => {
   it("returns agent-facing command metadata", () => {
     const metadata = describeCli();
+    const describeCommand = metadata.commands.find((command) => command.command === "describe");
+    const whoamiCommand = metadata.commands.find((command) => command.command === "whoami");
+    const filesDeleteCommand = metadata.commands.find(
+      (command) => command.command === "files delete",
+    );
 
     expect(metadata.binary).toBe("putio");
     expect(metadata.output.default).toBe("text");
     expect(metadata.output.internalRenderers).toEqual(["json", "terminal"]);
-    expect(metadata.commands.some((command) => command.command === "describe")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "brand")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "version")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "auth login")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "auth preview")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "auth logout")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "whoami")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "files mkdir")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "files rename")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "files move")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "files delete")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "files search")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "transfers add")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "transfers reannounce")).toBe(
-      true,
-    );
-    expect(metadata.commands.some((command) => command.command === "transfers watch")).toBe(true);
-    expect(metadata.commands.some((command) => command.command === "download-links create")).toBe(
-      true,
-    );
-    expect(metadata.commands.some((command) => command.command === "events list")).toBe(true);
+    expect(metadata.commands.map((command) => command.command)).toEqual([
+      "describe",
+      "brand",
+      "version",
+      "auth status",
+      "auth login",
+      "auth preview",
+      "auth logout",
+      "whoami",
+      "download-links create",
+      "download-links get",
+      "events list",
+      "files list",
+      "files mkdir",
+      "files rename",
+      "files move",
+      "files delete",
+      "files search",
+      "search",
+      "transfers list",
+      "transfers add",
+      "transfers cancel",
+      "transfers retry",
+      "transfers reannounce",
+      "transfers watch",
+      "transfers clean",
+    ]);
+    expect(describeCommand).toMatchObject({
+      auth: { required: false },
+      capabilities: {
+        dryRun: false,
+        fieldSelection: false,
+        rawJsonInput: false,
+        streaming: false,
+      },
+      kind: "utility",
+    });
+    expect(whoamiCommand).toMatchObject({
+      auth: { required: true },
+      kind: "read",
+    });
+    expect(filesDeleteCommand).toMatchObject({
+      auth: { required: true },
+      kind: "write",
+    });
     expect(metadata.auth.envPrecedence).toEqual(["PUTIO_CLI_TOKEN"]);
     expect(metadata.auth.loginAppId).toBe("8993");
     expect(metadata.auth.loginOpensBrowserByDefault).toBe(false);

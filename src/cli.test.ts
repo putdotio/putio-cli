@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { NodeContext } from "@effect/platform-node";
 import * as NodeTerminal from "@effect/platform-node/NodeTerminal";
 import { ConfigProvider, Effect, Layer } from "effect";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { runCli as executeCli } from "./cli.js";
 import { CliOutputLive } from "./internal/output-service.js";
@@ -16,54 +16,106 @@ const errorText = (error: unknown) =>
     ? String((error as { readonly message: unknown }).message)
     : JSON.stringify(error);
 
-const runCli = async (argv: ReadonlyArray<string>) => {
+type CliExecution = {
+  readonly result: Awaited<ReturnType<typeof Effect.runPromise>>;
+  readonly stderr: string;
+  readonly stdout: string;
+};
+
+const parseCapturedText = (args: ReadonlyArray<unknown>) =>
+  args
+    .map((value) => (typeof value === "string" ? value : JSON.stringify(value)))
+    .join(" ")
+    .trim();
+
+const parseJsonOutput = (value: string) => JSON.parse(value) as Record<string, unknown>;
+
+const runCli = async (argv: ReadonlyArray<string>): Promise<CliExecution> => {
   const processArgv = ["node", "putio", ...argv.slice(1)];
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-parser-"));
   const configPath = join(configDir, "config.json");
+  const stdoutChunks: string[] = [];
+  const stderrChunks: string[] = [];
+  const consoleLogSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
+    stdoutChunks.push(parseCapturedText(args));
+  });
+  const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation((...args) => {
+    stderrChunks.push(parseCapturedText(args));
+  });
 
-  const result = await Effect.runPromise(
-    Effect.scoped(
-      Effect.either(
-        executeCli(processArgv).pipe(
-          Effect.withConfigProvider(
-            ConfigProvider.fromMap(
-              new Map([
-                ["PUTIO_CLI_CONFIG_PATH", configPath],
-                ["XDG_CONFIG_HOME", configDir],
-              ]),
+  try {
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.either(
+          executeCli(processArgv).pipe(
+            Effect.withConfigProvider(
+              ConfigProvider.fromMap(
+                new Map([
+                  ["PUTIO_CLI_CONFIG_PATH", configPath],
+                  ["XDG_CONFIG_HOME", configDir],
+                ]),
+              ),
             ),
+            Effect.provideService(
+              CliRuntime,
+              makeCliRuntime({
+                argv: processArgv,
+                homeDirectory: configDir,
+              }),
+            ),
+            Effect.provide(Layer.mergeAll(NodeContext.layer, NodeTerminal.layer, CliOutputLive)),
           ),
-          Effect.provideService(
-            CliRuntime,
-            makeCliRuntime({
-              argv: processArgv,
-              homeDirectory: configDir,
-            }),
-          ),
-          Effect.provide(Layer.mergeAll(NodeContext.layer, NodeTerminal.layer, CliOutputLive)),
         ),
       ),
-    ),
-  );
+    );
 
-  return result;
+    return {
+      result,
+      stderr: stderrChunks.join("\n"),
+      stdout: stdoutChunks.join("\n"),
+    };
+  } finally {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  }
 };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("cli argv parsing", () => {
   it("renders the root help successfully", async () => {
-    const result = await runCli(["putio"]);
+    const { result, stdout } = await runCli(["putio"]);
 
     expect(result._tag).toBe("Right");
+    expect(stdout).toContain("Use `putio describe` or `putio --help`.");
   });
 
-  it("renders describe successfully", async () => {
-    const result = await runCli(["putio", "describe"]);
+  it("renders describe as machine-readable json", async () => {
+    const { result, stdout } = await runCli(["putio", "describe"]);
 
     expect(result._tag).toBe("Right");
+    expect(parseJsonOutput(stdout)).toMatchObject({
+      binary: "putio",
+      output: {
+        default: "text",
+        internalRenderers: ["json", "terminal"],
+      },
+    });
+    expect(parseJsonOutput(stdout).commands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          auth: { required: true },
+          command: "files delete",
+          kind: "write",
+        }),
+      ]),
+    );
   });
 
-  it("renders auth preview successfully without hitting the API", async () => {
-    const result = await runCli([
+  it("renders auth preview as json without hitting the API", async () => {
+    const { result, stdout } = await runCli([
       "putio",
       "auth",
       "preview",
@@ -74,16 +126,26 @@ describe("cli argv parsing", () => {
     ]);
 
     expect(result._tag).toBe("Right");
+    expect(parseJsonOutput(stdout)).toMatchObject({
+      browserOpened: false,
+      code: "PUTIO1",
+      linkUrl: "https://app.put.io/link?code=PUTIO1",
+    });
   });
 
-  it("renders auth status successfully without a configured token", async () => {
-    const result = await runCli(["putio", "auth", "status", "--output", "json"]);
+  it("renders auth status as json without a configured token", async () => {
+    const { result, stdout } = await runCli(["putio", "auth", "status", "--output", "json"]);
 
     expect(result._tag).toBe("Right");
+    expect(parseJsonOutput(stdout)).toMatchObject({
+      apiBaseUrl: "https://api.put.io",
+      authenticated: false,
+      source: null,
+    });
   });
 
   it("accepts repeated file ids for move and reaches auth resolution", async () => {
-    const result = await runCli([
+    const { result } = await runCli([
       "putio",
       "files",
       "move",
@@ -105,7 +167,7 @@ describe("cli argv parsing", () => {
   });
 
   it("accepts repeated file ids for delete and reaches auth resolution", async () => {
-    const result = await runCli([
+    const { result } = await runCli([
       "putio",
       "files",
       "delete",
@@ -125,7 +187,7 @@ describe("cli argv parsing", () => {
   });
 
   it("accepts repeated transfer ids for cancel and reaches auth resolution", async () => {
-    const result = await runCli([
+    const { result } = await runCli([
       "putio",
       "transfers",
       "cancel",
@@ -145,7 +207,7 @@ describe("cli argv parsing", () => {
   });
 
   it("accepts repeated download-link ids and reaches auth resolution", async () => {
-    const result = await runCli([
+    const { result } = await runCli([
       "putio",
       "download-links",
       "create",
@@ -165,7 +227,7 @@ describe("cli argv parsing", () => {
   });
 
   it("still rejects invalid repeated integer input", async () => {
-    const result = await runCli([
+    const { result } = await runCli([
       "putio",
       "files",
       "move",
