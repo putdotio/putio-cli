@@ -1,4 +1,4 @@
-import { createLocalizeError, LocalizedError } from "@putdotio/localized-error";
+import { createLocalizeError, LocalizedError } from "@putdotio/sdk/utilities";
 import { cliDownloadLinksErrorLocalizers } from "./localizers/download-links.js";
 import { cliFilesErrorLocalizers } from "./localizers/files.js";
 import { cliSharedErrorLocalizers } from "./localizers/shared.js";

@@ -1,4 +1,4 @@
-import { LocalizedError } from "@putdotio/localized-error";
+import { LocalizedError } from "@putdotio/sdk/utilities";
 import { Console, Context, Effect, Layer } from "effect";
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";

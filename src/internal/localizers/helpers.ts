@@ -1,4 +1,4 @@
-import type { MatchConditionLocalizer } from "@putdotio/localized-error";
+import type { MatchConditionLocalizer } from "@putdotio/sdk/utilities";
 
 export const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;

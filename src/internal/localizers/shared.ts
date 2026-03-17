@@ -2,7 +2,7 @@ import type {
   APIErrorByStatusCodeLocalizer,
   GenericErrorLocalizer,
   MatchConditionLocalizer,
-} from "@putdotio/localized-error";
+} from "@putdotio/sdk/utilities";
 import { DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
 import { translate } from "../../i18n/index.js";
 

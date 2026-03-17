@@ -41,10 +41,9 @@
     "@effect/cli": "^0.73.2",
     "@effect/platform": "0.94.5",
     "@effect/platform-node": "0.104.1",
-    "@putdotio/sdk": "^9.0.1",
+    "@putdotio/sdk": "^9.1.0",
     "cli-table3": "^0.6.5",
     "effect": "3.19.19",
-    "es6-error": "^4.1.1",
     "i18next": "^25.5.2"
   },
   "devDependencies": {
