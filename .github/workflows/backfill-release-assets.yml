@@ -163,13 +163,11 @@ jobs:
           commit_email: ui@put.io
           branch: main
           formula_folder: Formula
-          formula_name: putio
           install: 'bin.install "putio"'
           test: |
             output = shell_output("#{bin}/putio version")
             assert_match "putio", output
             assert_match version.to_s, output
-          version: ${{ inputs.tag_name }}
           target_darwin_arm64: true
           target_linux_amd64: true
           skip_checksum: true
