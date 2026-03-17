@@ -1,44 +1,55 @@
-# Agent Guide
+# Agent Guidelines
 
-Fast-path guidance for AI agents using `putio-cli`.
+Development instructions for agents working on this repository.
+
+## Repo
+
+- Standalone TypeScript package for the official put.io CLI
+- Main code lives in `src/*`
+- Durable docs live in `docs/*`
+- Consumer-facing skills live in `skills/*`
 
 ## Start Here
 
-1. Run `putio describe` first.
-2. Prefer `--output json` unless a human explicitly wants terminal rendering.
-3. On read commands, ask only for the fields you need with `--fields`.
-4. On write commands, use `--dry-run` before the real call.
-5. When a write command supports it, prefer raw `--json` input over translating through many bespoke flags.
+- user docs: [README.md](/Users/altay/projects/putdotio/putio-cli/README.md)
+- contributor workflow: [CONTRIBUTING.md](/Users/altay/projects/putdotio/putio-cli/CONTRIBUTING.md)
+- architecture: [docs/ARCHITECTURE.md](/Users/altay/projects/putdotio/putio-cli/docs/ARCHITECTURE.md)
 
-## Read Commands
+## Commands
 
-- Use `--fields` with top-level keys only.
-- Use `--page-all` only when the full dataset is actually needed.
-- Start with one page and tighter fields before escalating to `--page-all`.
-- `whoami`, `download-links get`, `events list`, `files list`, `files search`, `search`, `transfers list`, and `transfers watch` support field selection.
-- `files list`, `files search`, `search`, and `transfers list` support `--page-all`.
+Primary:
 
-## Write Commands
+- `pnpm run verify`
 
-- Prefer `--dry-run --output json` before a real mutation.
-- Prefer `--json` when `putio describe` exposes a raw payload contract.
-- Re-run without `--dry-run` only after the request shape looks correct.
+Focused:
 
-## Guardrails
+- `pnpm run check`
+- `pnpm run build`
+- `pnpm run test`
+- `pnpm run coverage`
 
-- `--fields` is JSON-only and rejects nested selectors, query fragments, and path-like traversal patterns.
-- Identifier-like inputs reject query fragments and path traversal patterns before API calls.
-- File and folder names reject control characters and path traversal patterns.
-- Errors are machine-readable with `--output json`.
+Runtime proofs:
 
-## Useful Patterns
+- `./dist/bin.mjs describe`
+- `./dist/bin.mjs whoami --output json`
 
-```bash
-putio whoami --fields auth --output json
-putio files list --fields files --page-all --output json
-putio files rename --json '{"file_id":42,"name":"Projects"}' --dry-run --output json
-```
+## Development Guidance
 
-## Related Docs
+- Keep `README.md` user-facing. Put contributor workflow in `CONTRIBUTING.md`, architecture in `docs/*`, and consumer usage patterns in `skills/*`.
+- Keep command modules thin and move shared behavior into internal Effect-native helpers and services.
+- Prefer `Effect`, services, layers, `Schema`, and tagged errors over ad hoc control flow.
+- Treat JSON output as the machine contract and terminal output as a separate adapter layer.
+- Update docs when flags, command behavior, or architecture boundaries change.
+- When the public CLI surface changes, update [`skills/putio-cli/SKILL.md`](/Users/altay/projects/putdotio/putio-cli/skills/putio-cli/SKILL.md) so consumer-facing agent guidance stays accurate.
+- Do not hardcode volatile metrics in docs.
 
-- [Architecture](/Users/altay/projects/putdotio/putio-cli/docs/ARCHITECTURE.md)
+## Testing
+
+- Prefer in-process tests unless the process boundary is the behavior under test.
+- Add command-path coverage when the `@effect/cli` boundary changes.
+- Run repo guardrails before closing work, then prove important command-surface changes with the built binary.
+
+## Skills
+
+- `skills/*` is for reusable consumer-facing skills, not repo onboarding.
+- `CLAUDE.md` should remain a symlink to this file.
