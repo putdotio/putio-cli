@@ -101,7 +101,7 @@ jobs:
             .artifacts/release/*
 
   update-homebrew-tap:
-    if: inputs.update_homebrew_tap && secrets.HOMEBREW_TAP_TOKEN != ''
+    if: inputs.update_homebrew_tap
     name: Update Homebrew tap
     needs:
       - build-binaries
