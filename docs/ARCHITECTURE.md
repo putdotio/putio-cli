@@ -62,10 +62,12 @@ flowchart TD
 
 ## Current Phase
 
-Phase 1 establishes the refactor floor:
+The current CLI contract already includes:
 
-- durable architecture documentation
-- stronger boundary characterization tests
-- schema-backed command metadata for `describe`
+- schema-backed `describe` metadata for command purpose, capabilities, flags, and raw JSON payload shapes
+- raw `--json` input and `--dry-run` on mutating commands
+- `--fields` on agent-relevant read commands
+- cursor-backed `--page-all` on `files list`, `files search`, `search`, and `transfers list`
+- shared hardening for field selectors and identifier-like inputs before API calls
 
-Later phases can then extract deeper services without losing the current CLI contract.
+Next architectural work can keep extracting deeper services and workflows without losing the agent-first CLI surface.

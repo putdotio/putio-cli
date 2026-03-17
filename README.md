@@ -57,6 +57,7 @@ putio auth login
 
 ## Docs
 
+- [Agent Guide](/Users/altay/projects/putdotio/putio-cli/AGENTS.md)
 - [Architecture](/Users/altay/projects/putdotio/putio-cli/docs/ARCHITECTURE.md)
 - [Contributing](/Users/altay/projects/putdotio/putio-cli/CONTRIBUTING.md)
 - [Security](/Users/altay/projects/putdotio/putio-cli/SECURITY.md)
