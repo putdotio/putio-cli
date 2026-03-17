@@ -153,7 +153,8 @@ const jsonFlag = (): CommandOption => ({
 });
 
 const fieldsFlag = (): CommandOption => ({
-  description: "Comma-separated top-level response fields. Requires `--output json`.",
+  description:
+    "Comma-separated top-level response fields only. Requires `--output json` and rejects dots, brackets, path traversal, and query fragments.",
   name: "fields",
   repeated: false,
   required: false,
@@ -363,7 +364,10 @@ export const commandCatalog = decodeCommandCatalog([
     command: "auth preview",
     input: {
       flags: [
-        stringFlag("code", { defaultValue: "PUTIO1" }),
+        stringFlag("code", {
+          defaultValue: "PUTIO1",
+          description: "Plain auth preview code. Rejects query fragments and path traversal.",
+        }),
         booleanFlag("open", { defaultValue: false }),
         outputFlag(),
       ],
@@ -462,10 +466,10 @@ export const commandCatalog = decodeCommandCatalog([
     command: "files mkdir",
     input: {
       flags: [dryRunFlag(), jsonFlag(), outputFlag(), integerFlag("parent-id"), stringFlag("name")],
-      json: objectShape([
-        property("name", stringShape()),
-        property("parent_id", integerShape(), false),
-      ]),
+      json: objectShape(
+        [property("name", stringShape()), property("parent_id", integerShape(), false)],
+        ["`name` rejects control characters and path traversal segments like `../` or `%2e`."],
+      ),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesMkdir"),
@@ -476,7 +480,10 @@ export const commandCatalog = decodeCommandCatalog([
     command: "files rename",
     input: {
       flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), stringFlag("name"), outputFlag()],
-      json: objectShape([property("file_id", integerShape()), property("name", stringShape())]),
+      json: objectShape(
+        [property("file_id", integerShape()), property("name", stringShape())],
+        ["`name` rejects control characters and path traversal segments like `../` or `%2e`."],
+      ),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesRename"),

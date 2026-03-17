@@ -11,6 +11,9 @@ describe("describeCli", () => {
     const filesDeleteCommand = metadata.commands.find(
       (command) => command.command === "files delete",
     );
+    const filesRenameCommand = metadata.commands.find(
+      (command) => command.command === "files rename",
+    );
     const transfersListCommand = metadata.commands.find(
       (command) => command.command === "transfers list",
     );
@@ -121,6 +124,17 @@ describe("describeCli", () => {
               required: true,
             }),
           ]),
+        },
+      },
+      kind: "write",
+    });
+    expect(filesRenameCommand).toMatchObject({
+      input: {
+        json: {
+          kind: "object",
+          rules: [
+            "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
+          ],
         },
       },
       kind: "write",

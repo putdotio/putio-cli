@@ -9,7 +9,7 @@ import {
   resolveAuthFlowConfig,
   waitForDeviceToken,
 } from "../internal/auth-flow.js";
-import { getOption, outputOption } from "../internal/command.js";
+import { getOption, outputOption, validateResourceIdentifier } from "../internal/command.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
@@ -172,12 +172,13 @@ const authPreview = Command.make(
   ({ code, open, output }) =>
     Effect.gen(function* () {
       const authFlow = yield* resolveAuthFlowConfig();
-      const linkUrl = buildDeviceLinkUrl(code, authFlow.webAppUrl);
+      const previewCode = validateResourceIdentifier("`auth preview --code`", code);
+      const linkUrl = buildDeviceLinkUrl(previewCode, authFlow.webAppUrl);
 
       yield* writeOutput(
         {
           browserOpened: open,
-          code,
+          code: previewCode,
           linkUrl,
         },
         getOption(output),

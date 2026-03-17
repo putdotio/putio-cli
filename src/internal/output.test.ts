@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CliCommandInputError } from "./command.js";
 import {
   detectOutputModeFromArgv,
   formatCliError,
@@ -174,5 +175,16 @@ describe("formatCliErrorJson", () => {
     expect(output).toContain('"title": "Authentication failed"');
     expect(output).toContain('"type": "instruction"');
     expect(output).toContain('"Run `putio auth login` to sign in again."');
+  });
+
+  it("renders tagged input errors as structured json", () => {
+    const output = formatCliErrorJson(
+      new CliCommandInputError({
+        message: "`--fields` only accepts top-level field names.",
+      }),
+    );
+
+    expect(output).toContain('"title": "Command failed"');
+    expect(output).toContain('"message": "`--fields` only accepts top-level field names."');
   });
 });

@@ -509,6 +509,16 @@ describe("cli command paths", () => {
     );
   });
 
+  it("rejects auth preview codes with query fragments", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "preview", "--code", "PUTIO1?debug=1", "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: "`auth preview --code` cannot include `?` or `#` fragments.",
+    });
+
+    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
+  });
+
   it("executes whoami", async () => {
     await expect(runCliInTest(["putio", "whoami", "--output", "json"])).resolves.toBeUndefined();
 
@@ -894,6 +904,24 @@ describe("cli command paths", () => {
       file_id: 42,
       name: "Projects 2027",
     });
+  });
+
+  it("rejects file rename names with path traversal segments", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "rename",
+        "--json",
+        '{"file_id":42,"name":"../Projects"}',
+        "--output",
+        "json",
+      ]),
+    ).rejects.toMatchObject({
+      message: "`files rename --name` cannot contain path traversal segments like `../` or `%2e`.",
+    });
+
+    expect(mocks.renameFileMock).not.toHaveBeenCalled();
   });
 
   it("executes files move", async () => {

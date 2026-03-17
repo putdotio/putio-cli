@@ -26,7 +26,65 @@ type ReadOutputControls = {
   readonly requestedFields: ReadonlyArray<string> | undefined;
 };
 
+const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e/iu;
+const QUERY_OR_FRAGMENT_PATTERN = /[?#]/u;
+const TOP_LEVEL_FIELD_PATTERN = /^[A-Za-z0-9_-]+$/u;
+
 const ownKeys = (value: Record<string, unknown>) => Object.keys(value);
+const hasControlCharacters = (value: string) =>
+  [...value].some((character) => {
+    const codePoint = character.codePointAt(0);
+
+    return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
+  });
+
+const validateSafeString = (input: {
+  readonly allowPathTraversal?: boolean;
+  readonly allowQueryOrFragment?: boolean;
+  readonly label: string;
+  readonly pattern?: RegExp;
+  readonly patternMessage?: string;
+  readonly value: string;
+}) => {
+  if (hasControlCharacters(input.value)) {
+    throw new CliCommandInputError({
+      message: `${input.label} cannot contain control characters.`,
+    });
+  }
+
+  if (input.allowPathTraversal !== true && PATH_TRAVERSAL_PATTERN.test(input.value)) {
+    throw new CliCommandInputError({
+      message: `${input.label} cannot contain path traversal segments like \`../\` or \`%2e\`.`,
+    });
+  }
+
+  if (input.allowQueryOrFragment !== true && QUERY_OR_FRAGMENT_PATTERN.test(input.value)) {
+    throw new CliCommandInputError({
+      message: `${input.label} cannot include \`?\` or \`#\` fragments.`,
+    });
+  }
+
+  if (input.pattern && !input.pattern.test(input.value)) {
+    throw new CliCommandInputError({
+      message: input.patternMessage ?? `${input.label} is invalid.`,
+    });
+  }
+
+  return input.value;
+};
+
+export const validateResourceIdentifier = (label: string, value: string) =>
+  validateSafeString({
+    label,
+    value,
+  });
+
+export const validateNameLikeInput = (label: string, value: string) =>
+  validateSafeString({
+    allowQueryOrFragment: true,
+    label,
+    value,
+  });
 
 const parseRequestedFields = (raw: string) => {
   const parts = raw.split(",").map((part) => part.trim());
@@ -37,7 +95,19 @@ const parseRequestedFields = (raw: string) => {
     });
   }
 
-  return [...new Set(parts)];
+  return [
+    ...new Set(
+      parts.map((part) =>
+        validateSafeString({
+          label: `\`--fields\` selector \`${part}\``,
+          pattern: TOP_LEVEL_FIELD_PATTERN,
+          patternMessage:
+            "`--fields` only accepts top-level field names without dots, brackets, or slashes.",
+          value: part,
+        }),
+      ),
+    ),
+  ];
 };
 
 const renderFieldList = (fields: ReadonlyArray<string>) =>

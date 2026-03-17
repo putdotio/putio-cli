@@ -13,6 +13,7 @@ import {
   parseRepeatedIntegerOption,
   resolveMutationInput,
   resolveReadOutputControls,
+  validateNameLikeInput,
   withAuthedSdk,
   writeDryRunPlan,
   writeReadOutput,
@@ -255,7 +256,12 @@ const filesMkdir = Command.make(
         }),
         json,
         schema: FilesMkdirInputSchema,
-      });
+      }).pipe(
+        Effect.map((value) => ({
+          ...value,
+          name: validateNameLikeInput("`files mkdir --name`", value.name),
+        })),
+      );
 
       if (dryRun) {
         return yield* writeDryRunPlan("files mkdir", input, getOption(output));
@@ -294,7 +300,12 @@ const filesRename = Command.make(
         }),
         json,
         schema: FilesRenameInputSchema,
-      });
+      }).pipe(
+        Effect.map((value) => ({
+          ...value,
+          name: validateNameLikeInput("`files rename --name`", value.name),
+        })),
+      );
 
       if (dryRun) {
         return yield* writeDryRunPlan("files rename", input, getOption(output));

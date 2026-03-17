@@ -7,6 +7,8 @@ import {
   parseRepeatedIntegers,
   resolveReadOutputControls,
   selectTopLevelFields,
+  validateNameLikeInput,
+  validateResourceIdentifier,
 } from "./command.js";
 
 describe("parseRepeatedIntegers", () => {
@@ -92,6 +94,34 @@ describe("resolveReadOutputControls", () => {
     ).resolves.toMatchObject({
       _tag: "Failure",
     });
+  });
+
+  it("rejects malformed nested field selectors", async () => {
+    const exit = await Effect.runPromiseExit(
+      resolveReadOutputControls({
+        fields: Option.some("info.username"),
+        output: "json",
+      }),
+    );
+
+    expect(exit._tag).toBe("Failure");
+    if (exit._tag === "Failure") {
+      expect(String(exit.cause)).toContain("top-level field names");
+    }
+  });
+
+  it("rejects query fragments in field selectors", async () => {
+    const exit = await Effect.runPromiseExit(
+      resolveReadOutputControls({
+        fields: Option.some("info?debug=1"),
+        output: "json",
+      }),
+    );
+
+    expect(exit._tag).toBe("Failure");
+    if (exit._tag === "Failure") {
+      expect(String(exit.cause)).toContain("cannot include `?` or `#` fragments");
+    }
   });
 });
 
@@ -179,5 +209,19 @@ describe("collectAllCursorPages", () => {
       files: [{ id: 1 }, { id: 2 }, { id: 3 }],
       total: 3,
     });
+  });
+});
+
+describe("agent-safe string validation", () => {
+  it("rejects query fragments in resource identifiers", () => {
+    expect(() => validateResourceIdentifier("`auth preview --code`", "PUTIO1?debug=1")).toThrow(
+      /cannot include `\?` or `#` fragments/,
+    );
+  });
+
+  it("rejects path traversal in name-like input", () => {
+    expect(() => validateNameLikeInput("`files rename --name`", "../secrets")).toThrow(
+      /path traversal segments/,
+    );
   });
 });
