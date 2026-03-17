@@ -2,7 +2,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import { SystemError } from "@effect/platform/Error";
 
 import { DEFAULT_PUTIO_API_BASE_URL } from "@putdotio/sdk";
-import { Data, Effect, Schema } from "effect";
+import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { CONFIG_FILE_MODE } from "./constants.js";
 import { resolveCliRuntimeConfig } from "./config.js";
@@ -43,6 +43,45 @@ export class AuthStateError extends Data.TaggedError("AuthStateError")<{
   readonly message: string;
 }> {}
 
+export type CliStateService = {
+  readonly loadPersistedState: (
+    configPath?: string,
+  ) => Effect.Effect<PutioCliConfig | null, AuthStateError, FileSystem.FileSystem | CliRuntime>;
+  readonly savePersistedState: (
+    state: {
+      readonly apiBaseUrl?: string;
+      readonly token: string;
+    },
+    configPath?: string,
+  ) => Effect.Effect<
+    {
+      readonly configPath: string;
+      readonly state: PutioCliConfig;
+    },
+    AuthStateError,
+    FileSystem.FileSystem | CliRuntime
+  >;
+  readonly clearPersistedState: (
+    configPath?: string,
+  ) => Effect.Effect<
+    { readonly configPath: string },
+    AuthStateError,
+    FileSystem.FileSystem | CliRuntime
+  >;
+  readonly getAuthStatus: () => Effect.Effect<
+    AuthStatus,
+    AuthStateError,
+    FileSystem.FileSystem | CliRuntime
+  >;
+  readonly resolveAuthState: () => Effect.Effect<
+    ResolvedAuthState,
+    AuthStateError,
+    FileSystem.FileSystem | CliRuntime
+  >;
+};
+
+export class CliState extends Context.Tag("@putdotio/cli/CliState")<CliState, CliStateService>() {}
+
 const decodePersistedConfig = Schema.decodeUnknownSync(PutioCliConfigSchema);
 
 const mapFileSystemError = (error: unknown, message: string): AuthStateError =>
@@ -72,7 +111,7 @@ const parsePersistedConfig = (raw: string): PutioCliConfig => {
   }
 };
 
-export const loadPersistedState = (
+const loadPersistedStateEffect = (
   configPath?: string,
 ): Effect.Effect<PutioCliConfig | null, AuthStateError, FileSystem.FileSystem | CliRuntime> =>
   Effect.gen(function* () {
@@ -101,7 +140,7 @@ export const loadPersistedState = (
     });
   });
 
-export const savePersistedState = (
+const savePersistedStateEffect = (
   state: {
     readonly apiBaseUrl?: string;
     readonly token: string;
@@ -119,7 +158,7 @@ export const savePersistedState = (
     const fs = yield* FileSystem.FileSystem;
     const runtime = yield* CliRuntime;
     const effectiveConfigPath = configPath ?? (yield* resolveCliRuntimeConfig()).configPath;
-    const existingConfig = yield* loadPersistedState(effectiveConfigPath);
+    const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
     const persistedState: PutioCliConfig = {
       api_base_url: state.apiBaseUrl ?? existingConfig?.api_base_url ?? DEFAULT_PUTIO_API_BASE_URL,
       auth_token: state.token,
@@ -153,7 +192,7 @@ export const savePersistedState = (
     };
   });
 
-export const clearPersistedState = (
+const clearPersistedStateEffect = (
   configPath?: string,
 ): Effect.Effect<
   { readonly configPath: string },
@@ -164,7 +203,7 @@ export const clearPersistedState = (
     const fs = yield* FileSystem.FileSystem;
     const runtime = yield* CliRuntime;
     const effectiveConfigPath = configPath ?? (yield* resolveCliRuntimeConfig()).configPath;
-    const existingConfig = yield* loadPersistedState(effectiveConfigPath);
+    const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
 
     if (existingConfig && existingConfig.api_base_url !== DEFAULT_PUTIO_API_BASE_URL) {
       const nextConfig: PutioCliConfig = {
@@ -205,7 +244,7 @@ export const clearPersistedState = (
     return { configPath: effectiveConfigPath };
   });
 
-export const getAuthStatus = (): Effect.Effect<
+const getAuthStatusEffect = (): Effect.Effect<
   AuthStatus,
   AuthStateError,
   FileSystem.FileSystem | CliRuntime
@@ -222,7 +261,7 @@ export const getAuthStatus = (): Effect.Effect<
       };
     }
 
-    const state = yield* loadPersistedState(runtime.configPath);
+    const state = yield* loadPersistedStateEffect(runtime.configPath);
 
     return state === null
       ? {
@@ -239,7 +278,7 @@ export const getAuthStatus = (): Effect.Effect<
         };
   });
 
-export const resolveAuthState = (): Effect.Effect<
+const resolveAuthStateEffect = (): Effect.Effect<
   ResolvedAuthState,
   AuthStateError,
   FileSystem.FileSystem | CliRuntime
@@ -256,7 +295,7 @@ export const resolveAuthState = (): Effect.Effect<
       };
     }
 
-    const state = yield* loadPersistedState(runtime.configPath);
+    const state = yield* loadPersistedStateEffect(runtime.configPath);
 
     if (state === null || typeof state.auth_token !== "string") {
       return yield* Effect.fail(
@@ -273,3 +312,31 @@ export const resolveAuthState = (): Effect.Effect<
       configPath: runtime.configPath,
     };
   });
+
+const makeCliState = (): CliStateService => ({
+  clearPersistedState: clearPersistedStateEffect,
+  getAuthStatus: getAuthStatusEffect,
+  loadPersistedState: loadPersistedStateEffect,
+  resolveAuthState: resolveAuthStateEffect,
+  savePersistedState: savePersistedStateEffect,
+});
+
+export const CliStateLive = Layer.sync(CliState, makeCliState);
+
+export const loadPersistedState = (configPath?: string) =>
+  Effect.flatMap(CliState, (state) => state.loadPersistedState(configPath));
+
+export const savePersistedState = (
+  state: {
+    readonly apiBaseUrl?: string;
+    readonly token: string;
+  },
+  configPath?: string,
+) => Effect.flatMap(CliState, (cliState) => cliState.savePersistedState(state, configPath));
+
+export const clearPersistedState = (configPath?: string) =>
+  Effect.flatMap(CliState, (state) => state.clearPersistedState(configPath));
+
+export const getAuthStatus = () => Effect.flatMap(CliState, (state) => state.getAuthStatus());
+
+export const resolveAuthState = () => Effect.flatMap(CliState, (state) => state.resolveAuthState());

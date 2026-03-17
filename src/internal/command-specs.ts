@@ -132,8 +132,57 @@ export type CommandSpec = {
 
 const decodeCommandCatalog = Schema.decodeUnknownSync(Schema.Array(CommandDescriptorSchema));
 
+const hasFlag = (spec: CommandSpec, name: string) =>
+  spec.input?.flags.some((flag) => flag.name === name) ?? false;
+
+const validateCommandSpecs = (specs: ReadonlyArray<CommandSpec>) => {
+  const seenCommands = new Set<string>();
+
+  for (const spec of specs) {
+    if (seenCommands.has(spec.command)) {
+      throw new Error(`Duplicate CLI command metadata entry: ${spec.command}`);
+    }
+
+    seenCommands.add(spec.command);
+
+    if (spec.capabilities.dryRun && !hasFlag(spec, "dry-run")) {
+      throw new Error(
+        `Command metadata for \`${spec.command}\` advertises dry-run without a dry-run flag.`,
+      );
+    }
+
+    if (spec.capabilities.rawJsonInput) {
+      if (!hasFlag(spec, "json")) {
+        throw new Error(
+          `Command metadata for \`${spec.command}\` advertises raw JSON input without a json flag.`,
+        );
+      }
+
+      if (spec.input?.json === undefined) {
+        throw new Error(
+          `Command metadata for \`${spec.command}\` advertises raw JSON input without a JSON schema.`,
+        );
+      }
+    }
+
+    if (spec.capabilities.fieldSelection && !hasFlag(spec, "fields")) {
+      throw new Error(
+        `Command metadata for \`${spec.command}\` advertises field selection without a fields flag.`,
+      );
+    }
+
+    if (hasFlag(spec, "page-all") && spec.kind !== "read") {
+      throw new Error(
+        `Command metadata for \`${spec.command}\` uses page-all outside a read command.`,
+      );
+    }
+  }
+
+  return specs;
+};
+
 export const decodeCommandSpecs = (specs: ReadonlyArray<CommandSpec>) =>
-  decodeCommandCatalog(specs);
+  decodeCommandCatalog(validateCommandSpecs(specs));
 
 export const stringShape = (): CommandJsonShape => ({ kind: "string" });
 export const integerShape = (): CommandJsonShape => ({ kind: "integer" });

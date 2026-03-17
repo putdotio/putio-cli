@@ -3,6 +3,7 @@ import { Schema } from "effect";
 
 import { translate } from "../i18n/index.js";
 
+import { AgentDxScorecardSchema, scoreAgentDx } from "./agent-dx.js";
 import {
   CliOutputContractSchema,
   CommandDescriptorSchema,
@@ -24,6 +25,7 @@ const NonEmptyStringSchema = Schema.String.pipe(
 );
 
 const CliMetadataSchema = Schema.Struct({
+  agentDx: AgentDxScorecardSchema,
   auth: Schema.Struct({
     apiBaseUrlEnv: NonEmptyStringSchema,
     envPrecedence: Schema.Array(NonEmptyStringSchema),
@@ -48,6 +50,16 @@ const decodeCliMetadata = Schema.decodeUnknownSync(CliMetadataSchema);
 
 export const describeCli = () =>
   decodeCliMetadata({
+    agentDx: scoreAgentDx({
+      commands: commandCatalog,
+      hasConsumerSkill: true,
+      output: {
+        defaultInteractive: "text",
+        defaultNonInteractive: "json",
+        internalRenderers: ["json", "terminal", "ndjson"],
+        supported: ["json", "text", "ndjson"],
+      },
+    }),
     auth: {
       apiBaseUrlEnv: ENV_API_BASE_URL,
       envPrecedence: [ENV_CLI_TOKEN],

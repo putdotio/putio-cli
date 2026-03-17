@@ -10,6 +10,7 @@ import { buildConfigPath } from "./config.js";
 import { makeCliRuntime } from "./runtime.js";
 import {
   AuthStateError,
+  CliState,
   clearPersistedState,
   getAuthStatus,
   loadPersistedState,
@@ -33,6 +34,11 @@ const expectFailure = <E>(exit: Exit.Exit<unknown, E>): E => {
 
   return failure.value;
 };
+
+const withStateService = <A, E>(
+  effect: Effect.Effect<A, E, CliState>,
+  homeDirectory = "/Users/tester",
+) => effect.pipe(Effect.provide(makeCliAppLayer(makeCliRuntime({ homeDirectory }))));
 
 describe("resolveConfigPath", () => {
   it("prefers explicit config path", () => {
@@ -87,6 +93,36 @@ describe("resolveConfigPath", () => {
     expect(file.mode & 0o777).toBe(0o600);
     expect(contents.api_base_url).toBe("https://api.put.io");
     expect(contents.auth_token).toBe("dummy-token");
+  });
+
+  it("exposes persisted-state operations through the CliState service", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    const result = await Effect.runPromise(
+      withStateService(
+        Effect.flatMap(CliState, (state) =>
+          state.savePersistedState(
+            {
+              token: "service-token",
+              apiBaseUrl: "https://api.put.io",
+            },
+            configPath,
+          ),
+        ),
+      ),
+    );
+
+    expect(result.state).toEqual({
+      api_base_url: "https://api.put.io",
+      auth_token: "service-token",
+    });
+
+    const loaded = await Effect.runPromise(
+      withStateService(Effect.flatMap(CliState, (state) => state.loadPersistedState(configPath))),
+    );
+
+    expect(loaded).toEqual(result.state);
   });
 
   it("does not expose token previews in auth status", async () => {
