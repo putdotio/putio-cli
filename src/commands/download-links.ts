@@ -1,4 +1,5 @@
 import { Command, Options } from "@effect/cli";
+import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
 import { Data, Effect, Option, Schema } from "effect";
 
 import {
@@ -31,11 +32,7 @@ const excludeIdsOption = parseRepeatedIntegerOption("exclude-id");
 export const toOptionalIds = (values: ReadonlyArray<number>) =>
   values.length > 0 ? values : undefined;
 
-export const DownloadLinksCreateInputSchema = Schema.Struct({
-  cursor: Schema.optional(Schema.String),
-  excludeIds: Schema.optional(Schema.Array(Schema.Number)),
-  ids: Schema.optional(Schema.Array(Schema.Number)),
-});
+export { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
 
 export type DownloadLinksCreateInput = Schema.Schema.Type<typeof DownloadLinksCreateInputSchema>;
 

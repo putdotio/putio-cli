@@ -82,12 +82,12 @@ export const FilesRenameInputSchema = Schema.Struct({
 
 export const FilesDeleteInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
-  skipTrash: Schema.optional(Schema.Boolean),
+  skip_trash: Schema.optional(Schema.Boolean),
 });
 
 export const FilesMoveInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
-  parentId: Schema.Number,
+  parent_id: Schema.Number,
 });
 
 const requiredValue = <A>(value: A | undefined, message: string) => {
@@ -329,14 +329,14 @@ const filesDelete = Command.make(
       const input = yield* resolveMutationInput({
         buildFromFlags: () => ({
           ids: requiredIds(id, "Provide at least one `--id` or `--json` for `files delete`."),
-          skipTrash,
+          skip_trash: skipTrash,
         }),
         json,
         schema: FilesDeleteInputSchema,
       }).pipe(
         Effect.map((value) => ({
           ids: value.ids,
-          skipTrash: value.skipTrash ?? false,
+          skipTrash: value.skip_trash ?? false,
         })),
       );
 
@@ -378,7 +378,7 @@ const filesMove = Command.make(
       const input = yield* resolveMutationInput({
         buildFromFlags: () => ({
           ids: requiredIds(id, "Provide at least one `--id` or `--json` for `files move`."),
-          parentId: requiredValue(
+          parent_id: requiredValue(
             getOption(parentId),
             "Provide `--parent-id` or `--json` for `files move`.",
           ),
@@ -395,18 +395,18 @@ const filesMove = Command.make(
         {
           message: translate("cli.files.command.moving", {
             count: input.ids.length,
-            parentId: input.parentId,
+            parentId: input.parent_id,
           }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) => sdk.files.move(input.ids, input.parentId)),
+        withAuthedSdk(({ sdk }) => sdk.files.move(input.ids, input.parent_id)),
       );
 
       yield* writeOutput(
         {
           errors,
           ids: input.ids,
-          parentId: input.parentId,
+          parentId: input.parent_id,
         },
         getOption(output),
         renderFilesMovedTerminal,

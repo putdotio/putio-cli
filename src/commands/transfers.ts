@@ -1,4 +1,5 @@
 import { Command, Options } from "@effect/cli";
+import { TransferAddInputSchema } from "@putdotio/sdk";
 import { Clock, Duration, Effect, Option, Schema } from "effect";
 
 import {
@@ -33,27 +34,15 @@ const optionalTransferIdOption = Options.integer("id").pipe(Options.optional);
 
 const WATCH_TERMINAL_STATUSES = ["COMPLETED", "ERROR", "SEEDING"] as const;
 
-const NonEmptyStringSchema = Schema.String.pipe(
-  Schema.filter((value): value is string => value.trim().length > 0, {
-    message: () => "Expected a non-empty string",
-  }),
-);
-
 const NonEmptyIdsSchema = Schema.Array(Schema.Number).pipe(
   Schema.filter((value): value is ReadonlyArray<number> => value.length > 0, {
     message: () => "Expected at least one id",
   }),
 );
 
-export const TransferAddItemSchema = Schema.Struct({
-  callback_url: Schema.optional(NonEmptyStringSchema),
-  save_parent_id: Schema.optional(Schema.Number),
-  url: NonEmptyStringSchema,
-});
-
-export const TransfersAddInputSchema = Schema.Array(TransferAddItemSchema).pipe(
+export const TransfersAddInputSchema = Schema.Array(TransferAddInputSchema).pipe(
   Schema.filter(
-    (value): value is ReadonlyArray<Schema.Schema.Type<typeof TransferAddItemSchema>> =>
+    (value): value is ReadonlyArray<Schema.Schema.Type<typeof TransferAddInputSchema>> =>
       value.length > 0,
     {
       message: () => "Expected at least one transfer input",

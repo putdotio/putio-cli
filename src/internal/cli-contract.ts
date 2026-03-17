@@ -1,4 +1,4 @@
-import { DownloadLinksCreateInputSchema } from "../commands/download-links.js";
+import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
 import {
   FilesDeleteInputSchema,
   FilesMkdirInputSchema,

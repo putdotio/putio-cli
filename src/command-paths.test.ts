@@ -793,6 +793,22 @@ describe("cli command paths", () => {
     );
   });
 
+  it("executes files delete from raw json with api-style keys", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "delete",
+        "--json",
+        '{"ids":[1,2],"skip_trash":true}',
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.deleteFilesMock).toHaveBeenCalledWith([1, 2], { skipTrash: true });
+  });
+
   it("executes files list", async () => {
     await expect(
       runCliInTest(["putio", "files", "list", "--per-page", "5", "--output", "json"]),
@@ -978,6 +994,22 @@ describe("cli command paths", () => {
         "2",
         "--parent-id",
         "9",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.moveFilesMock).toHaveBeenCalledWith([1, 2], 9);
+  });
+
+  it("executes files move from raw json with api-style keys", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "move",
+        "--json",
+        '{"ids":[1,2],"parent_id":9}',
         "--output",
         "json",
       ]),
