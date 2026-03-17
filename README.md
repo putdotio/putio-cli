@@ -15,17 +15,61 @@
 
 ## Install
 
-Install the CLI globally with npm:
+Choose the install path that fits your environment.
+
+Install with the macOS/Linux helper script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | sh
+```
+
+The installer downloads the latest release binary, verifies the matching `.sha256` file, and installs `putio` into `~/.local/bin` by default.
+
+Useful overrides:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | INSTALL_DIR=/usr/local/bin sh
+curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | PUTIO_CLI_VERSION=1.0.0 sh
+```
+
+Install with npm if you already want the package through Node.js:
 
 ```bash
 npm install --global @putdotio/cli
 ```
 
-The npm package currently requires Node `24.14+`.
+This path requires Node `24.14+`.
 
-If you do not want to install Node, use a standalone binary from the GitHub Releases page when your platform asset is published there.
+Install manually from GitHub Releases if you prefer to handle the binary yourself or you are on Windows:
 
-Check that the binary is available:
+1. Download the matching asset from [GitHub Releases](https://github.com/putdotio/putio-cli/releases/latest).
+2. Download the matching `.sha256` file for that asset.
+3. Verify the checksum.
+4. Mark the binary executable on macOS/Linux and place it on your `PATH`.
+
+Example asset names:
+
+- `putio-darwin-arm64`
+- `putio-linux-x64`
+- `putio-win32-x64.exe`
+
+Verify a release binary on macOS or Linux:
+
+```bash
+shasum -a 256 -c putio-linux-x64.sha256
+chmod +x putio-linux-x64
+mv putio-linux-x64 /usr/local/bin/putio
+```
+
+Verify a release binary on Windows PowerShell:
+
+```powershell
+$expected = (Get-Content .\putio-win32-x64.exe.sha256).Split()[0]
+$actual = (Get-FileHash .\putio-win32-x64.exe -Algorithm SHA256).Hash.ToLower()
+if ($actual -ne $expected) { throw "Checksum mismatch" }
+```
+
+Confirm the installed CLI:
 
 ```bash
 putio version

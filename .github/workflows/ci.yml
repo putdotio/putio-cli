@@ -70,6 +70,9 @@ jobs:
       - name: Install dependencies
         run: vp install
 
+      - name: Build package
+        run: vp run build
+
       - name: Release package
         uses: cycjimmy/semantic-release-action@v4
         with:

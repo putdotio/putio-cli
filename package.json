@@ -32,11 +32,12 @@
     "build": "vp pack",
     "build:sea": "node ./scripts/build-sea.mjs",
     "check": "vp check .",
+    "checksums:sea": "node ./scripts/write-sea-checksums.mjs",
     "coverage": "vitest run --coverage",
     "dev": "vp pack --watch",
     "smoke:pack": "node ./scripts/smoke-packed-install.mjs",
     "test": "vitest run",
-    "prepublishOnly": "pnpm run build",
+    "prepublishOnly": "npm run build",
     "verify:sea": "node ./scripts/verify-sea.mjs",
     "verify": "pnpm run check && pnpm run build && pnpm run test && pnpm run coverage"
   },

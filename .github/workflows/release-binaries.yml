@@ -42,7 +42,12 @@ jobs:
       - name: Verify SEA binary
         run: vp run verify:sea
 
+      - name: Generate SHA-256 checksums
+        run: vp run checksums:sea
+
       - name: Upload binary assets to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: .artifacts/sea/putio-*
+          files: |
+            .artifacts/sea/putio-*
+            .artifacts/sea/putio-*.sha256
