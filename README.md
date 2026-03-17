@@ -97,10 +97,10 @@ Persisted config shape:
 ## Repo Shape
 
 - `src/commands` contains public command definitions
+- `src/i18n` contains the temporarily vendored translations surface
 - `src/internal` contains runtime, auth, config, metadata, output, and shared command helpers
 - `src/internal/localizers` contains CLI-owned SDK error localization
 - `src/internal/terminal` contains terminal renderers and layout helpers
-- `i18n` temporarily vendors the translations surface locally
 - `localized-error` temporarily vendors shared localized-error helpers locally
 
 ## Delivery Model

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createTranslator, translate } from "./translate.js";
+import { createTranslator, translate } from "./index.js";
 
-describe("@putdotio/strings", () => {
+describe("CLI translations", () => {
   it("translates plain keys", () => {
     expect(translate("app.network.error.title")).toBe("Network error");
   });

@@ -1,5 +1,4 @@
 import { Command, Options } from "@effect/cli";
-import { translate } from "@putdotio/translations";
 import { Clock, Duration, Effect, Option } from "effect";
 
 import {
@@ -8,6 +7,7 @@ import {
   parseRepeatedIntegerOption,
   withAuthedSdk,
 } from "../internal/command.js";
+import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderTransfersTerminal } from "../internal/terminal/transfers-terminal.js";

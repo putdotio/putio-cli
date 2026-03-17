@@ -1,8 +1,8 @@
 import { Command, Options } from "@effect/cli";
 import * as Terminal from "@effect/platform/Terminal";
-import { translate } from "@putdotio/translations";
 import { Console, Effect, Fiber, Option } from "effect";
 
+import { translate } from "../i18n/index.js";
 import {
   buildDeviceLinkUrl,
   openBrowser,

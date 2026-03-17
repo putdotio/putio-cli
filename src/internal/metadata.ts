@@ -1,5 +1,5 @@
 import packageJson from "../../package.json";
-import { translate } from "@putdotio/translations";
+import { translate } from "../i18n/index.js";
 
 import {
   ENV_API_BASE_URL,

@@ -8,8 +8,7 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "paths": {
-      "@putdotio/localized-error": ["./localized-error/index.ts"],
-      "@putdotio/translations": ["./i18n/index.ts"]
+      "@putdotio/localized-error": ["./localized-error/index.ts"]
     },
     "resolveJsonModule": true,
     "types": ["node"],
@@ -22,5 +21,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src", "i18n", "localized-error", "vite.config.ts"]
+  "include": ["src", "localized-error", "vite.config.ts"]
 }

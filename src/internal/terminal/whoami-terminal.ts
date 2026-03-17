@@ -1,6 +1,6 @@
 import type { AccountInfoBroad } from "@putdotio/sdk";
-import { translate } from "@putdotio/translations";
 
+import { translate } from "../../i18n/index.js";
 import { formatNullable, humanFileSize } from "./format.js";
 import { renderKeyValueBlock } from "./layout.js";
 

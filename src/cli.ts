@@ -1,5 +1,4 @@
 import { Command } from "@effect/cli";
-import { translate } from "@putdotio/translations";
 import { Console } from "effect";
 import packageJson from "../package.json";
 
@@ -8,6 +7,7 @@ import { brandCommand, versionCommand } from "./commands/brand.js";
 import { downloadLinksCommand } from "./commands/download-links.js";
 import { eventsCommand } from "./commands/events.js";
 import { filesCommand, searchCommand } from "./commands/files.js";
+import { translate } from "./i18n/index.js";
 import { transfersCommand } from "./commands/transfers.js";
 import { whoamiCommand } from "./commands/whoami.js";
 import { describeCli } from "./internal/metadata.js";

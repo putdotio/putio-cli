@@ -1,9 +1,9 @@
 import { Command } from "@effect/cli";
-import { translate } from "@putdotio/translations";
 
 import packageJson from "../../package.json";
 
 import { getOption, outputOption } from "../internal/command.js";
+import { translate } from "../i18n/index.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderPutioSignature } from "../internal/terminal/brand.js";
 

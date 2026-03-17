@@ -8,16 +8,12 @@ const coverageConfig = {
     "src/**/*.test.*",
     "src/**/*.spec.*",
     "src/test-support/**",
-    "i18n/**/*.d.ts",
-    "i18n/**/*.test.*",
-    "i18n/**/*.spec.*",
-    "localized-error/**/*.d.ts",
     "localized-error/**/*.test.*",
     "localized-error/**/*.spec.*",
     "dist/**",
     "coverage/**",
   ],
-  include: ["src/**/*.{ts,tsx}", "i18n/**/*.{ts,tsx}", "localized-error/**/*.{ts,tsx}"],
+  include: ["src/**/*.{ts,tsx}", "localized-error/**/*.{ts,tsx}"],
   provider: "v8",
   reporter: ["text", "lcov"],
 } as const;
@@ -37,7 +33,6 @@ export default defineConfig({
       "@putdotio/localized-error": fileURLToPath(
         new URL("./localized-error/index.ts", import.meta.url),
       ),
-      "@putdotio/translations": fileURLToPath(new URL("./i18n/index.ts", import.meta.url)),
     },
   },
   test: {

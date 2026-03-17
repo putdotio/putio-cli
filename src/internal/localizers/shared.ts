@@ -4,7 +4,7 @@ import type {
   MatchConditionLocalizer,
 } from "@putdotio/localized-error";
 import { DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
-import { translate } from "@putdotio/translations";
+import { translate } from "../../i18n/index.js";
 
 import { getNestedErrorMessage, isPlainRecord, parseRetryAfterSeconds } from "./helpers.js";
 

@@ -1,8 +1,8 @@
 import { Command, Options } from "@effect/cli";
-import { translate } from "@putdotio/translations";
 import { Effect, Option } from "effect";
 
 import { getOption, outputOption, withAuthedSdk } from "../internal/command.js";
+import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderEventsTerminal } from "../internal/terminal/events-terminal.js";

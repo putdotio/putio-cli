@@ -1,4 +1,4 @@
-import { translate } from "@putdotio/translations";
+import { translate } from "../../i18n/index.js";
 
 export const renderDownloadLinksTerminal = (value: {
   readonly links_status: string;

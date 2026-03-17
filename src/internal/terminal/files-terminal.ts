@@ -1,4 +1,4 @@
-import { translate } from "@putdotio/translations";
+import { translate } from "../../i18n/index.js";
 
 import { humanFileSize } from "./format.js";
 import { renderTable, type TerminalColumn } from "./layout.js";
