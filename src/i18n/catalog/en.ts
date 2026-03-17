@@ -252,7 +252,7 @@ export const en = {
       transfersRetry: "Retry a failed transfer.",
       transfersWatch: "Watch a transfer until it finishes or the watch times out.",
       version: "Print the CLI version and render the brand mark in terminal mode.",
-      whoami: "Read broad account information through the official SDK.",
+      whoami: "Read broad account information through the put.io SDK.",
     },
     root: {
       chooseAuthSubcommand: "Choose `status`, `login`, `logout`, or `preview`.",

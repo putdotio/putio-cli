@@ -87,7 +87,7 @@ const resolveOfficialNodeRuntime = async () => {
   await unlink(archivePath);
 
   if (!existsSync(nodeBinary)) {
-    throw new Error(`Expected official Node runtime at ${nodeBinary}.`);
+    throw new Error(`Expected Node runtime at ${nodeBinary}.`);
   }
 
   return nodeBinary;

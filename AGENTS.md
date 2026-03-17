@@ -4,7 +4,7 @@ Development instructions for agents working on this repository.
 
 ## Repo
 
-- Standalone TypeScript package for the official put.io CLI
+- Standalone TypeScript package for the put.io CLI
 - Main code lives in `src/*`
 - Durable docs live in `docs/*`
 - Consumer-facing skills live in `skills/*`

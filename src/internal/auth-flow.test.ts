@@ -28,7 +28,7 @@ const mockRuntime: CliRuntimeService = {
 };
 
 describe("resolveAuthFlowConfig", () => {
-  it("uses the built-in official app id and sensible defaults", async () => {
+  it("uses the built-in CLI app id and sensible defaults", async () => {
     const result = await Effect.runPromise(
       resolveAuthFlowConfig().pipe(
         Effect.provide(makeCliAppLayer(makeCliRuntime({ hostName: "cli-test-host" }))),

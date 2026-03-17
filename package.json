@@ -1,7 +1,7 @@
 {
   "name": "@putdotio/cli",
   "version": "0.0.0",
-  "description": "Agent-first official CLI for the put.io API.",
+  "description": "Agent-first CLI for the put.io API.",
   "homepage": "https://github.com/putdotio/putio-cli#readme",
   "bugs": {
     "url": "https://github.com/putdotio/putio-cli/issues"
