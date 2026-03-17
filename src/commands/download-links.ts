@@ -122,6 +122,7 @@ const downloadLinksGet = Command.make(
       yield* writeReadOutput({
         command: "download-links get",
         output: controls.output,
+        outputMode: controls.outputMode,
         renderTerminalValue: renderDownloadLinksTerminal,
         requestedFields: controls.requestedFields,
         value: result,

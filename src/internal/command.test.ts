@@ -10,6 +10,18 @@ import {
   validateNameLikeInput,
   validateResourceIdentifier,
 } from "./command.js";
+import { makeCliRuntime, CliRuntime } from "./runtime.js";
+
+const provideRuntime = <A, E, R>(effect: Effect.Effect<A, E, R>, isInteractiveTerminal = true) =>
+  effect.pipe(
+    Effect.provideService(
+      CliRuntime,
+      makeCliRuntime({
+        argv: ["node", "putio"],
+        isInteractiveTerminal,
+      }),
+    ),
+  );
 
 describe("parseRepeatedIntegers", () => {
   it("parses repeated integer strings", () => {
@@ -56,26 +68,70 @@ describe("resolveReadOutputControls", () => {
   it("parses requested fields for json output", async () => {
     await expect(
       Effect.runPromise(
-        resolveReadOutputControls({
-          fields: Option.some("info, auth"),
-          output: "json",
-          pageAll: false,
-        }),
+        provideRuntime(
+          resolveReadOutputControls({
+            fields: Option.some("info, auth"),
+            output: "json",
+            pageAll: false,
+          }),
+        ),
       ),
     ).resolves.toEqual({
       output: "json",
+      outputMode: "json",
       pageAll: false,
       requestedFields: ["info", "auth"],
+    });
+  });
+
+  it("defaults to json in non-interactive mode", async () => {
+    await expect(
+      Effect.runPromise(
+        provideRuntime(
+          resolveReadOutputControls({
+            fields: Option.some("info"),
+            output: undefined,
+            pageAll: false,
+          }),
+          false,
+        ),
+      ),
+    ).resolves.toEqual({
+      output: undefined,
+      outputMode: "json",
+      pageAll: false,
+      requestedFields: ["info"],
+    });
+  });
+
+  it("accepts ndjson as structured output", async () => {
+    await expect(
+      Effect.runPromise(
+        provideRuntime(
+          resolveReadOutputControls({
+            fields: Option.some("info"),
+            output: "ndjson",
+            pageAll: true,
+          }),
+        ),
+      ),
+    ).resolves.toEqual({
+      output: "ndjson",
+      outputMode: "ndjson",
+      pageAll: true,
+      requestedFields: ["info"],
     });
   });
 
   it("rejects fields in terminal mode", async () => {
     await expect(
       Effect.runPromiseExit(
-        resolveReadOutputControls({
-          fields: Option.some("info"),
-          output: "text",
-        }),
+        provideRuntime(
+          resolveReadOutputControls({
+            fields: Option.some("info"),
+            output: "text",
+          }),
+        ),
       ),
     ).resolves.toMatchObject({
       _tag: "Failure",
@@ -85,11 +141,13 @@ describe("resolveReadOutputControls", () => {
   it("rejects page-all in terminal mode", async () => {
     await expect(
       Effect.runPromiseExit(
-        resolveReadOutputControls({
-          fields: Option.none(),
-          output: "text",
-          pageAll: true,
-        }),
+        provideRuntime(
+          resolveReadOutputControls({
+            fields: Option.none(),
+            output: "text",
+            pageAll: true,
+          }),
+        ),
       ),
     ).resolves.toMatchObject({
       _tag: "Failure",
@@ -98,10 +156,12 @@ describe("resolveReadOutputControls", () => {
 
   it("rejects malformed nested field selectors", async () => {
     const exit = await Effect.runPromiseExit(
-      resolveReadOutputControls({
-        fields: Option.some("info.username"),
-        output: "json",
-      }),
+      provideRuntime(
+        resolveReadOutputControls({
+          fields: Option.some("info.username"),
+          output: "json",
+        }),
+      ),
     );
 
     expect(exit._tag).toBe("Failure");
@@ -112,10 +172,12 @@ describe("resolveReadOutputControls", () => {
 
   it("rejects query fragments in field selectors", async () => {
     const exit = await Effect.runPromiseExit(
-      resolveReadOutputControls({
-        fields: Option.some("info?debug=1"),
-        output: "json",
-      }),
+      provideRuntime(
+        resolveReadOutputControls({
+          fields: Option.some("info?debug=1"),
+          output: "json",
+        }),
+      ),
     );
 
     expect(exit._tag).toBe("Failure");

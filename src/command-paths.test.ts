@@ -866,6 +866,48 @@ describe("cli command paths", () => {
     );
   });
 
+  it("streams file list pages as ndjson envelopes", async () => {
+    mocks.listFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: "cursor-1",
+        files: [{ id: 1, name: "Movies" }],
+        total: 2,
+      }),
+    );
+    mocks.continueFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: null,
+        files: [{ id: 2, name: "Shows" }],
+        total: 2,
+      }),
+    );
+
+    await expect(
+      runCliInTest(["putio", "files", "list", "--page-all", "--output", "ndjson"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenNthCalledWith(
+      1,
+      {
+        cursor: "cursor-1",
+        files: [{ id: 1, name: "Movies" }],
+        total: 2,
+      },
+      "ndjson",
+      expect.any(Function),
+    );
+    expect(mocks.writeOutputMock).toHaveBeenNthCalledWith(
+      2,
+      {
+        cursor: null,
+        files: [{ id: 2, name: "Shows" }],
+        total: 2,
+      },
+      "ndjson",
+      expect.any(Function),
+    );
+  });
+
   it("executes files rename", async () => {
     await expect(
       runCliInTest([
@@ -1055,9 +1097,11 @@ describe("cli command paths", () => {
     );
   });
 
-  it("rejects fields in terminal mode without calling the sdk", async () => {
-    await expect(runCliInTest(["putio", "whoami", "--fields", "info"])).rejects.toMatchObject({
-      message: "`--fields` requires `--output json`.",
+  it("rejects fields in interactive terminal mode without calling the sdk", async () => {
+    await expect(
+      runCliInTest(["putio", "whoami", "--fields", "info"], { isInteractiveTerminal: true }),
+    ).rejects.toMatchObject({
+      message: "`--fields` requires structured output (`--output json` or `--output ndjson`).",
     });
 
     expect(mocks.getAccountInfoMock).not.toHaveBeenCalled();
@@ -1277,6 +1321,24 @@ describe("cli command paths", () => {
         }),
       },
       "json",
+      expect.any(Function),
+    );
+  });
+
+  it("streams transfer watch observations as ndjson", async () => {
+    await expect(
+      runCliInTest(["putio", "transfers", "watch", "--id", "7", "--output", "ndjson"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        timedOut: false,
+        transfer: expect.objectContaining({
+          id: 7,
+          status: "COMPLETED",
+        }),
+      },
+      "ndjson",
       expect.any(Function),
     );
   });

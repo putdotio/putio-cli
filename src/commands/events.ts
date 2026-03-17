@@ -74,6 +74,7 @@ const eventsList = Command.make(
       yield* writeReadOutput({
         command: "events list",
         output: controls.output,
+        outputMode: controls.outputMode,
         renderTerminalValue: renderEventsTerminal,
         requestedFields: controls.requestedFields,
         value: result,

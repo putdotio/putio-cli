@@ -2,11 +2,18 @@ import { Options } from "@effect/cli";
 import { Data, Effect, Option, Schema } from "effect";
 
 import type { ResolvedAuthState } from "./state.js";
-import { normalizeOutputMode, renderJson, writeOutput } from "./output-service.js";
+import {
+  isStructuredOutputMode,
+  normalizeOutputMode,
+  renderJson,
+  writeOutput,
+  type OutputMode,
+} from "./output-service.js";
+import { CliRuntime } from "./runtime.js";
 import { provideSdk, sdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
 
-export const outputOption = Options.choice("output", ["json", "text"] as const).pipe(
+export const outputOption = Options.choice("output", ["json", "text", "ndjson"] as const).pipe(
   Options.optional,
 );
 export const dryRunOption = Options.boolean("dry-run").pipe(Options.withDefault(false));
@@ -22,6 +29,7 @@ export class CliCommandInputError extends Data.TaggedError("CliCommandInputError
 
 type ReadOutputControls = {
   readonly output: string | undefined;
+  readonly outputMode: OutputMode;
   readonly pageAll: boolean;
   readonly requestedFields: ReadonlyArray<string> | undefined;
 };
@@ -200,34 +208,39 @@ export const resolveReadOutputControls = (input: {
   readonly output: string | undefined;
   readonly pageAll?: boolean;
 }) =>
-  Effect.try({
-    try: () => {
-      const outputMode = normalizeOutputMode(input.output);
-      const requestedFields = Option.match(input.fields, {
-        onNone: () => undefined,
-        onSome: parseRequestedFields,
-      });
-
-      if (requestedFields && outputMode !== "json") {
-        throw new CliCommandInputError({
-          message: "`--fields` requires `--output json`.",
+  Effect.flatMap(CliRuntime, (runtime) =>
+    Effect.try({
+      try: () => {
+        const outputMode = normalizeOutputMode(input.output, runtime.isInteractiveTerminal);
+        const requestedFields = Option.match(input.fields, {
+          onNone: () => undefined,
+          onSome: parseRequestedFields,
         });
-      }
 
-      if (input.pageAll === true && outputMode !== "json") {
-        throw new CliCommandInputError({
-          message: "`--page-all` requires `--output json`.",
-        });
-      }
+        if (requestedFields && !isStructuredOutputMode(outputMode)) {
+          throw new CliCommandInputError({
+            message:
+              "`--fields` requires structured output (`--output json` or `--output ndjson`).",
+          });
+        }
 
-      return {
-        output: input.output,
-        pageAll: input.pageAll ?? false,
-        requestedFields,
-      } satisfies ReadOutputControls;
-    },
-    catch: (error) => mapInputError(error, "Unable to resolve the read output controls."),
-  });
+        if (input.pageAll === true && !isStructuredOutputMode(outputMode)) {
+          throw new CliCommandInputError({
+            message:
+              "`--page-all` requires structured output (`--output json` or `--output ndjson`).",
+          });
+        }
+
+        return {
+          output: input.output,
+          outputMode,
+          pageAll: input.pageAll ?? false,
+          requestedFields,
+        } satisfies ReadOutputControls;
+      },
+      catch: (error) => mapInputError(error, "Unable to resolve the read output controls."),
+    }),
+  );
 
 export const selectTopLevelFields = <A extends Record<string, unknown>>(input: {
   readonly command: string;
@@ -294,12 +307,13 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
 export const writeReadOutput = <A extends Record<string, unknown>>(input: {
   readonly command: string;
   readonly output: string | undefined;
+  readonly outputMode: OutputMode;
   readonly renderTerminalValue: (value: A) => string;
   readonly requestedFields: ReadonlyArray<string> | undefined;
   readonly value: A;
 }) =>
   Effect.gen(function* () {
-    if (normalizeOutputMode(input.output) === "json") {
+    if (isStructuredOutputMode(input.outputMode)) {
       const selectedValue = yield* selectTopLevelFields({
         command: input.command,
         requestedFields: input.requestedFields,
@@ -310,6 +324,62 @@ export const writeReadOutput = <A extends Record<string, unknown>>(input: {
     }
 
     return yield* writeOutput(input.value, input.output, input.renderTerminalValue);
+  });
+
+export const writeReadPages = <A extends Record<string, unknown>, E, R>(input: {
+  readonly command: string;
+  readonly controls: ReadOutputControls;
+  readonly continueWithCursor?: (cursor: string) => Effect.Effect<A, E, R>;
+  readonly initial: A;
+  readonly itemKey?: string;
+  readonly renderTerminalValue: (value: A) => string;
+}) =>
+  Effect.gen(function* () {
+    if (input.controls.outputMode !== "ndjson") {
+      const value =
+        input.controls.pageAll && input.itemKey && input.continueWithCursor
+          ? yield* collectAllCursorPages({
+              command: input.command,
+              continueWithCursor: input.continueWithCursor,
+              initial: input.initial,
+              itemKey: input.itemKey,
+              pageAll: true,
+            })
+          : input.initial;
+
+      return yield* writeReadOutput({
+        command: input.command,
+        output: input.controls.output,
+        outputMode: input.controls.outputMode,
+        renderTerminalValue: input.renderTerminalValue,
+        requestedFields: input.controls.requestedFields,
+        value,
+      });
+    }
+
+    let current = input.initial;
+
+    while (true) {
+      const selectedValue = yield* selectTopLevelFields({
+        command: input.command,
+        requestedFields: input.controls.requestedFields,
+        value: current,
+      });
+
+      yield* writeOutput(selectedValue, input.controls.output, renderJson);
+
+      if (!input.controls.pageAll || !input.continueWithCursor || !input.itemKey) {
+        return;
+      }
+
+      const cursor = readCursor(current);
+
+      if (cursor === null) {
+        return;
+      }
+
+      current = yield* input.continueWithCursor(cursor);
+    }
   });
 
 type DryRunPlan<A> = {

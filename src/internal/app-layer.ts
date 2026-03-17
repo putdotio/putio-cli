@@ -13,7 +13,7 @@ export const makeCliAppLayer = (runtime?: CliRuntimeService) => {
     NodeContext.layer,
     NodeTerminal.layer,
     runtimeLayer,
-    CliOutputLive,
+    CliOutputLive.pipe(Layer.provide(runtimeLayer)),
     CliConfigLive.pipe(Layer.provide(runtimeLayer)),
   );
 };

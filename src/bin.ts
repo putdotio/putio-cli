@@ -15,7 +15,7 @@ NodeRuntime.runMain(
         Effect.gen(function* () {
           const cliOutput = yield* CliOutput;
           const runtime = yield* CliRuntime;
-          const outputMode = detectOutputModeFromArgv(runtime.argv);
+          const outputMode = detectOutputModeFromArgv(runtime.argv, runtime.isInteractiveTerminal);
 
           yield* cliOutput.error(cliOutput.formatError(Cause.squash(cause), outputMode));
           yield* runtime.setExitCode(1);

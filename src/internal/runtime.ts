@@ -50,6 +50,7 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
 export const makeCliRuntime = (
   options: {
     readonly argv?: ReadonlyArray<string>;
+    readonly isInteractiveTerminal?: boolean;
     readonly platform?: NodeJS.Platform;
     readonly homeDirectory?: string;
     readonly hostName?: string;
@@ -59,7 +60,8 @@ export const makeCliRuntime = (
   const platform = options.platform ?? process.platform;
   const homeDirectory = options.homeDirectory ?? homedir();
   const hostName = options.hostName ?? hostname();
-  const isInteractiveTerminal = Boolean(process.stdout.isTTY && process.stdin.isTTY);
+  const isInteractiveTerminal =
+    options.isInteractiveTerminal ?? Boolean(process.stdout.isTTY && process.stdin.isTTY);
   const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
   return {

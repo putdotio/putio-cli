@@ -8,7 +8,12 @@ import { runCli as executeCli } from "../cli.js";
 import { makeCliAppLayer } from "../internal/app-layer.js";
 import { makeCliRuntime } from "../internal/runtime.js";
 
-export const runCliInTest = async (argv: ReadonlyArray<string>) => {
+export const runCliInTest = async (
+  argv: ReadonlyArray<string>,
+  options: {
+    readonly isInteractiveTerminal?: boolean;
+  } = {},
+) => {
   const processArgv = ["node", "putio", ...argv.slice(1)];
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-test-"));
   const configPath = join(configDir, "config.json");
@@ -29,6 +34,7 @@ export const runCliInTest = async (argv: ReadonlyArray<string>) => {
             makeCliRuntime({
               argv: processArgv,
               homeDirectory: configDir,
+              isInteractiveTerminal: options.isInteractiveTerminal,
             }),
           ),
         ),

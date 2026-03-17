@@ -6,7 +6,7 @@ import { normalizeOutputMode } from "./output-service.js";
 export const shouldUseTerminalLoader = (
   output: string | undefined,
   isInteractiveTerminal: boolean,
-) => normalizeOutputMode(output) === "terminal" && isInteractiveTerminal;
+) => normalizeOutputMode(output, isInteractiveTerminal) === "terminal" && isInteractiveTerminal;
 
 export const withTerminalLoader = <A, E, R>(
   options: {

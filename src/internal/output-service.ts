@@ -2,27 +2,54 @@ import { LocalizedError } from "@putdotio/sdk/utilities";
 import { Console, Context, Effect, Layer } from "effect";
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";
+import { CliRuntime } from "./runtime.js";
 import { renderCliErrorTerminal, type CliTerminalErrorView } from "./terminal/error-terminal.js";
 
-type OutputMode = "json" | "terminal";
+export type OutputMode = "json" | "ndjson" | "terminal";
+type RequestedOutputMode = "json" | "ndjson" | "text" | undefined;
 
-export const normalizeOutputMode = (output: string | undefined): OutputMode =>
-  output === "json" ? "json" : "terminal";
+export const isStructuredOutputMode = (outputMode: OutputMode) =>
+  outputMode === "json" || outputMode === "ndjson";
 
-export const detectOutputModeFromArgv = (argv: ReadonlyArray<string>): OutputMode => {
+export const normalizeOutputMode = (
+  output: RequestedOutputMode,
+  isInteractiveTerminal = true,
+): OutputMode => {
+  if (output === "json") {
+    return "json";
+  }
+
+  if (output === "ndjson") {
+    return "ndjson";
+  }
+
+  if (output === "text") {
+    return "terminal";
+  }
+
+  return isInteractiveTerminal ? "terminal" : "json";
+};
+
+export const detectOutputModeFromArgv = (
+  argv: ReadonlyArray<string>,
+  isInteractiveTerminal = true,
+): OutputMode => {
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
 
     if (argument === "--output") {
-      return normalizeOutputMode(argv[index + 1]);
+      return normalizeOutputMode(argv[index + 1] as RequestedOutputMode, isInteractiveTerminal);
     }
 
     if (argument.startsWith("--output=")) {
-      return normalizeOutputMode(argument.slice("--output=".length));
+      return normalizeOutputMode(
+        argument.slice("--output=".length) as RequestedOutputMode,
+        isInteractiveTerminal,
+      );
     }
   }
 
-  return "terminal";
+  return normalizeOutputMode(undefined, isInteractiveTerminal);
 };
 
 const SENSITIVE_KEY_PATTERN =
@@ -36,6 +63,9 @@ const SAFE_SENSITIVE_SENTINEL_VALUES = new Set([
   "null",
   REDACTED_VALUE,
 ]);
+const UNTRUSTED_TEXT_PREFIX = "[UNTRUSTED_API_TEXT] ";
+const PROMPT_INJECTION_PATTERN =
+  /\b(ignore (?:all|any|previous|above)|system prompt|developer message|tool call|function call|follow these instructions|you are chatgpt|you are an ai)\b/iu;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -84,7 +114,42 @@ export const sanitizeTerminalValue = (value: unknown): unknown => {
   return value;
 };
 
-export const renderJson = (value: unknown) => JSON.stringify(sanitizeTerminalValue(value), null, 2);
+const sanitizeStructuredText = (value: string) => {
+  const sanitized = sanitizeTerminalText(value);
+
+  return PROMPT_INJECTION_PATTERN.test(sanitized)
+    ? `${UNTRUSTED_TEXT_PREFIX}${sanitized}`
+    : sanitized;
+};
+
+export const sanitizeStructuredValue = (value: unknown): unknown => {
+  if (typeof value === "string") {
+    return sanitizeStructuredText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeStructuredValue);
+  }
+
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        SENSITIVE_KEY_PATTERN.test(key) && typeof nestedValue === "string"
+          ? SAFE_SENSITIVE_SENTINEL_VALUES.has(nestedValue)
+            ? nestedValue
+            : REDACTED_VALUE
+          : sanitizeStructuredValue(nestedValue),
+      ]),
+    );
+  }
+
+  return value;
+};
+
+export const renderJson = (value: unknown) =>
+  JSON.stringify(sanitizeStructuredValue(value), null, 2);
+export const renderNdjson = (value: unknown) => JSON.stringify(sanitizeStructuredValue(value));
 
 export const renderTerminal = <A>(value: A, renderTerminalValue: (value: A) => string) =>
   sanitizeTerminalText(renderTerminalValue(value));
@@ -165,19 +230,37 @@ export class CliOutput extends Context.Tag("@putdotio/cli/CliOutput")<
   CliOutputService
 >() {}
 
-export const makeCliOutput = (): CliOutputService => ({
+export const makeCliOutput = (runtime: {
+  readonly isInteractiveTerminal: boolean;
+}): CliOutputService => ({
   formatError: (error, output) =>
-    normalizeOutputMode(output) === "json" ? formatCliErrorJson(error) : formatCliError(error),
+    isStructuredOutputMode(
+      normalizeOutputMode(output as RequestedOutputMode, runtime.isInteractiveTerminal),
+    )
+      ? formatCliErrorJson(error)
+      : formatCliError(error),
   error: (message) => Console.error(sanitizeTerminalText(message)),
   write: (value, output, renderTerminalValue) =>
     Console.log(
-      normalizeOutputMode(output) === "terminal"
-        ? renderTerminal(value, renderTerminalValue)
-        : renderJson(value),
+      (() => {
+        const outputMode = normalizeOutputMode(
+          output as RequestedOutputMode,
+          runtime.isInteractiveTerminal,
+        );
+
+        switch (outputMode) {
+          case "terminal":
+            return renderTerminal(value, renderTerminalValue);
+          case "ndjson":
+            return renderNdjson(value);
+          case "json":
+            return renderJson(value);
+        }
+      })(),
     ),
 });
 
-export const CliOutputLive = Layer.sync(CliOutput, makeCliOutput);
+export const CliOutputLive = Layer.effect(CliOutput, Effect.map(CliRuntime, makeCliOutput));
 
 export const writeOutput = <A>(
   value: A,

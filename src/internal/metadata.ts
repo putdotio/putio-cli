@@ -65,9 +65,10 @@ export const describeCli = () =>
     commands: commandCatalog,
     name: packageJson.name,
     output: {
-      default: "text",
-      internalRenderers: ["json", "terminal"],
-      supported: ["json", "text"],
+      defaultInteractive: "text",
+      defaultNonInteractive: "json",
+      internalRenderers: ["json", "terminal", "ndjson"],
+      supported: ["json", "text", "ndjson"],
     },
     version: packageJson.version,
   });

@@ -3,7 +3,6 @@ import { Clock, Duration, Effect, Option, Schema } from "effect";
 
 import {
   CliCommandInputError,
-  collectAllCursorPages,
   dryRunOption,
   fieldsOption,
   getOption,
@@ -16,6 +15,7 @@ import {
   withAuthedSdk,
   writeDryRunPlan,
   writeReadOutput,
+  writeReadPages,
 } from "../internal/command.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -45,21 +45,31 @@ const NonEmptyIdsSchema = Schema.Array(Schema.Number).pipe(
   }),
 );
 
-const TransferAddItemSchema = Schema.Struct({
+export const TransferAddItemSchema = Schema.Struct({
   callback_url: Schema.optional(NonEmptyStringSchema),
   save_parent_id: Schema.optional(Schema.Number),
   url: NonEmptyStringSchema,
 });
 
-const TransfersCancelInputSchema = Schema.Struct({
+export const TransfersAddInputSchema = Schema.Array(TransferAddItemSchema).pipe(
+  Schema.filter(
+    (value): value is ReadonlyArray<Schema.Schema.Type<typeof TransferAddItemSchema>> =>
+      value.length > 0,
+    {
+      message: () => "Expected at least one transfer input",
+    },
+  ),
+);
+
+export const TransfersCancelInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
 });
 
-const TransfersSingleIdInputSchema = Schema.Struct({
+export const TransfersSingleIdInputSchema = Schema.Struct({
   id: Schema.Number,
 });
 
-const TransfersCleanInputSchema = Schema.Struct({
+export const TransfersCleanInputSchema = Schema.Struct({
   ids: Schema.optional(NonEmptyIdsSchema),
 });
 
@@ -164,31 +174,20 @@ const transfersList = Command.make(
           output: controls.output,
         },
         withAuthedSdk(({ sdk }) =>
-          sdk.transfers
-            .list({
-              per_page: perPageValue,
-            })
-            .pipe(
-              Effect.flatMap((initial) =>
-                collectAllCursorPages({
-                  command: "transfers list",
-                  continueWithCursor: (cursor) =>
-                    sdk.transfers.continue(cursor, { per_page: perPageValue }),
-                  initial,
-                  itemKey: "transfers",
-                  pageAll: controls.pageAll,
-                }),
-              ),
-            ),
+          sdk.transfers.list({
+            per_page: perPageValue,
+          }),
         ),
       );
 
-      yield* writeReadOutput({
+      yield* writeReadPages({
         command: "transfers list",
-        output: controls.output,
+        continueWithCursor: (cursor) =>
+          withAuthedSdk(({ sdk }) => sdk.transfers.continue(cursor, { per_page: perPageValue })),
+        controls,
+        initial: result,
+        itemKey: "transfers",
         renderTerminalValue: renderTransfersTerminal,
-        requestedFields: controls.requestedFields,
-        value: result,
       });
     }),
 );
@@ -218,15 +217,7 @@ const transfersAdd = Command.make(
           }));
         },
         json,
-        schema: Schema.Array(TransferAddItemSchema).pipe(
-          Schema.filter(
-            (value): value is ReadonlyArray<Schema.Schema.Type<typeof TransferAddItemSchema>> =>
-              value.length > 0,
-            {
-              message: () => "Expected at least one transfer input",
-            },
-          ),
-        ),
+        schema: TransfersAddInputSchema,
       });
 
       if (dryRun) {
@@ -427,17 +418,84 @@ const transfersWatch = Command.make(
             const current = yield* withAuthedSdk(({ sdk }) => sdk.transfers.get(id));
 
             if (isTerminalTransferStatus(current.status)) {
-              return {
+              const value = {
                 timedOut: false,
                 transfer: current,
               } as const;
+
+              if (controls.outputMode === "ndjson") {
+                yield* writeReadOutput({
+                  command: "transfers watch",
+                  output: controls.output,
+                  outputMode: controls.outputMode,
+                  renderTerminalValue: (terminalValue) =>
+                    [
+                      renderTransferWatchFinishedTerminal({
+                        id: terminalValue.transfer.id,
+                        status: terminalValue.transfer.status,
+                        timedOut: terminalValue.timedOut,
+                      }),
+                      "",
+                      renderTransfersTerminal({ transfers: [terminalValue.transfer] }),
+                    ].join("\n"),
+                  requestedFields: controls.requestedFields,
+                  value,
+                });
+              }
+
+              return value;
             }
 
             if ((yield* Clock.currentTimeMillis) - startedAt >= timeoutMs) {
-              return {
+              const value = {
                 timedOut: true,
                 transfer: current,
               } as const;
+
+              if (controls.outputMode === "ndjson") {
+                yield* writeReadOutput({
+                  command: "transfers watch",
+                  output: controls.output,
+                  outputMode: controls.outputMode,
+                  renderTerminalValue: (terminalValue) =>
+                    [
+                      renderTransferWatchFinishedTerminal({
+                        id: terminalValue.transfer.id,
+                        status: terminalValue.transfer.status,
+                        timedOut: terminalValue.timedOut,
+                      }),
+                      "",
+                      renderTransfersTerminal({ transfers: [terminalValue.transfer] }),
+                    ].join("\n"),
+                  requestedFields: controls.requestedFields,
+                  value,
+                });
+              }
+
+              return value;
+            }
+
+            if (controls.outputMode === "ndjson") {
+              yield* writeReadOutput({
+                command: "transfers watch",
+                output: controls.output,
+                outputMode: controls.outputMode,
+                renderTerminalValue: (terminalValue) =>
+                  [
+                    renderTransferWatchFinishedTerminal({
+                      id: terminalValue.transfer.id,
+                      status: terminalValue.transfer.status,
+                      timedOut: terminalValue.timedOut,
+                    }),
+                    "",
+                    renderTransfersTerminal({ transfers: [terminalValue.transfer] }),
+                  ].join("\n"),
+                requestedFields: controls.requestedFields,
+                value: {
+                  timedOut: false,
+                  transfer: current,
+                },
+              });
             }
 
             yield* Effect.sleep(Duration.millis(intervalMs));
@@ -445,9 +503,14 @@ const transfersWatch = Command.make(
         }),
       );
 
+      if (controls.outputMode === "ndjson") {
+        return;
+      }
+
       yield* writeReadOutput({
         command: "transfers watch",
         output: controls.output,
+        outputMode: controls.outputMode,
         renderTerminalValue: (value) =>
           [
             renderTransferWatchFinishedTerminal({

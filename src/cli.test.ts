@@ -97,8 +97,9 @@ describe("cli argv parsing", () => {
     expect(parseJsonOutput(stdout)).toMatchObject({
       binary: "putio",
       output: {
-        default: "text",
-        internalRenderers: ["json", "terminal"],
+        defaultInteractive: "text",
+        defaultNonInteractive: "json",
+        internalRenderers: ["json", "terminal", "ndjson"],
       },
     });
     expect(parseJsonOutput(stdout).commands).toEqual(
@@ -151,6 +152,17 @@ describe("cli argv parsing", () => {
 
   it("renders auth status as json without a configured token", async () => {
     const { result, stdout } = await runCli(["putio", "auth", "status", "--output", "json"]);
+
+    expect(result._tag).toBe("Right");
+    expect(parseJsonOutput(stdout)).toMatchObject({
+      apiBaseUrl: "https://api.put.io",
+      authenticated: false,
+      source: null,
+    });
+  });
+
+  it("defaults to json output for non-interactive auth status", async () => {
+    const { result, stdout } = await runCli(["putio", "auth", "status"]);
 
     expect(result._tag).toBe("Right");
     expect(parseJsonOutput(stdout)).toMatchObject({

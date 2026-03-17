@@ -19,16 +19,17 @@ describe("describeCli", () => {
     );
 
     expect(metadata.binary).toBe("putio");
-    expect(metadata.output.default).toBe("text");
-    expect(metadata.output.internalRenderers).toEqual(["json", "terminal"]);
+    expect(metadata.output.defaultInteractive).toBe("text");
+    expect(metadata.output.defaultNonInteractive).toBe("json");
+    expect(metadata.output.internalRenderers).toEqual(["json", "terminal", "ndjson"]);
     expect(metadata.commands.map((command) => command.command)).toEqual([
       "describe",
       "brand",
       "version",
-      "auth status",
       "auth login",
-      "auth preview",
+      "auth status",
       "auth logout",
+      "auth preview",
       "whoami",
       "download-links create",
       "download-links get",
@@ -76,6 +77,7 @@ describe("describeCli", () => {
     expect(filesListCommand).toMatchObject({
       capabilities: {
         fieldSelection: true,
+        streaming: true,
       },
       input: {
         flags: expect.arrayContaining([
@@ -142,6 +144,7 @@ describe("describeCli", () => {
     expect(transfersListCommand).toMatchObject({
       capabilities: {
         fieldSelection: true,
+        streaming: true,
       },
       input: {
         flags: expect.arrayContaining([

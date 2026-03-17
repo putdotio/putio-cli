@@ -3,7 +3,6 @@ import { Effect, Option, Schema } from "effect";
 
 import {
   CliCommandInputError,
-  collectAllCursorPages,
   dryRunOption,
   fieldsOption,
   getOption,
@@ -16,7 +15,7 @@ import {
   validateNameLikeInput,
   withAuthedSdk,
   writeDryRunPlan,
-  writeReadOutput,
+  writeReadPages,
 } from "../internal/command.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -71,22 +70,22 @@ const NonEmptyIdsSchema = Schema.Array(Schema.Number).pipe(
   }),
 );
 
-const FilesMkdirInputSchema = Schema.Struct({
+export const FilesMkdirInputSchema = Schema.Struct({
   name: NonEmptyStringSchema,
   parent_id: Schema.optional(Schema.Number),
 });
 
-const FilesRenameInputSchema = Schema.Struct({
+export const FilesRenameInputSchema = Schema.Struct({
   file_id: Schema.Number,
   name: NonEmptyStringSchema,
 });
 
-const FilesDeleteInputSchema = Schema.Struct({
+export const FilesDeleteInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
   skipTrash: Schema.optional(Schema.Boolean),
 });
 
-const FilesMoveInputSchema = Schema.Struct({
+export const FilesMoveInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
   parentId: Schema.Number,
 });
@@ -209,28 +208,17 @@ const filesList = Command.make(
           message: translate("cli.files.command.loading"),
           output: controls.output,
         },
-        withAuthedSdk(({ sdk }) =>
-          sdk.files.list(parent, query).pipe(
-            Effect.flatMap((initial) =>
-              collectAllCursorPages({
-                command: "files list",
-                continueWithCursor: (cursor) =>
-                  sdk.files.continue(cursor, { per_page: perPageValue }),
-                initial,
-                itemKey: "files",
-                pageAll: controls.pageAll,
-              }),
-            ),
-          ),
-        ),
+        withAuthedSdk(({ sdk }) => sdk.files.list(parent, query)),
       );
 
-      yield* writeReadOutput({
+      yield* writeReadPages({
         command: "files list",
-        output: controls.output,
+        continueWithCursor: (cursor) =>
+          withAuthedSdk(({ sdk }) => sdk.files.continue(cursor, { per_page: perPageValue })),
+        controls,
+        initial: result,
+        itemKey: "files",
         renderTerminalValue: renderFilesTerminal,
-        requestedFields: controls.requestedFields,
-        value: result,
       });
     }),
 );
@@ -454,28 +442,17 @@ const filesSearchCommand = Command.make(
           message: translate("cli.files.command.searching", { query }),
           output: controls.output,
         },
-        withAuthedSdk(({ sdk }) =>
-          sdk.files.search(searchQuery).pipe(
-            Effect.flatMap((initial) =>
-              collectAllCursorPages({
-                command: "files search",
-                continueWithCursor: (cursor) =>
-                  sdk.files.continueSearch(cursor, { per_page: perPageValue }),
-                initial,
-                itemKey: "files",
-                pageAll: controls.pageAll,
-              }),
-            ),
-          ),
-        ),
+        withAuthedSdk(({ sdk }) => sdk.files.search(searchQuery)),
       );
 
-      yield* writeReadOutput({
+      yield* writeReadPages({
         command: "files search",
-        output: controls.output,
+        continueWithCursor: (cursor) =>
+          withAuthedSdk(({ sdk }) => sdk.files.continueSearch(cursor, { per_page: perPageValue })),
+        controls,
+        initial: result,
+        itemKey: "files",
         renderTerminalValue: renderFilesTerminal,
-        requestedFields: controls.requestedFields,
-        value: result,
       });
     }),
 );

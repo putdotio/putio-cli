@@ -86,7 +86,11 @@ const authLogin = Command.make(
   { open: openOption, output: outputOption, timeoutSeconds: timeoutSecondsOption },
   ({ open, output, timeoutSeconds }) =>
     Effect.gen(function* () {
-      const outputMode = normalizeOutputMode(getOption(output));
+      const runtimeService = yield* CliRuntime;
+      const outputMode = normalizeOutputMode(
+        getOption(output),
+        runtimeService.isInteractiveTerminal,
+      );
       const runtime = yield* resolveCliRuntimeConfig();
       const apiBaseUrl = runtime.apiBaseUrl;
       const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1_000;

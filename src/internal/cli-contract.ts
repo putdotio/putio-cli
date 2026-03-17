@@ -1,265 +1,40 @@
-import { Schema } from "effect";
-
+import { DownloadLinksCreateInputSchema } from "../commands/download-links.js";
+import {
+  FilesDeleteInputSchema,
+  FilesMkdirInputSchema,
+  FilesMoveInputSchema,
+  FilesRenameInputSchema,
+} from "../commands/files.js";
+import {
+  TransfersAddInputSchema,
+  TransfersCancelInputSchema,
+  TransfersCleanInputSchema,
+  TransfersSingleIdInputSchema,
+} from "../commands/transfers.js";
 import { translate } from "../i18n/index.js";
 
-const NonEmptyStringSchema = Schema.String.pipe(
-  Schema.filter((value): value is string => value.length > 0, {
-    message: () => "Expected a non-empty string",
-  }),
-);
+import {
+  CliOutputContractSchema,
+  CommandDescriptorSchema,
+  booleanFlag,
+  decodeCommandSpecs,
+  dryRunFlag,
+  enumFlag,
+  fieldsFlag,
+  integerFlag,
+  jsonFlag,
+  jsonShapeFromSchema,
+  outputFlag,
+  pageAllFlag,
+  repeatedIntegerFlag,
+  repeatedStringFlag,
+  stringFlag,
+  type CliOutputContract,
+  type CommandDescriptor,
+} from "./command-specs.js";
 
-const OutputModeSchema = Schema.Literal("json", "text");
-const InternalRendererSchema = Schema.Literal("json", "terminal");
-const CommandKindSchema = Schema.Literal("utility", "auth", "read", "write");
-const CommandOptionTypeSchema = Schema.Literal("string", "integer", "boolean", "enum");
-
-const JsonScalarSchema = Schema.Struct({
-  kind: Schema.Literal("string", "integer", "boolean"),
-});
-
-type JsonShape = CommandJsonShape;
-
-const JsonPropertySchema: Schema.Schema<JsonProperty> = Schema.Struct({
-  name: NonEmptyStringSchema,
-  required: Schema.Boolean,
-  schema: Schema.suspend(() => CommandJsonShapeSchema),
-});
-
-const JsonObjectSchema = Schema.Struct({
-  kind: Schema.Literal("object"),
-  properties: Schema.Array(JsonPropertySchema),
-  rules: Schema.optional(Schema.Array(NonEmptyStringSchema)),
-});
-
-const JsonArraySchema = Schema.Struct({
-  kind: Schema.Literal("array"),
-  items: Schema.suspend(() => CommandJsonShapeSchema),
-});
-
-export const CommandJsonShapeSchema: Schema.Schema<CommandJsonShape> = Schema.Union(
-  JsonScalarSchema,
-  JsonObjectSchema,
-  JsonArraySchema,
-);
-
-export type JsonProperty = {
-  readonly name: string;
-  readonly required: boolean;
-  readonly schema: CommandJsonShape;
-};
-
-export type CommandJsonShape =
-  | {
-      readonly kind: "string" | "integer" | "boolean";
-    }
-  | {
-      readonly kind: "array";
-      readonly items: CommandJsonShape;
-    }
-  | {
-      readonly kind: "object";
-      readonly properties: ReadonlyArray<JsonProperty>;
-      readonly rules?: ReadonlyArray<string>;
-    };
-
-export const CommandOptionSchema = Schema.Struct({
-  choices: Schema.optional(Schema.Array(NonEmptyStringSchema)),
-  defaultValue: Schema.optional(Schema.Union(NonEmptyStringSchema, Schema.Number, Schema.Boolean)),
-  description: Schema.optional(NonEmptyStringSchema),
-  name: NonEmptyStringSchema,
-  repeated: Schema.Boolean,
-  required: Schema.Boolean,
-  type: CommandOptionTypeSchema,
-});
-
-export type CommandOption = Schema.Schema.Type<typeof CommandOptionSchema>;
-
-const CommandInputSchema = Schema.Struct({
-  flags: Schema.Array(CommandOptionSchema),
-  json: Schema.optional(CommandJsonShapeSchema),
-});
-
-const CommandCapabilitiesSchema = Schema.Struct({
-  dryRun: Schema.Boolean,
-  fieldSelection: Schema.Boolean,
-  rawJsonInput: Schema.Boolean,
-  streaming: Schema.Boolean,
-});
-
-const CommandAuthSchema = Schema.Struct({
-  required: Schema.Boolean,
-});
-
-export const CommandDescriptorSchema = Schema.Struct({
-  auth: CommandAuthSchema,
-  capabilities: CommandCapabilitiesSchema,
-  command: NonEmptyStringSchema,
-  input: CommandInputSchema,
-  kind: CommandKindSchema,
-  purpose: NonEmptyStringSchema,
-});
-
-export type CommandDescriptor = Schema.Schema.Type<typeof CommandDescriptorSchema>;
-
-export const CliOutputContractSchema = Schema.Struct({
-  default: Schema.Literal("text"),
-  internalRenderers: Schema.Array(InternalRendererSchema),
-  supported: Schema.Array(OutputModeSchema),
-});
-
-export type CliOutputContract = Schema.Schema.Type<typeof CliOutputContractSchema>;
-
-const decodeCommandCatalog = Schema.decodeUnknownSync(Schema.Array(CommandDescriptorSchema));
-
-const stringShape = (): JsonShape => ({ kind: "string" });
-const integerShape = (): JsonShape => ({ kind: "integer" });
-const booleanShape = (): JsonShape => ({ kind: "boolean" });
-const arrayShape = (items: JsonShape): JsonShape => ({ kind: "array", items });
-const property = (name: string, schema: JsonShape, required = true): JsonProperty => ({
-  name,
-  required,
-  schema,
-});
-const objectShape = (
-  properties: ReadonlyArray<JsonProperty>,
-  rules?: ReadonlyArray<string>,
-): JsonShape => ({
-  kind: "object",
-  properties,
-  rules,
-});
-
-const outputFlag = (): CommandOption => ({
-  choices: ["json", "text"],
-  name: "output",
-  repeated: false,
-  required: false,
-  type: "enum",
-});
-
-const dryRunFlag = (): CommandOption => ({
-  defaultValue: false,
-  name: "dry-run",
-  repeated: false,
-  required: false,
-  type: "boolean",
-});
-
-const jsonFlag = (): CommandOption => ({
-  name: "json",
-  repeated: false,
-  required: false,
-  type: "string",
-});
-
-const fieldsFlag = (): CommandOption => ({
-  description:
-    "Comma-separated top-level response fields only. Requires `--output json` and rejects dots, brackets, path traversal, and query fragments.",
-  name: "fields",
-  repeated: false,
-  required: false,
-  type: "string",
-});
-
-const pageAllFlag = (): CommandOption => ({
-  defaultValue: false,
-  description:
-    "Continue cursor-backed reads until the cursor is exhausted. Requires `--output json`.",
-  name: "page-all",
-  repeated: false,
-  required: false,
-  type: "boolean",
-});
-
-const booleanFlag = (
-  name: string,
-  options: {
-    readonly defaultValue?: boolean;
-    readonly description?: string;
-    readonly required?: boolean;
-  } = {},
-): CommandOption => ({
-  defaultValue: options.defaultValue,
-  description: options.description,
-  name,
-  repeated: false,
-  required: options.required ?? false,
-  type: "boolean",
-});
-
-const integerFlag = (
-  name: string,
-  options: {
-    readonly description?: string;
-    readonly required?: boolean;
-  } = {},
-): CommandOption => ({
-  description: options.description,
-  name,
-  repeated: false,
-  required: options.required ?? false,
-  type: "integer",
-});
-
-const repeatedIntegerFlag = (
-  name: string,
-  options: {
-    readonly description?: string;
-    readonly required?: boolean;
-  } = {},
-): CommandOption => ({
-  description: options.description,
-  name,
-  repeated: true,
-  required: options.required ?? false,
-  type: "integer",
-});
-
-const stringFlag = (
-  name: string,
-  options: {
-    readonly defaultValue?: string;
-    readonly description?: string;
-    readonly required?: boolean;
-  } = {},
-): CommandOption => ({
-  defaultValue: options.defaultValue,
-  description: options.description,
-  name,
-  repeated: false,
-  required: options.required ?? false,
-  type: "string",
-});
-
-const repeatedStringFlag = (
-  name: string,
-  options: {
-    readonly description?: string;
-    readonly required?: boolean;
-  } = {},
-): CommandOption => ({
-  description: options.description,
-  name,
-  repeated: true,
-  required: options.required ?? false,
-  type: "string",
-});
-
-const enumFlag = (
-  name: string,
-  choices: ReadonlyArray<string>,
-  options: {
-    readonly description?: string;
-    readonly required?: boolean;
-  } = {},
-): CommandOption => ({
-  choices: [...choices],
-  description: options.description,
-  name,
-  repeated: false,
-  required: options.required ?? false,
-  type: "enum",
-});
+export { CliOutputContractSchema, CommandDescriptorSchema };
+export type { CliOutputContract, CommandDescriptor };
 
 const fileTypeChoices = [
   "FOLDER",
@@ -302,49 +77,32 @@ const eventTypeChoices = [
   "zip_created",
 ] as const;
 
-const command = (
-  descriptor: Omit<CommandDescriptor, "input"> & {
-    readonly input?: CommandDescriptor["input"];
-  },
-): CommandDescriptor => ({
-  ...descriptor,
-  input: descriptor.input ?? { flags: [] },
-});
-
-export const commandCatalog = decodeCommandCatalog([
-  command({
+export const commandCatalog = decodeCommandSpecs([
+  {
     auth: { required: false },
     capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
     command: "describe",
     input: { flags: [] },
     kind: "utility",
     purpose: translate("cli.metadata.describe"),
-  }),
-  command({
+  },
+  {
     auth: { required: false },
     capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
     command: "brand",
     input: { flags: [outputFlag()] },
     kind: "utility",
     purpose: translate("cli.metadata.brand"),
-  }),
-  command({
+  },
+  {
     auth: { required: false },
     capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
     command: "version",
     input: { flags: [outputFlag()] },
     kind: "utility",
     purpose: translate("cli.metadata.version"),
-  }),
-  command({
-    auth: { required: false },
-    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
-    command: "auth status",
-    input: { flags: [outputFlag()] },
-    kind: "auth",
-    purpose: translate("cli.metadata.authStatus"),
-  }),
-  command({
+  },
+  {
     auth: { required: false },
     capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
     command: "auth login",
@@ -357,41 +115,42 @@ export const commandCatalog = decodeCommandCatalog([
     },
     kind: "auth",
     purpose: translate("cli.metadata.authLogin"),
-  }),
-  command({
+  },
+  {
     auth: { required: false },
     capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
-    command: "auth preview",
-    input: {
-      flags: [
-        stringFlag("code", {
-          defaultValue: "PUTIO1",
-          description: "Plain auth preview code. Rejects query fragments and path traversal.",
-        }),
-        booleanFlag("open", { defaultValue: false }),
-        outputFlag(),
-      ],
-    },
+    command: "auth status",
+    input: { flags: [outputFlag()] },
     kind: "auth",
-    purpose: translate("cli.metadata.authPreview"),
-  }),
-  command({
+    purpose: translate("cli.metadata.authStatus"),
+  },
+  {
     auth: { required: false },
     capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
     command: "auth logout",
     input: { flags: [outputFlag()] },
     kind: "auth",
     purpose: translate("cli.metadata.authLogout"),
-  }),
-  command({
+  },
+  {
+    auth: { required: false },
+    capabilities: { dryRun: false, fieldSelection: false, rawJsonInput: false, streaming: false },
+    command: "auth preview",
+    input: {
+      flags: [stringFlag("code", { required: true }), booleanFlag("open"), outputFlag()],
+    },
+    kind: "auth",
+    purpose: translate("cli.metadata.authPreview"),
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "whoami",
     input: { flags: [fieldsFlag(), outputFlag()] },
     kind: "read",
     purpose: translate("cli.metadata.whoami"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "download-links create",
@@ -404,27 +163,22 @@ export const commandCatalog = decodeCommandCatalog([
         jsonFlag(),
         outputFlag(),
       ],
-      json: objectShape(
-        [
-          property("cursor", stringShape(), false),
-          property("excludeIds", arrayShape(integerShape()), false),
-          property("ids", arrayShape(integerShape()), false),
-        ],
-        ["Provide at least one ids entry or a cursor value."],
-      ),
+      json: jsonShapeFromSchema(DownloadLinksCreateInputSchema, [
+        "Provide at least one ids entry or a cursor value.",
+      ]),
     },
     kind: "write",
     purpose: translate("cli.metadata.downloadLinksCreate"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "download-links get",
     input: { flags: [fieldsFlag(), integerFlag("id", { required: true }), outputFlag()] },
     kind: "read",
     purpose: translate("cli.metadata.downloadLinksGet"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
     command: "events list",
@@ -439,10 +193,10 @@ export const commandCatalog = decodeCommandCatalog([
     },
     kind: "read",
     purpose: translate("cli.metadata.eventsList"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: true },
     command: "files list",
     input: {
       flags: [
@@ -459,36 +213,34 @@ export const commandCatalog = decodeCommandCatalog([
     },
     kind: "read",
     purpose: translate("cli.metadata.filesList"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "files mkdir",
     input: {
       flags: [dryRunFlag(), jsonFlag(), outputFlag(), integerFlag("parent-id"), stringFlag("name")],
-      json: objectShape(
-        [property("name", stringShape()), property("parent_id", integerShape(), false)],
-        ["`name` rejects control characters and path traversal segments like `../` or `%2e`."],
-      ),
+      json: jsonShapeFromSchema(FilesMkdirInputSchema, [
+        "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
+      ]),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesMkdir"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "files rename",
     input: {
       flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), stringFlag("name"), outputFlag()],
-      json: objectShape(
-        [property("file_id", integerShape()), property("name", stringShape())],
-        ["`name` rejects control characters and path traversal segments like `../` or `%2e`."],
-      ),
+      json: jsonShapeFromSchema(FilesRenameInputSchema, [
+        "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
+      ]),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesRename"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "files move",
@@ -500,15 +252,12 @@ export const commandCatalog = decodeCommandCatalog([
         outputFlag(),
         integerFlag("parent-id"),
       ],
-      json: objectShape([
-        property("ids", arrayShape(integerShape())),
-        property("parentId", integerShape()),
-      ]),
+      json: jsonShapeFromSchema(FilesMoveInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesMove"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "files delete",
@@ -520,17 +269,14 @@ export const commandCatalog = decodeCommandCatalog([
         outputFlag(),
         booleanFlag("skip-trash", { defaultValue: false }),
       ],
-      json: objectShape([
-        property("ids", arrayShape(integerShape())),
-        property("skipTrash", booleanShape(), false),
-      ]),
+      json: jsonShapeFromSchema(FilesDeleteInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesDelete"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: true },
     command: "files search",
     input: {
       flags: [
@@ -544,10 +290,10 @@ export const commandCatalog = decodeCommandCatalog([
     },
     kind: "read",
     purpose: translate("cli.metadata.filesSearch"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: true },
     command: "search",
     input: {
       flags: [
@@ -561,16 +307,16 @@ export const commandCatalog = decodeCommandCatalog([
     },
     kind: "read",
     purpose: translate("cli.metadata.search"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: true },
     command: "transfers list",
     input: { flags: [fieldsFlag(), outputFlag(), pageAllFlag(), integerFlag("per-page")] },
     kind: "read",
     purpose: translate("cli.metadata.transfersList"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "transfers add",
@@ -583,53 +329,47 @@ export const commandCatalog = decodeCommandCatalog([
         integerFlag("save-parent-id"),
         repeatedStringFlag("url"),
       ],
-      json: arrayShape(
-        objectShape([
-          property("callback_url", stringShape(), false),
-          property("save_parent_id", integerShape(), false),
-          property("url", stringShape()),
-        ]),
-      ),
+      json: jsonShapeFromSchema(TransfersAddInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersAdd"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "transfers cancel",
     input: {
       flags: [dryRunFlag(), repeatedIntegerFlag("id"), jsonFlag(), outputFlag()],
-      json: objectShape([property("ids", arrayShape(integerShape()))]),
+      json: jsonShapeFromSchema(TransfersCancelInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersCancel"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "transfers retry",
     input: {
       flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), outputFlag()],
-      json: objectShape([property("id", integerShape())]),
+      json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersRetry"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "transfers reannounce",
     input: {
       flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), outputFlag()],
-      json: objectShape([property("id", integerShape())]),
+      json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersReannounce"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
-    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: false },
+    capabilities: { dryRun: false, fieldSelection: true, rawJsonInput: false, streaming: true },
     command: "transfers watch",
     input: {
       flags: [
@@ -642,16 +382,16 @@ export const commandCatalog = decodeCommandCatalog([
     },
     kind: "read",
     purpose: translate("cli.metadata.transfersWatch"),
-  }),
-  command({
+  },
+  {
     auth: { required: true },
     capabilities: { dryRun: true, fieldSelection: false, rawJsonInput: true, streaming: false },
     command: "transfers clean",
     input: {
       flags: [dryRunFlag(), repeatedIntegerFlag("id"), jsonFlag(), outputFlag()],
-      json: objectShape([property("ids", arrayShape(integerShape()), false)]),
+      json: jsonShapeFromSchema(TransfersCleanInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersClean"),
-  }),
+  },
 ]);

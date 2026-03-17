@@ -35,6 +35,7 @@ export const whoamiCommand = Command.make(
       yield* writeReadOutput({
         command: "whoami",
         output: controls.output,
+        outputMode: controls.outputMode,
         renderTerminalValue: renderWhoamiTerminal,
         requestedFields: controls.requestedFields,
         value: {
