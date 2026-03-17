@@ -17,7 +17,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build-binaries:
+  build-unix-binaries:
     name: Build ${{ matrix.os }} release assets
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -30,15 +30,9 @@ jobs:
           - os: ubuntu-latest
             asset_os: linux
             asset_arch: amd64
-            archive_format: tar.gz
           - os: macos-latest
             asset_os: darwin
             asset_arch: arm64
-            archive_format: tar.gz
-          - os: windows-latest
-            asset_os: windows
-            asset_arch: amd64
-            archive_format: zip
 
     steps:
       - name: Check out repository
@@ -71,21 +65,69 @@ jobs:
           $assetBase = "putio-cli-$version-${{ matrix.asset_os }}-${{ matrix.asset_arch }}"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          $binaryPath = ".artifacts/sea/putio"
+          $stageDir = "$releaseDir/stage"
+          New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
+          Copy-Item $binaryPath "$stageDir/putio"
+          tar -czf "$releaseDir/$assetBase.tar.gz" -C $stageDir putio
+          Remove-Item -Recurse -Force $stageDir
+          $assetPath = "$releaseDir/$assetBase.tar.gz"
 
-          if ("${{ runner.os }}" -eq "Windows") {
-            $binaryPath = ".artifacts/sea/putio.exe"
-            Compress-Archive -Path $binaryPath -DestinationPath "$releaseDir/$assetBase.zip" -Force
-            $assetPath = "$releaseDir/$assetBase.zip"
-          } else {
-            $binaryPath = ".artifacts/sea/putio"
-            $stageDir = "$releaseDir/stage"
-            New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
-            Copy-Item $binaryPath "$stageDir/putio"
-            tar -czf "$releaseDir/$assetBase.tar.gz" -C $stageDir putio
-            Remove-Item -Recurse -Force $stageDir
-            $assetPath = "$releaseDir/$assetBase.tar.gz"
-          }
+          $hash = (Get-FileHash -Algorithm SHA256 $assetPath).Hash.ToLower()
+          "$hash  $(Split-Path $assetPath -Leaf)" | Out-File "$assetPath.sha256" -Encoding ascii -NoNewline
 
+      - name: Generate SHA-256 checksums
+        shell: pwsh
+        run: Get-ChildItem .artifacts/release
+
+      - name: Upload binary assets to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag_name }}
+          files: |
+            .artifacts/release/*
+
+  build-windows-binary:
+    name: Build windows-latest release assets
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check out release tag
+        run: git checkout ${{ inputs.tag_name }}
+
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version-file: ".node-version"
+          cache: true
+
+      - name: Install dependencies
+        run: vp install
+
+      - name: Build SEA binary
+        run: vp run build:sea
+
+      - name: Verify SEA binary
+        run: vp run verify:sea
+
+      - name: Package release assets
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.tag_name }}".TrimStart("v")
+          $assetBase = "putio-cli-$version-windows-amd64"
+          $releaseDir = ".artifacts/release"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          $binaryPath = ".artifacts/sea/putio.exe"
+          Compress-Archive -Path $binaryPath -DestinationPath "$releaseDir/$assetBase.zip" -Force
+          $assetPath = "$releaseDir/$assetBase.zip"
           $hash = (Get-FileHash -Algorithm SHA256 $assetPath).Hash.ToLower()
           "$hash  $(Split-Path $assetPath -Leaf)" | Out-File "$assetPath.sha256" -Encoding ascii -NoNewline
 
@@ -104,7 +146,7 @@ jobs:
     if: inputs.update_homebrew_tap
     name: Update Homebrew tap
     needs:
-      - build-binaries
+      - build-unix-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -119,6 +161,7 @@ jobs:
           github_token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           commit_owner: semantic-release-bot
           commit_email: ui@put.io
+          branch: main
           formula_folder: Formula
           formula_name: putio
           install: 'bin.install "putio"'

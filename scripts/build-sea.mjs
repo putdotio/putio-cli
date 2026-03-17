@@ -22,13 +22,24 @@ const seaSentinelFuse = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 const localBin = (name) =>
   join(root, "node_modules", ".bin", `${name}${platform === "win32" ? ".cmd" : ""}`);
 
-const run = (command, args, options = {}) =>
-  execFileSync(command, args, {
+const run = (command, args, options = {}) => {
+  if (platform === "win32" && /\.(cmd|bat)$/i.test(command)) {
+    return execFileSync(process.env.comspec ?? "cmd.exe", ["/d", "/s", "/c", command, ...args], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: "inherit",
+      windowsVerbatimArguments: true,
+      ...options,
+    });
+  }
+
+  return execFileSync(command, args, {
     cwd: root,
     encoding: "utf8",
     stdio: "inherit",
     ...options,
   });
+};
 
 const downloadFile = async (url, destination) => {
   await mkdir(dirname(destination), { recursive: true });
@@ -83,7 +94,21 @@ const resolveOfficialNodeRuntime = async () => {
   );
 
   mkdirSync(runtimeDir, { recursive: true });
-  run("tar", ["-xf", archivePath, "-C", runtimeDir]);
+  if (platform === "win32") {
+    run(
+      process.env.SYSTEMROOT
+        ? join(process.env.SYSTEMROOT, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+        : "powershell.exe",
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-Command",
+        `Expand-Archive -LiteralPath '${archivePath.replace(/'/g, "''")}' -DestinationPath '${runtimeDir.replace(/'/g, "''")}' -Force`,
+      ],
+    );
+  } else {
+    run("tar", ["-xf", archivePath, "-C", runtimeDir]);
+  }
   await unlink(archivePath);
 
   if (!existsSync(nodeBinary)) {
