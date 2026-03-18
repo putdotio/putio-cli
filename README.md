@@ -10,54 +10,43 @@
 
   <p>
     <a href="https://github.com/putdotio/putio-cli/actions/workflows/ci.yml?query=branch%3Amain" style="text-decoration:none;"><img src="https://img.shields.io/github/actions/workflow/status/putdotio/putio-cli/ci.yml?branch=main&style=flat&label=ci&colorA=000000&colorB=000000" alt="CI"></a>
+    <a href="https://www.npmjs.com/package/@putdotio/cli" style="text-decoration:none;"><img src="https://img.shields.io/npm/v/%40putdotio%2Fcli?style=flat&label=npm&logo=npm&colorA=000000&colorB=000000" alt="npm version"></a>
+    <a href="https://github.com/putdotio/putio-cli/blob/main/LICENSE" style="text-decoration:none;"><img src="https://img.shields.io/github/license/putdotio/putio-cli?style=flat&label=license&colorA=000000&colorB=000000" alt="License"></a>
   </p>
 </div>
 
 ## Install
 
-Homebrew:
+### Homebrew
 
 ```bash
 brew tap putdotio/homebrew-tap
 brew install putio-cli
 ```
 
-`brew install putio` also works as an alias.
-
-If you prefer a direct install on macOS or Linux:
+### macOS / Linux installer
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | sh
 ```
 
-That installs the latest release to `~/.local/bin/putio`.
+Installs the latest release to `~/.local/bin/putio`.
 
-Install somewhere else:
+Custom dir:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | INSTALL_DIR=/usr/local/bin sh
 ```
 
-If you want npm:
+### npm
 
 ```bash
 npm install --global @putdotio/cli
 ```
 
-Requires Node `24.14+`.
+Node `24.14+`
 
-Windows or manual install:
-
-Prebuilt releases currently cover Apple silicon macOS, x86_64 Linux, and x86_64 Windows.
-
-Download the matching archive from [GitHub Releases](https://github.com/putdotio/putio-cli/releases/latest), verify the matching `.sha256`, extract it, and put `putio` on your `PATH`.
-
-Example assets:
-
-- `putio-cli-1.0.5-linux-amd64.tar.gz`
-- `putio-cli-1.0.5-windows-amd64.zip`
-
-Confirm the installed CLI:
+Verify:
 
 ```bash
 putio version
