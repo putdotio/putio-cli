@@ -1,5 +1,5 @@
 import { ConfigProvider, Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { makeCliAppLayer } from "./app-layer.js";
 import { PUTIO_CLI_APP_ID } from "./constants.js";

@@ -1,5 +1,5 @@
 import { ConfigProvider, Effect } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { makeCliAppLayer } from "./app-layer.js";
 import { resolveCliAuthFlowConfig, resolveCliRuntimeConfig } from "./config.js";

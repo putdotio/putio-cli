@@ -38,23 +38,17 @@ jobs:
       - name: Check out release tag
         run: git checkout ${{ inputs.tag_name }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: ".node-version"
-          cache: "pnpm"
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache: true
 
       - name: Build SEA binary
-        run: pnpm run build:sea
+        run: vp run build:sea
 
       - name: Verify SEA binary
-        run: pnpm run verify:sea
+        run: vp run verify:sea
 
       - name: Package release assets
         shell: pwsh
@@ -101,23 +95,17 @@ jobs:
       - name: Check out release tag
         run: git checkout ${{ inputs.tag_name }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: ".node-version"
-          cache: "pnpm"
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache: true
 
       - name: Build SEA binary
-        run: pnpm run build:sea
+        run: vp run build:sea
 
       - name: Verify SEA binary
-        run: pnpm run verify:sea
+        run: vp run verify:sea
 
       - name: Package release assets
         shell: pwsh

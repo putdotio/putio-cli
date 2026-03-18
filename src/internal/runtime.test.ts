@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { spawnMock } = vi.hoisted(() => ({
   spawnMock: vi.fn(),

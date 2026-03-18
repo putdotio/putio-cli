@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { vi } from "vitest";
+import { vi } from "vite-plus/test";
 
 const defaultAccountInfo = () => ({
   account_status: "ACTIVE",

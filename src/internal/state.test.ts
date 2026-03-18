@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Cause, ConfigProvider, Effect, Exit, Option } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { makeCliAppLayer } from "./app-layer.js";
 import { buildConfigPath } from "./config.js";

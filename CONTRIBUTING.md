@@ -7,7 +7,7 @@ Thanks for contributing to `putio-cli`.
 Use the Node version required by [`package.json`](./package.json), then install dependencies:
 
 ```bash
-pnpm install
+vp install
 ```
 
 ## Run Locally
@@ -44,6 +44,7 @@ pnpm run verify:sea
 ## Development Notes
 
 - `verify` is the repository delivery gate.
+- Prefer `vp install`, `vp test`, and `vp check` for day-to-day local loops.
 - Keep top-level user docs in `README.md` and contributor workflow here.
 - Put deeper implementation detail in `docs/` instead of growing the top-level docs.
 - Keep `AGENTS.md` as repo-development guidance and `skills/*` as consumer-facing agent guidance.

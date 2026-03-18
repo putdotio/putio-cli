@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ConfigProvider, Effect } from "effect";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { runCli as executeCli } from "./cli.js";
 import { makeCliAppLayer } from "./internal/app-layer.js";

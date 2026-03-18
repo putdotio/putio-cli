@@ -28,23 +28,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: ".node-version"
-          cache: "pnpm"
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache: true
 
       - name: Verify repository
-        run: pnpm run verify
+        run: vp run verify
 
       - name: Smoke test packed install surface
-        run: pnpm run smoke:pack
+        run: vp run smoke:pack
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
@@ -68,20 +62,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: ".node-version"
-          cache: "pnpm"
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache: true
 
       - name: Build package
-        run: pnpm run build
+        run: vp pack
 
       - name: Release package
         id: semantic
@@ -126,23 +114,17 @@ jobs:
       - name: Check out release tag
         run: git checkout ${{ needs.release.outputs.new_release_git_tag }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: ".node-version"
-          cache: "pnpm"
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache: true
 
       - name: Build SEA binary
-        run: pnpm run build:sea
+        run: vp run build:sea
 
       - name: Verify SEA binary
-        run: pnpm run verify:sea
+        run: vp run verify:sea
 
       - name: Package release assets
         shell: pwsh
@@ -192,23 +174,17 @@ jobs:
       - name: Check out release tag
         run: git checkout ${{ needs.release.outputs.new_release_git_tag }}
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
         with:
           node-version-file: ".node-version"
-          cache: "pnpm"
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          cache: true
 
       - name: Build SEA binary
-        run: pnpm run build:sea
+        run: vp run build:sea
 
       - name: Verify SEA binary
-        run: pnpm run verify:sea
+        run: vp run verify:sea
 
       - name: Package release assets
         shell: pwsh
