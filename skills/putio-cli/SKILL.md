@@ -7,6 +7,8 @@ description: Use when an agent needs to operate the put.io CLI as a consumer, in
 
 Use this skill when you need to use `putio` itself, not when you are developing this repository.
 
+If `putio` is not already installed, install it from [`../../README.md`](../../README.md) first, then continue with this skill.
+
 ## Quick Rules
 
 - Start with `putio describe`.

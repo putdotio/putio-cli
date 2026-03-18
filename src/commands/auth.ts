@@ -1,4 +1,4 @@
-import { Command, Options } from "@effect/cli";
+import { Command } from "@effect/cli";
 import * as Terminal from "@effect/platform/Terminal";
 import { Console, Effect, Fiber, Option } from "effect";
 
@@ -9,14 +9,15 @@ import {
   resolveAuthFlowConfig,
   waitForDeviceToken,
 } from "../internal/auth-flow.js";
-import { getOption, outputOption, validateResourceIdentifier } from "../internal/command.js";
 import {
-  booleanFlag,
-  integerFlag,
-  outputFlag,
-  stringFlag,
-  type CommandSpec,
-} from "../internal/command-specs.js";
+  defineBooleanOption,
+  defineIntegerOption,
+  defineTextOption,
+  getOption,
+  outputOption,
+  validateResourceIdentifier,
+} from "../internal/command.js";
+import { outputFlag, type CommandSpec } from "../internal/command-specs.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
@@ -33,9 +34,13 @@ import {
   renderAuthLoginTerminal,
 } from "../internal/terminal/auth-terminal.js";
 
-const openOption = Options.boolean("open").pipe(Options.withDefault(false));
-const timeoutSecondsOption = Options.integer("timeout-seconds").pipe(Options.optional);
-const previewCodeOption = Options.text("code").pipe(Options.withDefault("PUTIO1"));
+const openConfig = defineBooleanOption("open", { defaultValue: false });
+const timeoutSecondsConfig = defineIntegerOption("timeout-seconds", { optional: true });
+const previewCodeConfig = defineTextOption("code", { defaultValue: "PUTIO1" });
+
+const openOption = openConfig.option;
+const timeoutSecondsOption = timeoutSecondsConfig.option;
+const previewCodeOption = previewCodeConfig.option;
 
 const waitForOpenShortcut = (url: string) =>
   Effect.gen(function* () {
@@ -214,11 +219,7 @@ export const authCommandSpecs = [
     },
     command: "auth login",
     input: {
-      flags: [
-        booleanFlag("open", { defaultValue: false }),
-        outputFlag(),
-        integerFlag("timeout-seconds"),
-      ],
+      flags: [openConfig.flag, outputFlag(), timeoutSecondsConfig.flag],
     },
     kind: "auth",
     purpose: translate("cli.metadata.authLogin"),
@@ -259,11 +260,7 @@ export const authCommandSpecs = [
     },
     command: "auth preview",
     input: {
-      flags: [
-        stringFlag("code", { defaultValue: "PUTIO1" }),
-        booleanFlag("open", { defaultValue: false }),
-        outputFlag(),
-      ],
+      flags: [previewCodeConfig.flag, openConfig.flag, outputFlag()],
     },
     kind: "auth",
     purpose: translate("cli.metadata.authPreview"),

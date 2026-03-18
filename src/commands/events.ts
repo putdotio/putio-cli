@@ -1,7 +1,9 @@
-import { Command, Options } from "@effect/cli";
+import { Command } from "@effect/cli";
 import { Effect, Option } from "effect";
 
 import {
+  defineChoiceOption,
+  defineIntegerOption,
   fieldsOption,
   getOption,
   outputOption,
@@ -9,18 +11,12 @@ import {
   withAuthedSdk,
   writeReadOutput,
 } from "../internal/command.js";
-import {
-  enumFlag,
-  fieldsFlag,
-  integerFlag,
-  outputFlag,
-  type CommandSpec,
-} from "../internal/command-specs.js";
+import { fieldsFlag, outputFlag, type CommandSpec } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { renderEventsTerminal } from "../internal/terminal/events-terminal.js";
-const beforeOption = Options.integer("before").pipe(Options.optional);
-const perPageOption = Options.integer("per-page").pipe(Options.optional);
+const beforeConfig = defineIntegerOption("before", { optional: true });
+const perPageConfig = defineIntegerOption("per-page", { optional: true });
 const eventTypeChoices = [
   "file_shared",
   "upload",
@@ -34,7 +30,11 @@ const eventTypeChoices = [
   "voucher",
   "zip_created",
 ] as const;
-const eventTypeOption = Options.choice("type", eventTypeChoices).pipe(Options.optional);
+const eventTypeConfig = defineChoiceOption("type", eventTypeChoices, { optional: true });
+
+const beforeOption = beforeConfig.option;
+const perPageOption = perPageConfig.option;
+const eventTypeOption = eventTypeConfig.option;
 
 export const filterEventsByType = <
   A extends {
@@ -105,11 +105,11 @@ export const eventsCommandSpecs = [
     command: "events list",
     input: {
       flags: [
-        integerFlag("before"),
+        beforeConfig.flag,
         fieldsFlag(),
         outputFlag(),
-        integerFlag("per-page"),
-        enumFlag("type", eventTypeChoices),
+        perPageConfig.flag,
+        eventTypeConfig.flag,
       ],
     },
     kind: "read",

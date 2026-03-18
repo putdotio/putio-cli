@@ -21,19 +21,17 @@ detect_platform() {
   os="$(uname -s)"
   arch="$(uname -m)"
 
-  case "$os" in
-    Darwin) platform="darwin" ;;
-    Linux) platform="linux" ;;
-    *)
-      fail "unsupported operating system: $os"
+  case "$os:$arch" in
+    Darwin:arm64)
+      platform="darwin"
+      architecture="arm64"
       ;;
-  esac
-
-  case "$arch" in
-    arm64|aarch64) architecture="arm64" ;;
-    x86_64|amd64) architecture="amd64" ;;
+    Linux:x86_64|Linux:amd64)
+      platform="linux"
+      architecture="amd64"
+      ;;
     *)
-      fail "unsupported architecture: $arch"
+      fail "unsupported prebuilt target: $os/$arch. Prebuilt installer support currently covers Apple silicon macOS and x86_64 Linux."
       ;;
   esac
 

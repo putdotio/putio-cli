@@ -20,6 +20,7 @@ describe("describeCli", () => {
     );
 
     expect(metadata.binary).toBe("putio");
+    expect(metadata.agentDx.provenance).toBe("metadata-derived");
     expect(metadata.agentDx.totalScore).toBeGreaterThanOrEqual(17);
     expect(metadata.output.defaultInteractive).toBe("text");
     expect(metadata.output.defaultNonInteractive).toBe("json");

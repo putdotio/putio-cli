@@ -18,13 +18,20 @@ export type CommandKind = Schema.Schema.Type<typeof CommandKindSchema>;
 export const CommandOptionTypeSchema = Schema.Literal("string", "integer", "boolean", "enum");
 export type CommandOptionType = Schema.Schema.Type<typeof CommandOptionTypeSchema>;
 
+const JsonPrimitiveKindSchema = Schema.Literal("string", "integer", "boolean", "null");
 const JsonScalarSchema = Schema.Struct({
-  kind: Schema.Literal("string", "integer", "boolean"),
+  kind: JsonPrimitiveKindSchema,
 });
+
+const JsonEnumValueSchema = Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null);
 
 export type CommandJsonShape =
   | {
-      readonly kind: "string" | "integer" | "boolean";
+      readonly kind: "string" | "integer" | "boolean" | "null";
+    }
+  | {
+      readonly kind: "enum";
+      readonly values: ReadonlyArray<string | number | boolean | null>;
     }
   | {
       readonly kind: "array";
@@ -59,8 +66,14 @@ const JsonArraySchema = Schema.Struct({
   items: Schema.suspend(() => CommandJsonShapeSchema),
 });
 
+const JsonEnumSchema = Schema.Struct({
+  kind: Schema.Literal("enum"),
+  values: Schema.Array(JsonEnumValueSchema),
+});
+
 export const CommandJsonShapeSchema: Schema.Schema<CommandJsonShape> = Schema.Union(
   JsonScalarSchema,
+  JsonEnumSchema,
   JsonObjectSchema,
   JsonArraySchema,
 );
@@ -187,6 +200,13 @@ export const decodeCommandSpecs = (specs: ReadonlyArray<CommandSpec>) =>
 export const stringShape = (): CommandJsonShape => ({ kind: "string" });
 export const integerShape = (): CommandJsonShape => ({ kind: "integer" });
 export const booleanShape = (): CommandJsonShape => ({ kind: "boolean" });
+export const nullShape = (): CommandJsonShape => ({ kind: "null" });
+export const enumShape = (
+  values: ReadonlyArray<string | number | boolean | null>,
+): CommandJsonShape => ({
+  kind: "enum",
+  values: [...values],
+});
 export const arrayShape = (items: CommandJsonShape): CommandJsonShape => ({ kind: "array", items });
 export const property = (
   name: string,
@@ -342,6 +362,7 @@ type SchemaAstNode =
   | {
       readonly _tag: string;
       readonly from?: SchemaAstNode;
+      readonly literal?: string | number | boolean | null;
       readonly to?: SchemaAstNode;
       readonly propertySignatures?: ReadonlyArray<{
         readonly isOptional?: boolean;
@@ -386,6 +407,12 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
       return integerShape();
     case "BooleanKeyword":
       return booleanShape();
+    case "UndefinedKeyword":
+    case "VoidKeyword":
+    case "NullKeyword":
+      return nullShape();
+    case "Literal":
+      return enumShape([current.literal ?? null]);
     case "TupleType": {
       const item = current.rest?.[0]?.type;
 
@@ -409,6 +436,24 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
       const definedTypes = (current.types ?? []).filter(
         (type) => unwrapSchemaAst(type)?._tag !== "UndefinedKeyword",
       );
+
+      const enumValues = definedTypes.flatMap((type) => {
+        const unwrapped = unwrapSchemaAst(type);
+
+        if (unwrapped?._tag === "Literal") {
+          return [unwrapped.literal ?? null];
+        }
+
+        if (unwrapped?._tag === "NullKeyword" || unwrapped?._tag === "VoidKeyword") {
+          return [null];
+        }
+
+        return [];
+      });
+
+      if (enumValues.length === definedTypes.length && enumValues.length > 0) {
+        return enumShape(enumValues);
+      }
 
       if (definedTypes.length === 1) {
         return schemaAstToJsonShape(definedTypes[0]);

@@ -4,14 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: Release tag to backfill, for example v1.0.1
+        description: Release tag whose binary assets should be rebuilt, for example v1.0.1
         required: true
         type: string
-      update_homebrew_tap:
-        description: Also update putdotio/homebrew-tap
-        required: true
-        default: true
-        type: boolean
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -43,20 +38,23 @@ jobs:
       - name: Check out release tag
         run: git checkout ${{ inputs.tag_name }}
 
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version-file: ".node-version"
-          cache: true
+          cache: "pnpm"
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: vp install
+        run: pnpm install --frozen-lockfile
 
       - name: Build SEA binary
-        run: vp run build:sea
+        run: pnpm run build:sea
 
       - name: Verify SEA binary
-        run: vp run verify:sea
+        run: pnpm run verify:sea
 
       - name: Package release assets
         shell: pwsh
@@ -103,20 +101,23 @@ jobs:
       - name: Check out release tag
         run: git checkout ${{ inputs.tag_name }}
 
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
           node-version-file: ".node-version"
-          cache: true
+          cache: "pnpm"
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: vp install
+        run: pnpm install --frozen-lockfile
 
       - name: Build SEA binary
-        run: vp run build:sea
+        run: pnpm run build:sea
 
       - name: Verify SEA binary
-        run: vp run verify:sea
+        run: pnpm run verify:sea
 
       - name: Package release assets
         shell: pwsh
@@ -141,33 +142,3 @@ jobs:
           tag_name: ${{ inputs.tag_name }}
           files: |
             .artifacts/release/*
-
-  update-homebrew-tap:
-    if: inputs.update_homebrew_tap
-    name: Update Homebrew tap
-    needs:
-      - build-unix-binaries
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-
-    steps:
-      - name: Release to Homebrew tap
-        uses: Justintime50/homebrew-releaser@v3
-        with:
-          homebrew_owner: putdotio
-          homebrew_tap: homebrew-tap
-          github_token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          commit_owner: semantic-release-bot
-          commit_email: ui@put.io
-          branch: main
-          formula_folder: Formula
-          install: 'bin.install "putio"'
-          test: |
-            output = shell_output("#{bin}/putio version")
-            assert_match "putio", output
-            assert_match version.to_s, output
-          target_darwin_arm64: true
-          target_linux_amd64: true
-          skip_checksum: true

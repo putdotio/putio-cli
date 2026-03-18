@@ -4,13 +4,16 @@ import { Clock, Duration, Effect, Option, Schema } from "effect";
 
 import {
   CliCommandInputError,
+  defineIntegerOption,
+  defineRepeatedIntegerOption,
+  defineRepeatedTextOption,
+  defineTextOption,
   dryRunOption,
   fieldsOption,
   getOption,
   jsonOption,
   outputOption,
   pageAllOption,
-  parseRepeatedIntegerOption,
   resolveMutationInput,
   resolveReadOutputControls,
   withAuthedSdk,
@@ -21,29 +24,35 @@ import {
 import {
   dryRunFlag,
   fieldsFlag,
-  integerFlag,
   jsonFlag,
   jsonShapeFromSchema,
   outputFlag,
   pageAllFlag,
-  repeatedIntegerFlag,
-  repeatedStringFlag,
-  stringFlag,
   type CommandSpec,
 } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderTransfersTerminal } from "../internal/terminal/transfers-terminal.js";
-const perPageOption = Options.integer("per-page").pipe(Options.optional);
-const callbackUrlOption = Options.text("callback-url").pipe(Options.optional);
-const transferIdOption = Options.integer("id");
-const transferIdsOption = parseRepeatedIntegerOption("id");
-const saveParentIdOption = Options.integer("save-parent-id").pipe(Options.optional);
-const intervalSecondsOption = Options.integer("interval-seconds").pipe(Options.optional);
-const timeoutSecondsOption = Options.integer("timeout-seconds").pipe(Options.optional);
-const urlOption = Options.text("url").pipe(Options.repeated);
-const optionalTransferIdOption = Options.integer("id").pipe(Options.optional);
+const perPageConfig = defineIntegerOption("per-page", { optional: true });
+const callbackUrlConfig = defineTextOption("callback-url", { optional: true });
+const transferIdConfig = defineIntegerOption("id");
+const transferIdsConfig = defineRepeatedIntegerOption("id");
+const saveParentIdConfig = defineIntegerOption("save-parent-id", { optional: true });
+const intervalSecondsConfig = defineIntegerOption("interval-seconds", { optional: true });
+const timeoutSecondsConfig = defineIntegerOption("timeout-seconds", { optional: true });
+const urlConfig = defineRepeatedTextOption("url");
+const optionalTransferIdConfig = defineIntegerOption("id", { optional: true });
+
+const perPageOption = perPageConfig.option;
+const callbackUrlOption = callbackUrlConfig.option;
+const transferIdOption = transferIdConfig.option;
+const transferIdsOption = transferIdsConfig.option;
+const saveParentIdOption = saveParentIdConfig.option;
+const intervalSecondsOption = intervalSecondsConfig.option;
+const timeoutSecondsOption = timeoutSecondsConfig.option;
+const urlOption = urlConfig.option;
+const optionalTransferIdOption = optionalTransferIdConfig.option;
 
 const WATCH_TERMINAL_STATUSES = ["COMPLETED", "ERROR", "SEEDING"] as const;
 
@@ -552,7 +561,7 @@ export const transfersCommandSpecs = [
     },
     command: "transfers list",
     input: {
-      flags: [fieldsFlag(), outputFlag(), pageAllFlag(), integerFlag("per-page")],
+      flags: [fieldsFlag(), outputFlag(), pageAllFlag(), perPageConfig.flag],
     },
     kind: "read",
     purpose: translate("cli.metadata.transfersList"),
@@ -570,10 +579,10 @@ export const transfersCommandSpecs = [
       flags: [
         dryRunFlag(),
         outputFlag(),
-        stringFlag("callback-url"),
+        callbackUrlConfig.flag,
         jsonFlag(),
-        integerFlag("save-parent-id"),
-        repeatedStringFlag("url"),
+        saveParentIdConfig.flag,
+        urlConfig.flag,
       ],
       json: jsonShapeFromSchema(TransfersAddInputSchema),
     },
@@ -590,7 +599,7 @@ export const transfersCommandSpecs = [
     },
     command: "transfers cancel",
     input: {
-      flags: [dryRunFlag(), repeatedIntegerFlag("id"), jsonFlag(), outputFlag()],
+      flags: [dryRunFlag(), transferIdsConfig.flag, jsonFlag(), outputFlag()],
       json: jsonShapeFromSchema(TransfersCancelInputSchema),
     },
     kind: "write",
@@ -606,7 +615,7 @@ export const transfersCommandSpecs = [
     },
     command: "transfers retry",
     input: {
-      flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), outputFlag()],
+      flags: [dryRunFlag(), optionalTransferIdConfig.flag, jsonFlag(), outputFlag()],
       json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
     },
     kind: "write",
@@ -622,7 +631,7 @@ export const transfersCommandSpecs = [
     },
     command: "transfers clean",
     input: {
-      flags: [dryRunFlag(), repeatedIntegerFlag("id"), jsonFlag(), outputFlag()],
+      flags: [dryRunFlag(), transferIdsConfig.flag, jsonFlag(), outputFlag()],
       json: jsonShapeFromSchema(TransfersCleanInputSchema),
     },
     kind: "write",
@@ -638,7 +647,7 @@ export const transfersCommandSpecs = [
     },
     command: "transfers reannounce",
     input: {
-      flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), outputFlag()],
+      flags: [dryRunFlag(), optionalTransferIdConfig.flag, jsonFlag(), outputFlag()],
       json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
     },
     kind: "write",
@@ -656,10 +665,10 @@ export const transfersCommandSpecs = [
     input: {
       flags: [
         fieldsFlag(),
-        integerFlag("id", { required: true }),
-        integerFlag("interval-seconds"),
+        transferIdConfig.flag,
+        intervalSecondsConfig.flag,
         outputFlag(),
-        integerFlag("timeout-seconds"),
+        timeoutSecondsConfig.flag,
       ],
     },
     kind: "read",

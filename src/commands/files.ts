@@ -1,15 +1,19 @@
-import { Command, Options } from "@effect/cli";
+import { Command } from "@effect/cli";
 import { Effect, Option, Schema } from "effect";
 
 import {
   CliCommandInputError,
+  defineBooleanOption,
+  defineChoiceOption,
+  defineIntegerOption,
+  defineRepeatedIntegerOption,
+  defineTextOption,
   dryRunOption,
   fieldsOption,
   getOption,
   jsonOption,
   outputOption,
   pageAllOption,
-  parseRepeatedIntegerOption,
   resolveMutationInput,
   resolveReadOutputControls,
   validateNameLikeInput,
@@ -18,30 +22,25 @@ import {
   writeReadPages,
 } from "../internal/command.js";
 import {
-  booleanFlag,
   dryRunFlag,
-  enumFlag,
   fieldsFlag,
-  integerFlag,
   jsonFlag,
   jsonShapeFromSchema,
   outputFlag,
   pageAllFlag,
-  repeatedIntegerFlag,
-  stringFlag,
   type CommandSpec,
 } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderFilesTerminal } from "../internal/terminal/files-terminal.js";
-const parentIdOption = Options.integer("parent-id").pipe(Options.optional);
-const perPageOption = Options.integer("per-page").pipe(Options.optional);
-const queryOption = Options.text("query");
-const fileIdsOption = parseRepeatedIntegerOption("id");
-const contentTypeOption = Options.text("content-type").pipe(Options.optional);
-const hiddenOption = Options.boolean("hidden").pipe(Options.withDefault(false));
-const skipTrashOption = Options.boolean("skip-trash").pipe(Options.withDefault(false));
+const parentIdConfig = defineIntegerOption("parent-id", { optional: true });
+const perPageConfig = defineIntegerOption("per-page", { optional: true });
+const queryConfig = defineTextOption("query");
+const fileIdsConfig = defineRepeatedIntegerOption("id");
+const contentTypeConfig = defineTextOption("content-type", { optional: true });
+const hiddenConfig = defineBooleanOption("hidden", { defaultValue: false });
+const skipTrashConfig = defineBooleanOption("skip-trash", { defaultValue: false });
 const fileTypeChoices = [
   "FOLDER",
   "FILE",
@@ -53,7 +52,7 @@ const fileTypeChoices = [
   "TEXT",
   "SWF",
 ] as const;
-const fileTypeOption = Options.choice("file-type", fileTypeChoices).pipe(Options.optional);
+const fileTypeConfig = defineChoiceOption("file-type", fileTypeChoices, { optional: true });
 const fileSortChoices = [
   "NAME_ASC",
   "NAME_DESC",
@@ -68,9 +67,21 @@ const fileSortChoices = [
   "WATCH_ASC",
   "WATCH_DESC",
 ] as const;
-const sortByOption = Options.choice("sort-by", fileSortChoices).pipe(Options.optional);
-const optionalFileIdOption = Options.integer("id").pipe(Options.optional);
-const optionalFileNameOption = Options.text("name").pipe(Options.optional);
+const sortByConfig = defineChoiceOption("sort-by", fileSortChoices, { optional: true });
+const optionalFileIdConfig = defineIntegerOption("id", { optional: true });
+const optionalFileNameConfig = defineTextOption("name", { optional: true });
+
+const parentIdOption = parentIdConfig.option;
+const perPageOption = perPageConfig.option;
+const queryOption = queryConfig.option;
+const fileIdsOption = fileIdsConfig.option;
+const contentTypeOption = contentTypeConfig.option;
+const hiddenOption = hiddenConfig.option;
+const skipTrashOption = skipTrashConfig.option;
+const fileTypeOption = fileTypeConfig.option;
+const sortByOption = sortByConfig.option;
+const optionalFileIdOption = optionalFileIdConfig.option;
+const optionalFileNameOption = optionalFileNameConfig.option;
 
 const NonEmptyStringSchema = Schema.String.pipe(
   Schema.filter((value): value is string => value.trim().length > 0, {
@@ -499,12 +510,12 @@ export const filesCommandSpecs = [
         fieldsFlag(),
         outputFlag(),
         pageAllFlag(),
-        integerFlag("parent-id"),
-        integerFlag("per-page"),
-        stringFlag("content-type"),
-        booleanFlag("hidden", { defaultValue: false }),
-        enumFlag("file-type", fileTypeChoices),
-        enumFlag("sort-by", fileSortChoices),
+        parentIdConfig.flag,
+        perPageConfig.flag,
+        contentTypeConfig.flag,
+        hiddenConfig.flag,
+        fileTypeConfig.flag,
+        sortByConfig.flag,
       ],
     },
     kind: "read",
@@ -524,9 +535,9 @@ export const filesCommandSpecs = [
         fieldsFlag(),
         outputFlag(),
         pageAllFlag(),
-        integerFlag("per-page"),
-        stringFlag("query", { required: true }),
-        enumFlag("file-type", fileTypeChoices),
+        perPageConfig.flag,
+        queryConfig.flag,
+        fileTypeConfig.flag,
       ],
     },
     kind: "read",
@@ -542,7 +553,13 @@ export const filesCommandSpecs = [
     },
     command: "files mkdir",
     input: {
-      flags: [dryRunFlag(), jsonFlag(), outputFlag(), integerFlag("parent-id"), stringFlag("name")],
+      flags: [
+        dryRunFlag(),
+        jsonFlag(),
+        outputFlag(),
+        parentIdConfig.flag,
+        optionalFileNameConfig.flag,
+      ],
       json: jsonShapeFromSchema(FilesMkdirInputSchema, [
         "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
       ]),
@@ -560,7 +577,13 @@ export const filesCommandSpecs = [
     },
     command: "files rename",
     input: {
-      flags: [dryRunFlag(), integerFlag("id"), jsonFlag(), stringFlag("name"), outputFlag()],
+      flags: [
+        dryRunFlag(),
+        optionalFileIdConfig.flag,
+        jsonFlag(),
+        optionalFileNameConfig.flag,
+        outputFlag(),
+      ],
       json: jsonShapeFromSchema(FilesRenameInputSchema, [
         "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
       ]),
@@ -578,13 +601,7 @@ export const filesCommandSpecs = [
     },
     command: "files move",
     input: {
-      flags: [
-        dryRunFlag(),
-        repeatedIntegerFlag("id"),
-        jsonFlag(),
-        outputFlag(),
-        integerFlag("parent-id"),
-      ],
+      flags: [dryRunFlag(), fileIdsConfig.flag, jsonFlag(), outputFlag(), parentIdConfig.flag],
       json: jsonShapeFromSchema(FilesMoveInputSchema),
     },
     kind: "write",
@@ -600,13 +617,7 @@ export const filesCommandSpecs = [
     },
     command: "files delete",
     input: {
-      flags: [
-        dryRunFlag(),
-        repeatedIntegerFlag("id"),
-        jsonFlag(),
-        outputFlag(),
-        booleanFlag("skip-trash", { defaultValue: false }),
-      ],
+      flags: [dryRunFlag(), fileIdsConfig.flag, jsonFlag(), outputFlag(), skipTrashConfig.flag],
       json: jsonShapeFromSchema(FilesDeleteInputSchema),
     },
     kind: "write",
@@ -626,9 +637,9 @@ export const filesCommandSpecs = [
         fieldsFlag(),
         outputFlag(),
         pageAllFlag(),
-        integerFlag("per-page"),
-        stringFlag("query", { required: true }),
-        enumFlag("file-type", fileTypeChoices),
+        perPageConfig.flag,
+        queryConfig.flag,
+        fileTypeConfig.flag,
       ],
     },
     kind: "read",

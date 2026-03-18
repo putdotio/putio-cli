@@ -26,6 +26,8 @@ export type AgentDxDimension = Schema.Schema.Type<typeof AgentDxDimensionSchema>
 export const AgentDxScorecardSchema = Schema.Struct({
   dimensions: Schema.Array(AgentDxDimensionSchema),
   maxScore: Schema.Literal(21),
+  provenance: Schema.Literal("metadata-derived"),
+  summary: Schema.String,
   totalScore: Schema.Number,
 });
 
@@ -151,6 +153,9 @@ export const scoreAgentDx = (input: {
   return {
     dimensions: [...dimensions],
     maxScore: 21,
+    provenance: "metadata-derived",
+    summary:
+      "This score is derived from described command metadata and documented agent surfaces, not from a full runtime conformance audit.",
     totalScore,
   };
 };

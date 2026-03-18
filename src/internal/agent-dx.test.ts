@@ -7,6 +7,8 @@ describe("scoreAgentDx", () => {
     const metadata = describeCli();
 
     expect(metadata.agentDx.maxScore).toBe(21);
+    expect(metadata.agentDx.provenance).toBe("metadata-derived");
+    expect(metadata.agentDx.summary).toContain("metadata");
     expect(metadata.agentDx.totalScore).toBeGreaterThanOrEqual(17);
     expect(metadata.agentDx.dimensions).toEqual([
       expect.objectContaining({

@@ -1,8 +1,15 @@
 import { Options } from "@effect/cli";
 import { Data, Effect, Option, Schema } from "effect";
 
-import { type CliConfigError } from "./config.js";
 import type { ResolvedAuthState } from "./state.js";
+import {
+  booleanFlag,
+  enumFlag,
+  integerFlag,
+  repeatedIntegerFlag,
+  repeatedStringFlag,
+  stringFlag,
+} from "./command-specs.js";
 import {
   isStructuredOutputMode,
   normalizeOutputMode,
@@ -21,6 +28,95 @@ export const dryRunOption = Options.boolean("dry-run").pipe(Options.withDefault(
 export const fieldsOption = Options.text("fields").pipe(Options.optional);
 export const jsonOption = Options.text("json").pipe(Options.optional);
 export const pageAllOption = Options.boolean("page-all").pipe(Options.withDefault(false));
+
+export const defineBooleanOption = (
+  name: string,
+  options: {
+    readonly defaultValue?: boolean;
+    readonly description?: string;
+  } = {},
+) => {
+  const option =
+    options.defaultValue === undefined
+      ? Options.boolean(name)
+      : Options.boolean(name).pipe(Options.withDefault(options.defaultValue));
+
+  return {
+    flag: booleanFlag(name, options),
+    option,
+  };
+};
+
+export const defineIntegerOption = (
+  name: string,
+  options: {
+    readonly description?: string;
+    readonly optional?: boolean;
+    readonly required?: boolean;
+  } = {},
+) => {
+  const option = options.optional
+    ? Options.integer(name).pipe(Options.optional)
+    : Options.integer(name);
+
+  return {
+    flag: integerFlag(name, {
+      description: options.description,
+      required: options.required ?? options.optional !== true,
+    }),
+    option,
+  };
+};
+
+export const defineTextOption = (
+  name: string,
+  options: {
+    readonly defaultValue?: string;
+    readonly description?: string;
+    readonly optional?: boolean;
+    readonly required?: boolean;
+  } = {},
+) => {
+  let option = Options.text(name);
+
+  if (options.defaultValue !== undefined) {
+    option = option.pipe(Options.withDefault(options.defaultValue));
+  } else if (options.optional) {
+    option = option.pipe(Options.optional);
+  }
+
+  return {
+    flag: stringFlag(name, {
+      defaultValue: options.defaultValue,
+      description: options.description,
+      required:
+        options.required ?? (options.defaultValue === undefined && options.optional !== true),
+    }),
+    option,
+  };
+};
+
+export const defineChoiceOption = <A extends ReadonlyArray<string>>(
+  name: string,
+  choices: A,
+  options: {
+    readonly description?: string;
+    readonly optional?: boolean;
+    readonly required?: boolean;
+  } = {},
+) => {
+  const option = options.optional
+    ? Options.choice(name, choices).pipe(Options.optional)
+    : Options.choice(name, choices);
+
+  return {
+    flag: enumFlag(name, choices, {
+      description: options.description,
+      required: options.required ?? options.optional !== true,
+    }),
+    option,
+  };
+};
 
 export const getOption = <A>(option: Option.Option<A>) => Option.getOrUndefined(option);
 
@@ -163,6 +259,28 @@ export const parseRepeatedIntegerOption = (name: string) =>
     Options.repeated,
     Options.filterMap(parseRepeatedIntegers, `Expected \`--${name}\` values to be integers.`),
   );
+
+export const defineRepeatedIntegerOption = (
+  name: string,
+  options: {
+    readonly description?: string;
+    readonly required?: boolean;
+  } = {},
+) => ({
+  flag: repeatedIntegerFlag(name, options),
+  option: parseRepeatedIntegerOption(name),
+});
+
+export const defineRepeatedTextOption = (
+  name: string,
+  options: {
+    readonly description?: string;
+    readonly required?: boolean;
+  } = {},
+) => ({
+  flag: repeatedStringFlag(name, options),
+  option: Options.text(name).pipe(Options.repeated),
+});
 
 const mapInputError = (error: unknown, fallbackMessage: string) =>
   error instanceof CliCommandInputError
@@ -423,4 +541,4 @@ export const withAuthedSdk = <A, E, R>(
         sdk: cliSdk.client,
       }),
     );
-  }) as Effect.Effect<A, E | CliConfigError, R>;
+  });

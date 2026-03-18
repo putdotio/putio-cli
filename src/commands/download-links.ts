@@ -1,14 +1,16 @@
-import { Command, Options } from "@effect/cli";
+import { Command } from "@effect/cli";
 import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
 import { Data, Effect, Option, Schema } from "effect";
 
 import {
+  defineIntegerOption,
+  defineRepeatedIntegerOption,
+  defineTextOption,
   dryRunOption,
   fieldsOption,
   getOption,
   jsonOption,
   outputOption,
-  parseRepeatedIntegerOption,
   resolveMutationInput,
   resolveReadOutputControls,
   withAuthedSdk,
@@ -18,12 +20,9 @@ import {
 import {
   dryRunFlag,
   fieldsFlag,
-  integerFlag,
   jsonFlag,
   jsonShapeFromSchema,
   outputFlag,
-  repeatedIntegerFlag,
-  stringFlag,
   type CommandSpec,
 } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
@@ -35,11 +34,15 @@ class DownloadLinksCommandError extends Data.TaggedError("DownloadLinksCommandEr
   readonly message: string;
 }> {}
 
-const cursorOption = Options.text("cursor").pipe(Options.optional);
-const downloadLinksIdOption = Options.integer("id");
+const cursorConfig = defineTextOption("cursor", { optional: true });
+const downloadLinksIdConfig = defineIntegerOption("id");
+const idsConfig = defineRepeatedIntegerOption("id");
+const excludeIdsConfig = defineRepeatedIntegerOption("exclude-id");
 
-const idsOption = parseRepeatedIntegerOption("id");
-const excludeIdsOption = parseRepeatedIntegerOption("exclude-id");
+const cursorOption = cursorConfig.option;
+const downloadLinksIdOption = downloadLinksIdConfig.option;
+const idsOption = idsConfig.option;
+const excludeIdsOption = excludeIdsConfig.option;
 
 export const toOptionalIds = (values: ReadonlyArray<number>) =>
   values.length > 0 ? values : undefined;
@@ -155,10 +158,10 @@ export const downloadLinksCommandSpecs = [
     command: "download-links create",
     input: {
       flags: [
-        stringFlag("cursor"),
+        cursorConfig.flag,
         dryRunFlag(),
-        repeatedIntegerFlag("exclude-id"),
-        repeatedIntegerFlag("id"),
+        excludeIdsConfig.flag,
+        idsConfig.flag,
         jsonFlag(),
         outputFlag(),
       ],
@@ -178,7 +181,7 @@ export const downloadLinksCommandSpecs = [
       streaming: false,
     },
     command: "download-links get",
-    input: { flags: [fieldsFlag(), integerFlag("id", { required: true }), outputFlag()] },
+    input: { flags: [fieldsFlag(), downloadLinksIdConfig.flag, outputFlag()] },
     kind: "read",
     purpose: translate("cli.metadata.downloadLinksGet"),
   },
