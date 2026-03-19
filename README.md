@@ -30,7 +30,7 @@ brew install putio-cli
 curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | sh
 ```
 
-Installs the latest release to `~/.local/bin/putio`.
+Installs the latest release to `~/.local/bin/putio`
 
 Custom dir:
 
