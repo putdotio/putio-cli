@@ -24,6 +24,9 @@ export default defineConfig({
     },
     exports: true,
   },
+  staged: {
+    "*.{js,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix",
+  },
   test: {
     coverage: {
       ...coverageConfig,

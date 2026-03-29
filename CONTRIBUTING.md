@@ -10,6 +10,12 @@ Use the Node version required by [`package.json`](./package.json), then install 
 vp install
 ```
 
+Then install the stock VitePlus hook wiring for this clone:
+
+```bash
+vp config
+```
+
 ## Run Locally
 
 Start the local build watcher:
