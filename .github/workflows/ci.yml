@@ -229,7 +229,7 @@ jobs:
           homebrew_tap: homebrew-tap
           github_token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           commit_owner: semantic-release-bot
-          commit_email: ui@put.io
+          commit_email: devs@put.io
           branch: main
           formula_folder: Formula
           install: 'bin.install "putio"'
