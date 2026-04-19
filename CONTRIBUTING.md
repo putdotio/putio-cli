@@ -54,7 +54,6 @@ pnpm run verify:sea
 - Keep top-level user docs in `README.md` and contributor workflow here.
 - Put deeper implementation detail in `docs/` instead of growing the top-level docs.
 - Keep `AGENTS.md` as repo-development guidance and `skills/*` as consumer-facing agent guidance.
-- Release commits created by the semantic-release workflow are authored and committed as `devsputio <devs@put.io>`.
 - When the public CLI surface or agent setup flow changes, update `README.md` and `skills/putio-cli/*` in the same change.
 
 ## Pull Requests
