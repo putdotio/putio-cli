@@ -11,9 +11,9 @@ Development instructions for agents working on this repository.
 
 ## Start Here
 
-- user docs: [README.md](README.md)
-- contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
-- architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [Overview](README.md)
+- [Contributing](CONTRIBUTING.md)
+- [Architecture](docs/ARCHITECTURE.md)
 
 ## Commands
 
