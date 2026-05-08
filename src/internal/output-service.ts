@@ -65,11 +65,19 @@ const SAFE_SENSITIVE_SENTINEL_VALUES = new Set([
 ]);
 const PROMPT_INJECTION_PATTERN =
   /\b(ignore (?:all|any|previous|above)|system prompt|developer message|tool call|function call|follow these instructions|you are chatgpt|you are an ai)\b/iu;
+const TERMINAL_ESCAPE_PATTERN = new RegExp(
+  String.raw`\u001B(?:\][^\u0007]*(?:\u0007|\u001B\\)|\[[0-?]*[ -/]*[@-~]|[@-Z\\-_])`,
+  "gu",
+);
+const TERMINAL_CONTROL_PATTERN = new RegExp(
+  String.raw`[\u0000-\u0008\u000B-\u001F\u007F-\u009F]`,
+  "gu",
+);
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const sanitizeTerminalText = (value: string) =>
+const redactSensitiveText = (value: string) =>
   value
     .replace(
       /(Authorization\s*:\s*Bearer\s+)([A-Za-z0-9._~+/=-]+)/gi,
@@ -87,6 +95,11 @@ export const sanitizeTerminalText = (value: string) =>
       /([?&](?:auth_?token|access_?token|refresh_?token|oauth_?token|token)=)([^&\s]+)/gi,
       (_match, prefix: string) => `${prefix}${REDACTED_VALUE}`,
     );
+
+export const sanitizeTerminalText = (value: string) =>
+  redactSensitiveText(value)
+    .replace(TERMINAL_ESCAPE_PATTERN, "")
+    .replace(TERMINAL_CONTROL_PATTERN, "");
 
 export const sanitizeTerminalValue = (value: unknown): unknown => {
   if (typeof value === "string") {
@@ -132,7 +145,7 @@ const sanitizeStructuredValueInternal = (
   path: ReadonlyArray<string>,
 ): StructuredSanitization => {
   if (typeof value === "string") {
-    const sanitized = sanitizeTerminalText(value);
+    const sanitized = redactSensitiveText(value);
 
     return {
       untrustedTextPaths: PROMPT_INJECTION_PATTERN.test(sanitized) ? [joinPath(path)] : [],
@@ -213,7 +226,7 @@ export const renderJson = (value: unknown) =>
 export const renderNdjson = (value: unknown) => JSON.stringify(sanitizeStructuredValue(value));
 
 export const renderTerminal = <A>(value: A, renderTerminalValue: (value: A) => string) =>
-  sanitizeTerminalText(renderTerminalValue(value));
+  redactSensitiveText(renderTerminalValue(sanitizeTerminalValue(value) as A));
 
 type LocalizedErrorMeta = {
   readonly details?: ReadonlyArray<readonly [label: string, value: string]>;
@@ -266,8 +279,9 @@ const localizeError = (error: unknown) =>
 
 export const formatCliError = (error: unknown) => {
   const localized = localizeError(error);
+  const view = sanitizeTerminalValue(toCliErrorView(localized)) as CliTerminalErrorView;
 
-  return sanitizeTerminalText(renderCliErrorTerminal(toCliErrorView(localized)));
+  return redactSensitiveText(renderCliErrorTerminal(view));
 };
 
 export const formatCliErrorJson = (error: unknown) => {

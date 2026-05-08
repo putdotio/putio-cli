@@ -3,14 +3,14 @@
 Prefer structured output:
 
 ```bash
-putio whoami
+putio whoami --fields auth --output json
 putio files list --output json
 ```
 
 Use `--fields` with top-level keys only:
 
 ```bash
-putio whoami --fields auth,info
+putio whoami --fields auth --output json
 putio files list --fields files,total --output json
 ```
 

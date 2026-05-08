@@ -51,6 +51,12 @@ describe("sanitizeTerminalText", () => {
       ),
     ).toBe("https://api.put.io/v2/files/1/download/file.txt?oauth_token=[REDACTED]&x=1");
   });
+
+  it("removes terminal control characters", () => {
+    expect(sanitizeTerminalText("safe\u001B]52;c;cHduZWQ=\u0007\u001B[2J\rspoof")).toBe(
+      "safespoof",
+    );
+  });
 });
 
 describe("renderJson", () => {
@@ -74,6 +80,10 @@ describe("renderJson", () => {
     ).toBe(
       '{\n  "links": [\n    "https://api.put.io/v2/files/1/download/file.txt?oauth_token=[REDACTED]"\n  ]\n}',
     );
+  });
+
+  it("preserves terminal control characters as escaped json data", () => {
+    expect(renderJson({ name: "safe\u001B[2J" })).toContain('"name": "safe\\u001b[2J"');
   });
 
   it("preserves suspicious api text and attaches machine-readable safety metadata", () => {
@@ -155,6 +165,15 @@ describe("renderTerminal", () => {
     expect(
       renderTerminal({ token: "secret-token" }, () => "Authorization: Bearer secret-token"),
     ).toBe("Authorization: Bearer [REDACTED]");
+  });
+
+  it("removes terminal controls from rendered values", () => {
+    expect(
+      renderTerminal(
+        { name: "safe\u001B]52;c;cHduZWQ=\u0007\u001B[2J\rspoof" },
+        (value) => value.name,
+      ),
+    ).toBe("safespoof");
   });
 });
 

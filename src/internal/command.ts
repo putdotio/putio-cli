@@ -134,6 +134,8 @@ type ReadOutputControls = {
 const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e/iu;
 const QUERY_OR_FRAGMENT_PATTERN = /[?#]/u;
 const TOP_LEVEL_FIELD_PATTERN = /^[A-Za-z0-9_-]+$/u;
+const MAX_CURSOR_PAGES = 1_000;
+const MAX_CURSOR_ITEMS = 100_000;
 
 const ownKeys = (value: Record<string, unknown>) => Object.keys(value);
 const hasControlCharacters = (value: string) =>
@@ -204,7 +206,7 @@ const parseRequestedFields = (raw: string) => {
     ...new Set(
       parts.map((part) =>
         validateSafeString({
-          label: `\`--fields\` selector \`${part}\``,
+          label: "`--fields` selector",
           pattern: TOP_LEVEL_FIELD_PATTERN,
           patternMessage:
             "`--fields` only accepts top-level field names without dots, brackets, or slashes.",
@@ -234,6 +236,50 @@ const readPageItems = (value: Record<string, unknown>, itemKey: string, command:
   }
 
   return items;
+};
+
+const assertCursorPageBudget = (input: {
+  readonly command: string;
+  readonly itemCount: number;
+  readonly pageCount: number;
+}) => {
+  if (input.pageCount > MAX_CURSOR_PAGES) {
+    throw new CliCommandInputError({
+      message: `\`${input.command}\` pagination exceeded ${MAX_CURSOR_PAGES} pages.`,
+    });
+  }
+
+  if (input.itemCount > MAX_CURSOR_ITEMS) {
+    throw new CliCommandInputError({
+      message: `\`${input.command}\` pagination exceeded ${MAX_CURSOR_ITEMS} items.`,
+    });
+  }
+};
+
+const assertCursorNotSeen = (input: {
+  readonly command: string;
+  readonly cursor: string;
+  readonly seenCursors: Set<string>;
+}) => {
+  if (input.seenCursors.has(input.cursor)) {
+    throw new CliCommandInputError({
+      message: `\`${input.command}\` pagination returned a repeated cursor.`,
+    });
+  }
+
+  input.seenCursors.add(input.cursor);
+};
+
+const assertCursorNotRepeated = (input: {
+  readonly command: string;
+  readonly cursor: string | null;
+  readonly seenCursors: Set<string>;
+}) => {
+  if (input.cursor !== null && input.seenCursors.has(input.cursor)) {
+    throw new CliCommandInputError({
+      message: `\`${input.command}\` pagination returned a repeated cursor.`,
+    });
+  }
 };
 
 const integerPattern = /^-?\d+$/;
@@ -404,12 +450,39 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
     }
 
     const collectedItems = [...readPageItems(input.initial, input.itemKey, input.command)];
+    const seenCursors = new Set<string>();
     let cursor = readCursor(input.initial);
+    let pageCount = 1;
+
+    assertCursorPageBudget({
+      command: input.command,
+      itemCount: collectedItems.length,
+      pageCount,
+    });
 
     while (cursor !== null) {
+      assertCursorNotSeen({
+        command: input.command,
+        cursor,
+        seenCursors,
+      });
+
       const nextPage = yield* input.continueWithCursor(cursor);
-      collectedItems.push(...readPageItems(nextPage, input.itemKey, input.command));
-      cursor = readCursor(nextPage);
+      const nextCursor = readCursor(nextPage);
+      assertCursorNotRepeated({
+        command: input.command,
+        cursor: nextCursor,
+        seenCursors,
+      });
+      const pageItems = readPageItems(nextPage, input.itemKey, input.command);
+      pageCount += 1;
+      collectedItems.push(...pageItems);
+      assertCursorPageBudget({
+        command: input.command,
+        itemCount: collectedItems.length,
+        pageCount,
+      });
+      cursor = nextCursor;
     }
 
     return {
@@ -477,8 +550,20 @@ export const writeReadPages = <A extends Record<string, unknown>, E, R>(input: {
     }
 
     let current = input.initial;
+    const seenCursors = new Set<string>();
+    let pageCount = 1;
+    let streamedItemCount = 0;
 
     while (true) {
+      if (input.itemKey) {
+        streamedItemCount += readPageItems(current, input.itemKey, input.command).length;
+        assertCursorPageBudget({
+          command: input.command,
+          itemCount: streamedItemCount,
+          pageCount,
+        });
+      }
+
       const selectedValue = yield* selectTopLevelFields({
         command: input.command,
         requestedFields: input.controls.requestedFields,
@@ -497,7 +582,20 @@ export const writeReadPages = <A extends Record<string, unknown>, E, R>(input: {
         return;
       }
 
-      current = yield* input.continueWithCursor(cursor);
+      assertCursorNotSeen({
+        command: input.command,
+        cursor,
+        seenCursors,
+      });
+
+      const nextPage = yield* input.continueWithCursor(cursor);
+      assertCursorNotRepeated({
+        command: input.command,
+        cursor: readCursor(nextPage),
+        seenCursors,
+      });
+      current = nextPage;
+      pageCount += 1;
     }
   });
 

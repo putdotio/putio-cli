@@ -185,6 +185,25 @@ describe("resolveReadOutputControls", () => {
       expect(String(exit.cause)).toContain("cannot include `?` or `#` fragments");
     }
   });
+
+  it("does not reflect control-bearing field selectors in errors", async () => {
+    const payload = "\u001B]52;c;cHduZWQ=\u0007";
+    const exit = await Effect.runPromiseExit(
+      provideRuntime(
+        resolveReadOutputControls({
+          fields: Option.some(payload),
+          output: "json",
+        }),
+      ),
+    );
+
+    expect(exit._tag).toBe("Failure");
+    if (exit._tag === "Failure") {
+      const cause = String(exit.cause);
+      expect(cause).toContain("`--fields` selector cannot contain control characters");
+      expect(cause).not.toContain(payload);
+    }
+  });
 });
 
 describe("selectTopLevelFields", () => {
@@ -271,6 +290,34 @@ describe("collectAllCursorPages", () => {
       files: [{ id: 1 }, { id: 2 }, { id: 3 }],
       total: 3,
     });
+  });
+
+  it("rejects repeated cursors", async () => {
+    const continueWithCursor = () =>
+      Effect.succeed({
+        cursor: "cursor-1",
+        files: [{ id: 2 }],
+        total: 2,
+      });
+
+    const exit = await Effect.runPromiseExit(
+      collectAllCursorPages({
+        command: "files list",
+        continueWithCursor,
+        initial: {
+          cursor: "cursor-1",
+          files: [{ id: 1 }],
+          total: 2,
+        },
+        itemKey: "files",
+        pageAll: true,
+      }),
+    );
+
+    expect(exit._tag).toBe("Failure");
+    if (exit._tag === "Failure") {
+      expect(String(exit.cause)).toContain("pagination returned a repeated cursor");
+    }
   });
 });
 
