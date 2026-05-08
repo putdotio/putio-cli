@@ -32,6 +32,7 @@ jobs:
       - validate-release-tag
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    environment: release
     permissions:
       contents: write
     strategy:
@@ -46,6 +47,13 @@ jobs:
             asset_arch: arm64
 
     steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ vars.PUTIO_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -96,6 +104,7 @@ jobs:
       - name: Upload binary assets to the GitHub release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
+          token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ inputs.tag_name }}
           files: |
             .artifacts/release/*
@@ -106,10 +115,18 @@ jobs:
       - validate-release-tag
     runs-on: windows-latest
     timeout-minutes: 30
+    environment: release
     permissions:
       contents: write
 
     steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ vars.PUTIO_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -155,6 +172,7 @@ jobs:
       - name: Upload binary assets to the GitHub release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
+          token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ inputs.tag_name }}
           files: |
             .artifacts/release/*
