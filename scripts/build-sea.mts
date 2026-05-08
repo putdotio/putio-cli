@@ -1,5 +1,14 @@
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { createWriteStream, cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  createWriteStream,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { mkdir, unlink } from "node:fs/promises";
 import { request } from "node:https";
 import { dirname, join } from "node:path";
@@ -22,7 +31,14 @@ const seaSentinelFuse = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 const localBin = (name) =>
   join(root, "node_modules", ".bin", `${name}${platform === "win32" ? ".cmd" : ""}`);
 
-const run = (command, args, options = {}) => {
+type RunOptions = {
+  readonly cwd?: string;
+  readonly encoding?: BufferEncoding;
+  readonly stdio?: "inherit";
+  readonly windowsVerbatimArguments?: boolean;
+};
+
+const run = (command: string, args: ReadonlyArray<string>, options: RunOptions = {}) => {
   if (platform === "win32" && /\.(cmd|bat)$/i.test(command)) {
     return execFileSync(process.env.comspec ?? "cmd.exe", ["/d", "/s", "/c", command, ...args], {
       cwd: root,
@@ -41,10 +57,10 @@ const run = (command, args, options = {}) => {
   });
 };
 
-const downloadFile = async (url, destination) => {
+const downloadFile = async (url: string, destination: string): Promise<void> => {
   await mkdir(dirname(destination), { recursive: true });
 
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     const req = request(url, (response) => {
       if (
         response.statusCode &&
@@ -62,12 +78,59 @@ const downloadFile = async (url, destination) => {
         return;
       }
 
-      pipeline(response, createWriteStream(destination)).then(resolve, reject);
+      void pipeline(response, createWriteStream(destination)).then(resolve, reject);
     });
 
     req.on("error", reject);
     req.end();
   });
+};
+
+const downloadText = async (url: string): Promise<string> =>
+  await new Promise<string>((resolve, reject) => {
+    const req = request(url, (response) => {
+      if (
+        response.statusCode &&
+        response.statusCode >= 300 &&
+        response.statusCode < 400 &&
+        typeof response.headers.location === "string"
+      ) {
+        response.resume();
+        resolve(downloadText(response.headers.location));
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        reject(new Error(`Unable to download ${url}. Received status ${response.statusCode}.`));
+        return;
+      }
+
+      let text = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        text += chunk;
+      });
+      response.on("end", () => resolve(text));
+      response.on("error", reject);
+    });
+
+    req.on("error", reject);
+    req.end();
+  });
+
+const sha256File = (filePath: string) =>
+  createHash("sha256").update(readFileSync(filePath)).digest("hex");
+
+const resolveExpectedChecksum = (shasums: string, archiveName: string) => {
+  for (const line of shasums.split(/\r?\n/u)) {
+    const [checksum, filename] = line.trim().split(/\s+/u);
+
+    if (checksum !== undefined && filename === archiveName) {
+      return checksum;
+    }
+  }
+
+  throw new Error(`Unable to resolve checksum for ${archiveName}.`);
 };
 
 const resolveOfficialNodeRuntime = async () => {
@@ -88,10 +151,22 @@ const resolveOfficialNodeRuntime = async () => {
     return nodeBinary;
   }
 
-  await downloadFile(
-    `https://nodejs.org/dist/v${version}/${baseName}.${archiveExtension}`,
-    archivePath,
+  const archiveName = `${baseName}.${archiveExtension}`;
+  const nodeDistBase = `https://nodejs.org/dist/v${version}`;
+
+  await downloadFile(`${nodeDistBase}/${archiveName}`, archivePath);
+
+  const expectedChecksum = resolveExpectedChecksum(
+    await downloadText(`${nodeDistBase}/SHASUMS256.txt`),
+    archiveName,
   );
+  const actualChecksum = sha256File(archivePath);
+
+  if (actualChecksum.toLowerCase() !== expectedChecksum.toLowerCase()) {
+    throw new Error(
+      `Checksum mismatch for ${archiveName}. Expected ${expectedChecksum}, received ${actualChecksum}.`,
+    );
+  }
 
   mkdirSync(runtimeDir, { recursive: true });
   if (platform === "win32") {
