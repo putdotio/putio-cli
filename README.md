@@ -135,4 +135,4 @@ putio transfers list --page-all --output ndjson
 
 ## License
 
-This project is available under the MIT license. See [LICENSE](./LICENSE).
+This project is available under the MIT license. See [License](./LICENSE).

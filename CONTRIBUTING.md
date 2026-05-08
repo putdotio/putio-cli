@@ -4,7 +4,7 @@ Thanks for contributing to `putio-cli`.
 
 ## Setup
 
-Use the Node version required by [`package.json`](./package.json), then install dependencies:
+Use the Node version required by [package metadata](./package.json), then install dependencies:
 
 ```bash
 vp install
