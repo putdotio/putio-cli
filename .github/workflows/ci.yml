@@ -49,6 +49,7 @@ jobs:
       - verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: release
     permissions:
       contents: write
       issues: write
@@ -236,6 +237,7 @@ jobs:
       - build-unix-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: release
     permissions:
       contents: read
 
