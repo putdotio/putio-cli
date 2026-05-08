@@ -200,8 +200,26 @@ describe("resolveReadOutputControls", () => {
     expect(exit._tag).toBe("Failure");
     if (exit._tag === "Failure") {
       const cause = String(exit.cause);
-      expect(cause).toContain("`--fields` selector cannot contain control characters");
+      expect(cause).toContain("`--fields` selector #1 cannot contain control characters");
       expect(cause).not.toContain(payload);
+    }
+  });
+
+  it("identifies the invalid field selector by position without echoing it", async () => {
+    const exit = await Effect.runPromiseExit(
+      provideRuntime(
+        resolveReadOutputControls({
+          fields: Option.some("auth,bad.field"),
+          output: "json",
+        }),
+      ),
+    );
+
+    expect(exit._tag).toBe("Failure");
+    if (exit._tag === "Failure") {
+      const cause = String(exit.cause);
+      expect(cause).toContain("`--fields` selector #2 only accepts top-level field names");
+      expect(cause).not.toContain("bad.field");
     }
   });
 });

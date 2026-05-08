@@ -120,7 +120,8 @@ ensure_install_dir() {
 
   [ -w "$INSTALL_DIR" ] || fail "install directory is not writable: $INSTALL_DIR"
 
-  permissions="$(ls -ld "$INSTALL_DIR" | awk '{print $1}')"
+  install_dir_target="$(cd "$INSTALL_DIR" && pwd -P)" || fail "unable to resolve install directory: $INSTALL_DIR"
+  permissions="$(ls -ld "$install_dir_target" | awk '{print $1}')"
   group_write="$(printf '%s' "$permissions" | cut -c6)"
   other_write="$(printf '%s' "$permissions" | cut -c9)"
 

@@ -33,6 +33,12 @@ describe("sanitizeTerminalValue", () => {
       safe: "visible",
     });
   });
+
+  it("preserves non-plain objects for renderers", () => {
+    const date = new Date("2026-01-01T00:00:00.000Z");
+
+    expect(sanitizeTerminalValue(date)).toBe(date);
+  });
 });
 
 describe("sanitizeTerminalText", () => {
@@ -174,6 +180,14 @@ describe("renderTerminal", () => {
         (value) => value.name,
       ),
     ).toBe("safespoof");
+  });
+
+  it("does not replace class instances before rendering", () => {
+    class RenderableValue {
+      constructor(readonly name: string) {}
+    }
+
+    expect(renderTerminal(new RenderableValue("safe"), (value) => value.name)).toBe("safe");
   });
 });
 

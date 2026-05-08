@@ -204,12 +204,11 @@ const parseRequestedFields = (raw: string) => {
 
   return [
     ...new Set(
-      parts.map((part) =>
+      parts.map((part, index) =>
         validateSafeString({
-          label: "`--fields` selector",
+          label: `\`--fields\` selector #${index + 1}`,
           pattern: TOP_LEVEL_FIELD_PATTERN,
-          patternMessage:
-            "`--fields` only accepts top-level field names without dots, brackets, or slashes.",
+          patternMessage: `\`--fields\` selector #${index + 1} only accepts top-level field names without dots, brackets, or slashes.`,
           value: part,
         }),
       ),
