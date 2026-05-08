@@ -32,7 +32,7 @@ Focused:
 Runtime proofs:
 
 - `./dist/bin.mjs describe`
-- `./dist/bin.mjs whoami --output json`
+- `./dist/bin.mjs whoami --fields auth --output json`
 
 ## Development Guidance
 

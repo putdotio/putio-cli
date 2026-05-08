@@ -113,8 +113,22 @@ verify_checksum() {
 }
 
 ensure_install_dir() {
-  mkdir -p "$INSTALL_DIR"
+  if [ ! -d "$INSTALL_DIR" ]; then
+    mkdir -p "$INSTALL_DIR"
+    chmod 0755 "$INSTALL_DIR"
+  fi
+
   [ -w "$INSTALL_DIR" ] || fail "install directory is not writable: $INSTALL_DIR"
+
+  install_dir_target="$(cd "$INSTALL_DIR" && pwd -P)" || fail "unable to resolve install directory: $INSTALL_DIR"
+  permissions="$(ls -ld "$install_dir_target" | awk '{print $1}')"
+  group_write="$(printf '%s' "$permissions" | cut -c6)"
+  other_write="$(printf '%s' "$permissions" | cut -c9)"
+
+  if { [ "$group_write" = "w" ] || [ "$other_write" = "w" ]; } &&
+    [ "${PUTIO_CLI_ALLOW_SHARED_INSTALL_DIR:-}" != "1" ]; then
+    fail "install directory is group/world-writable: $INSTALL_DIR. Set PUTIO_CLI_ALLOW_SHARED_INSTALL_DIR=1 to allow this intentionally."
+  fi
 }
 
 print_path_hint() {
@@ -156,8 +170,9 @@ printf '%s\n' "putio installer: verifying checksum"
 verify_checksum "$checksum_path" "$archive_path"
 
 tar -xzf "$archive_path" -C "$work_dir"
-chmod +x "$work_dir/putio"
+chmod 0755 "$work_dir/putio"
 mv "$work_dir/putio" "$INSTALL_DIR/putio"
+chmod 0755 "$INSTALL_DIR/putio"
 
 printf '%s\n' "putio installer: installed to $INSTALL_DIR/putio"
 print_path_hint

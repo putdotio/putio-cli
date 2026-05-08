@@ -100,10 +100,10 @@ Link your account:
 putio auth login
 ```
 
-Check the account:
+Check the auth source:
 
 ```bash
-putio whoami --output json
+putio whoami --fields auth --output json
 ```
 
 Read a small JSON result:

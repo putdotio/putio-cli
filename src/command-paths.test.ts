@@ -929,6 +929,58 @@ describe("cli command paths", () => {
     );
   });
 
+  it("rejects repeated cursors while streaming file list pages", async () => {
+    mocks.listFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: "cursor-1",
+        files: [{ id: 1, name: "Movies" }],
+        total: 2,
+      }),
+    );
+    mocks.continueFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: "cursor-1",
+        files: [{ id: 2, name: "Shows" }],
+        total: 2,
+      }),
+    );
+
+    await expect(
+      runCliInTest(["putio", "files", "list", "--page-all", "--output", "ndjson"]),
+    ).rejects.toMatchObject({
+      message: "`files list` pagination returned a repeated cursor.",
+    });
+
+    expect(mocks.continueFilesMock).toHaveBeenCalledTimes(1);
+    expect(mocks.writeOutputMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects cumulative item overflow while streaming file list pages", async () => {
+    mocks.listFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: "cursor-1",
+        files: Array.from({ length: 60_000 }, (_value, id) => ({ id })),
+        total: 110_001,
+      }),
+    );
+    mocks.continueFilesMock.mockReturnValueOnce(
+      Effect.succeed({
+        cursor: null,
+        files: Array.from({ length: 50_001 }, (_value, id) => ({ id: id + 60_000 })),
+        total: 110_001,
+      }),
+    );
+
+    await expect(
+      runCliInTest(["putio", "files", "list", "--page-all", "--output", "ndjson"]),
+    ).rejects.toMatchObject({
+      message: "`files list` pagination exceeded 100000 items.",
+    });
+
+    expect(mocks.continueFilesMock).toHaveBeenCalledTimes(1);
+    expect(mocks.writeOutputMock).toHaveBeenCalledTimes(1);
+  });
+
   it("executes files rename", async () => {
     await expect(
       runCliInTest([
