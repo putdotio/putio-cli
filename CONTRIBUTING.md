@@ -21,13 +21,13 @@ vp config
 Start the local build watcher:
 
 ```bash
-pnpm run dev
+vp run dev
 ```
 
 Build the CLI once and try the shipped entrypoint:
 
 ```bash
-pnpm run build
+vp run build
 ./dist/bin.mjs describe
 ```
 
@@ -36,24 +36,20 @@ pnpm run build
 Run the main repository gate before opening or updating a pull request:
 
 ```bash
-pnpm run verify
+vp run verify
 ```
 
 Run focused checks when they match your change:
 
 ```bash
-pnpm run smoke:pack
-pnpm run build:sea
-pnpm run verify:sea
+vp run smoke:pack
+vp run build:sea
+vp run verify:sea
 ```
 
 ## Release Publishing
 
-GitHub Actions publishes from `main` through the protected `release` Environment.
-
-Keep `NPM_TOKEN`, `PUTIO_RELEASE_BOT_APP_ID`, and `PUTIO_RELEASE_BOT_PRIVATE_KEY` in that Environment with required reviewers and prevent self-review enabled. Pull request checks stay secretless and only run verify jobs.
-
-Release GitHub writes use `putio-release-bot` for version sync commits, `v*` tags, GitHub Releases, and binary asset uploads. Trusted put.io team members may push directly to `main`, but repository rules should block outsiders, force-pushes, and branch deletes where GitHub plan support allows.
+See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, and binary asset publishing.
 
 ## Development Notes
 

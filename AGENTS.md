@@ -14,19 +14,20 @@ Development instructions for agents working on this repository.
 - [Overview](README.md)
 - [Contributing](CONTRIBUTING.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Distribution](docs/DISTRIBUTION.md)
 
 ## Commands
 
 Primary:
 
-- `pnpm run verify`
+- `vp run verify`
 
 Focused:
 
-- `pnpm run check`
-- `pnpm run build`
-- `pnpm run test`
-- `pnpm run coverage`
+- `vp run check`
+- `vp run build`
+- `vp run test`
+- `vp run coverage`
 
 Runtime proofs:
 
