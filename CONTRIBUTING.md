@@ -47,6 +47,14 @@ pnpm run build:sea
 pnpm run verify:sea
 ```
 
+## Release Publishing
+
+GitHub Actions publishes from `main` through the protected `release` Environment.
+
+Keep `NPM_TOKEN`, `PUTIO_RELEASE_BOT_APP_ID`, and `PUTIO_RELEASE_BOT_PRIVATE_KEY` in that Environment with required reviewers and prevent self-review enabled. Pull request checks stay secretless and only run verify jobs.
+
+Release GitHub writes use `putio-release-bot` for version sync commits, `v*` tags, GitHub Releases, and binary asset uploads. Trusted put.io team members may push directly to `main`, but repository rules should block outsiders, force-pushes, and branch deletes where GitHub plan support allows.
+
 ## Development Notes
 
 - `verify` is the repository delivery gate.

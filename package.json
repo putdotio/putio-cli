@@ -30,7 +30,7 @@
   },
   "scripts": {
     "build": "vp pack",
-    "build:sea": "node ./scripts/build-sea.mjs",
+    "build:sea": "node ./scripts/build-sea.mts",
     "check": "vp check .",
     "coverage": "vp test --coverage",
     "dev": "vp pack --watch",

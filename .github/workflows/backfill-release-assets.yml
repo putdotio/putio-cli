@@ -9,10 +9,30 @@ on:
         type: string
 
 jobs:
+  validate-release-tag:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+
+    steps:
+      - name: Validate tag name
+        env:
+          TAG_NAME: ${{ inputs.tag_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $TAG_NAME" >&2
+            exit 1
+          fi
+
   build-unix-binaries:
     name: Build ${{ matrix.os }} release assets
+    needs:
+      - validate-release-tag
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    environment: release
     permissions:
       contents: write
     strategy:
@@ -27,30 +47,42 @@ jobs:
             asset_arch: arm64
 
     steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ vars.PUTIO_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag_name }}
 
-      - name: Check out release tag
-        run: git checkout ${{ inputs.tag_name }}
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: ".node-version"
-          cache: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build SEA binary
-        run: vp run build:sea
+        run: pnpm run build:sea
 
       - name: Verify SEA binary
-        run: vp run verify:sea
+        run: pnpm run verify:sea
 
       - name: Package release assets
         shell: pwsh
+        env:
+          TAG_NAME: ${{ inputs.tag_name }}
         run: |
-          $version = "${{ inputs.tag_name }}".TrimStart("v")
+          $version = $env:TAG_NAME.TrimStart("v")
           $assetBase = "putio-cli-$version-${{ matrix.asset_os }}-${{ matrix.asset_arch }}"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -70,44 +102,60 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
+          token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ inputs.tag_name }}
           files: |
             .artifacts/release/*
 
   build-windows-binary:
     name: Build windows-latest release assets
+    needs:
+      - validate-release-tag
     runs-on: windows-latest
     timeout-minutes: 30
+    environment: release
     permissions:
       contents: write
 
     steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ vars.PUTIO_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag_name }}
 
-      - name: Check out release tag
-        run: git checkout ${{ inputs.tag_name }}
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: ".node-version"
-          cache: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build SEA binary
-        run: vp run build:sea
+        run: pnpm run build:sea
 
       - name: Verify SEA binary
-        run: vp run verify:sea
+        run: pnpm run verify:sea
 
       - name: Package release assets
         shell: pwsh
+        env:
+          TAG_NAME: ${{ inputs.tag_name }}
         run: |
-          $version = "${{ inputs.tag_name }}".TrimStart("v")
+          $version = $env:TAG_NAME.TrimStart("v")
           $assetBase = "putio-cli-$version-windows-amd64"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -122,8 +170,9 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
+          token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ inputs.tag_name }}
           files: |
             .artifacts/release/*

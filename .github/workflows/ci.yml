@@ -21,21 +21,26 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
 
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: ".node-version"
-          cache: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Verify repository
-        run: vp run verify
+        run: pnpm run verify
 
       - name: Smoke test packed install surface
-        run: vp run smoke:pack
+        run: pnpm run smoke:pack
 
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
@@ -44,6 +49,7 @@ jobs:
       - verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: release
     permissions:
       contents: write
       issues: write
@@ -54,23 +60,38 @@ jobs:
       new_release_version: ${{ steps.semantic.outputs.new_release_version }}
 
     steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ vars.PUTIO_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          token: ${{ steps.release-bot.outputs.token }}
 
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: ".node-version"
-          cache: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build package
-        run: vp pack
+        run: pnpm run build
 
       - name: Release package
         id: semantic
-        uses: cycjimmy/semantic-release-action@v6
+        uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
         with:
           extra_plugins: |
             @semantic-release/commit-analyzer
@@ -80,12 +101,12 @@ jobs:
             @semantic-release/git
             conventional-changelog-conventionalcommits
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.release-bot.outputs.token }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GIT_AUTHOR_NAME: devsputio
-          GIT_AUTHOR_EMAIL: devs@put.io
-          GIT_COMMITTER_NAME: devsputio
-          GIT_COMMITTER_EMAIL: devs@put.io
+          GIT_AUTHOR_NAME: ${{ steps.release-bot.outputs.app-slug }}[bot]
+          GIT_AUTHOR_EMAIL: ${{ steps.release-bot.outputs.app-slug }}[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: ${{ steps.release-bot.outputs.app-slug }}[bot]
+          GIT_COMMITTER_EMAIL: ${{ steps.release-bot.outputs.app-slug }}[bot]@users.noreply.github.com
 
   build-unix-binaries:
     if: needs.release.outputs.new_release_published == 'true'
@@ -94,6 +115,7 @@ jobs:
       - release
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    environment: release
     permissions:
       contents: write
     strategy:
@@ -108,25 +130,35 @@ jobs:
             asset_arch: arm64
 
     steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ vars.PUTIO_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          ref: ${{ needs.release.outputs.new_release_git_tag }}
 
-      - name: Check out release tag
-        run: git checkout ${{ needs.release.outputs.new_release_git_tag }}
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: ".node-version"
-          cache: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build SEA binary
-        run: vp run build:sea
+        run: pnpm run build:sea
 
       - name: Verify SEA binary
-        run: vp run verify:sea
+        run: pnpm run verify:sea
 
       - name: Package release assets
         shell: pwsh
@@ -151,8 +183,9 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
+          token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ needs.release.outputs.new_release_git_tag }}
           files: |
             .artifacts/release/*
@@ -164,29 +197,40 @@ jobs:
       - release
     runs-on: windows-latest
     timeout-minutes: 30
+    environment: release
     permissions:
       contents: write
 
     steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ vars.PUTIO_RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
+          ref: ${{ needs.release.outputs.new_release_git_tag }}
 
-      - name: Check out release tag
-        run: git checkout ${{ needs.release.outputs.new_release_git_tag }}
-
-      - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@v1
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: ".node-version"
-          cache: true
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build SEA binary
-        run: vp run build:sea
+        run: pnpm run build:sea
 
       - name: Verify SEA binary
-        run: vp run verify:sea
+        run: pnpm run verify:sea
 
       - name: Package release assets
         shell: pwsh
@@ -206,8 +250,9 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
+          token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ needs.release.outputs.new_release_git_tag }}
           files: |
             .artifacts/release/*
@@ -220,12 +265,13 @@ jobs:
       - build-unix-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: release
     permissions:
       contents: read
 
     steps:
       - name: Release to Homebrew tap
-        uses: Justintime50/homebrew-releaser@v3
+        uses: Justintime50/homebrew-releaser@a62d7a359683bfc047cdb2431f53ee58241464d1 # v3
         with:
           homebrew_owner: putdotio
           homebrew_tap: homebrew-tap
