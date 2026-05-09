@@ -42,7 +42,7 @@ Runtime proofs:
 - Treat JSON output as the machine contract and terminal output as a separate adapter layer.
 - Update docs when flags, command behavior, or architecture boundaries change.
 - When the public CLI surface or agent-facing setup flow changes, update [`README.md`](README.md) and [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md) together so the copy-paste prompt and consumer guidance stay aligned.
-- Do not hardcode volatile metrics in docs.
+- Keep docs free of volatile metrics.
 
 ## Testing
 
