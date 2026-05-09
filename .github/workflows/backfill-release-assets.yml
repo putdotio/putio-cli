@@ -36,7 +36,9 @@ jobs:
       - validate-release-tag
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    environment: release
+    environment:
+      name: release
+      deployment: false
     permissions:
       contents: read
     strategy:
@@ -117,7 +119,9 @@ jobs:
       - validate-release-tag
     runs-on: windows-latest
     timeout-minutes: 30
-    environment: release
+    environment:
+      name: release
+      deployment: false
     permissions:
       contents: read
 

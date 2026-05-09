@@ -47,7 +47,9 @@ jobs:
       - verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: release
+    environment:
+      name: release
+      deployment: false
     permissions:
       contents: read
     outputs:
@@ -109,7 +111,9 @@ jobs:
       - release
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-    environment: release
+    environment:
+      name: release
+      deployment: false
     permissions:
       contents: read
     strategy:
@@ -189,7 +193,9 @@ jobs:
       - release
     runs-on: windows-latest
     timeout-minutes: 30
-    environment: release
+    environment:
+      name: release
+      deployment: false
     permissions:
       contents: read
 
@@ -255,7 +261,9 @@ jobs:
       - build-unix-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: release
+    environment:
+      name: release
+      deployment: false
     permissions:
       contents: read
 

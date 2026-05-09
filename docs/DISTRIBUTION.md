@@ -24,6 +24,7 @@ Environment entries:
 - variables: `PUTIO_RELEASE_BOT_APP_ID`
 - approval: none; releases are continuous after the `main` gate passes
 - refs: release branch/tag policy constrains what can publish
+- deployment records: disabled with `deployment: false` because this is package publishing, not an app deploy
 
 Release GitHub writes use `putio-release-bot` for version sync commits, `v*` tags, GitHub Releases, and binary asset uploads.
 
