@@ -21,7 +21,7 @@ Release jobs declare the protected GitHub Environment named `release`.
 Environment entries:
 
 - secrets: `NPM_TOKEN`, `PUTIO_RELEASE_BOT_PRIVATE_KEY`, `HOMEBREW_TAP_TOKEN`
-- variables: `PUTIO_RELEASE_BOT_APP_ID`
+- variables: `PUTIO_RELEASE_BOT_CLIENT_ID`
 - approval: none; releases are continuous after the `main` gate passes
 - refs: release branch/tag policy constrains what can publish
 - deployment records: disabled with `deployment: false` because this is package publishing, not an app deploy
