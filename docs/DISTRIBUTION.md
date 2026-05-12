@@ -28,6 +28,8 @@ Environment entries:
 
 Release GitHub writes use `putio-release-bot` for version sync commits, `v*` tags, GitHub Releases, and binary asset uploads.
 
+The workflow keeps dependency caches only on the secretless verify job. Secret-bearing release, binary asset, and Homebrew publish jobs run fresh installs or release tooling without package-manager caches.
+
 ## Local Checks
 
 Before changing distribution wiring, validate the repo-local guardrails the workflow depends on:
