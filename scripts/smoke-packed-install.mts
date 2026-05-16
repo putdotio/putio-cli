@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 
 type AuthStatus = {
   readonly apiBaseUrl: string;
@@ -29,13 +29,26 @@ type RemoveResult = {
 };
 
 const root = process.cwd();
-const workDir = mkdtempSync(join(tmpdir(), "putio-cli-auth-profiles-"));
-const configPath = join(workDir, "config.json");
+const artifactsDir = join(root, ".artifacts");
+const installDir = mkdtempSync(join(tmpdir(), "putio-cli-install-"));
+const configPath = join(installDir, "putio-config.json");
 
-const runJson = <A,>(args: ReadonlyArray<string>, env: Record<string, string> = {}): A =>
+const run = (command: string, args: ReadonlyArray<string>, options: object = {}) =>
+  execFileSync(command, args, {
+    cwd: root,
+    encoding: "utf8",
+    stdio: "pipe",
+    ...options,
+  });
+
+const runPutioJson = <A,>(
+  binaryPath: string,
+  args: ReadonlyArray<string>,
+  env: Record<string, string> = {},
+): A =>
   JSON.parse(
-    execFileSync(process.execPath, [join(root, "dist", "bin.mjs"), ...args], {
-      cwd: root,
+    execFileSync(binaryPath, args, {
+      cwd: installDir,
       encoding: "utf8",
       env: {
         ...process.env,
@@ -52,7 +65,7 @@ const assert = (condition: boolean, message: string) => {
   }
 };
 
-try {
+const smokeAuthProfiles = (binaryPath: string) => {
   writeFileSync(
     configPath,
     `${JSON.stringify(
@@ -74,7 +87,13 @@ try {
     )}\n`,
   );
 
-  const defaultList = runJson<ProfileList>(["auth", "profiles", "list", "--output", "json"]);
+  const defaultList = runPutioJson<ProfileList>(binaryPath, [
+    "auth",
+    "profiles",
+    "list",
+    "--output",
+    "json",
+  ]);
   assert(
     defaultList.profiles.find((profile) => profile.name === "human")?.current === true,
     "Expected default profile `human` to be current.",
@@ -84,12 +103,17 @@ try {
     "Expected `devs-fe-auto` not to be current before selection.",
   );
 
-  const defaultStatus = runJson<AuthStatus>(["auth", "status", "--output", "json"]);
+  const defaultStatus = runPutioJson<AuthStatus>(binaryPath, [
+    "auth",
+    "status",
+    "--output",
+    "json",
+  ]);
   assert(defaultStatus.authenticated, "Expected default profile status to be authenticated.");
   assert(defaultStatus.profile === "human", "Expected default status to use `human`.");
   assert(defaultStatus.source === "profile", "Expected default status source to be `profile`.");
 
-  const envStatus = runJson<AuthStatus>(["auth", "status", "--output", "json"], {
+  const envStatus = runPutioJson<AuthStatus>(binaryPath, ["auth", "status", "--output", "json"], {
     PUTIO_CLI_PROFILE: "devs-fe-auto",
   });
   assert(envStatus.authenticated, "Expected env-selected profile status to be authenticated.");
@@ -99,7 +123,7 @@ try {
     "Expected env-selected profile to use its profile-specific API base URL.",
   );
 
-  const useResult = runJson<{ readonly profile: string }>([
+  const useResult = runPutioJson<{ readonly profile: string }>(binaryPath, [
     "auth",
     "profiles",
     "use",
@@ -109,7 +133,13 @@ try {
   ]);
   assert(useResult.profile === "devs-fe-auto", "Expected `profiles use` to select dev profile.");
 
-  const selectedList = runJson<ProfileList>(["auth", "profiles", "list", "--output", "json"]);
+  const selectedList = runPutioJson<ProfileList>(binaryPath, [
+    "auth",
+    "profiles",
+    "list",
+    "--output",
+    "json",
+  ]);
   assert(
     selectedList.defaultProfile === "devs-fe-auto",
     "Expected `profiles use` to persist dev profile as default.",
@@ -119,7 +149,7 @@ try {
     "Expected dev profile to be current after `profiles use`.",
   );
 
-  const logoutResult = runJson<LogoutResult>([
+  const logoutResult = runPutioJson<LogoutResult>(binaryPath, [
     "auth",
     "logout",
     "--profile",
@@ -130,7 +160,7 @@ try {
   assert(logoutResult.cleared, "Expected profile logout to report a cleared token.");
   assert(logoutResult.profile === "devs-fe-auto", "Expected logout to report selected profile.");
 
-  const devAfterLogout = runJson<AuthStatus>([
+  const devAfterLogout = runPutioJson<AuthStatus>(binaryPath, [
     "auth",
     "status",
     "--profile",
@@ -140,7 +170,7 @@ try {
   ]);
   assert(!devAfterLogout.authenticated, "Expected dev profile to be unauthenticated after logout.");
 
-  const humanAfterDevLogout = runJson<AuthStatus>([
+  const humanAfterDevLogout = runPutioJson<AuthStatus>(binaryPath, [
     "auth",
     "status",
     "--profile",
@@ -153,7 +183,7 @@ try {
     "Expected human profile to remain authenticated after dev logout.",
   );
 
-  const removeResult = runJson<RemoveResult>([
+  const removeResult = runPutioJson<RemoveResult>(binaryPath, [
     "auth",
     "profiles",
     "remove",
@@ -163,7 +193,13 @@ try {
   ]);
   assert(removeResult.removed, "Expected `profiles remove human` to report removal.");
 
-  const finalList = runJson<ProfileList>(["auth", "profiles", "list", "--output", "json"]);
+  const finalList = runPutioJson<ProfileList>(binaryPath, [
+    "auth",
+    "profiles",
+    "list",
+    "--output",
+    "json",
+  ]);
   assert(
     finalList.profiles.some((profile) => profile.name === "devs-fe-auto"),
     "Expected dev profile to remain after removing human.",
@@ -172,20 +208,45 @@ try {
     !finalList.profiles.some((profile) => profile.name === "human"),
     "Expected human profile to be removed.",
   );
+};
 
-  console.log(
-    JSON.stringify({
-      checked: [
-        "default profile selection",
-        "env profile selection",
-        "profiles use",
-        "scoped profile logout",
-        "independent profile remains authenticated",
-        "profiles remove",
-      ],
-      configPath,
-    }),
+try {
+  rmSync(artifactsDir, { force: true, recursive: true });
+  run("pnpm", ["pack", "--pack-destination", artifactsDir]);
+
+  const tarball = readdirSync(artifactsDir).find((file) => file.endsWith(".tgz"));
+
+  if (!tarball) {
+    throw new Error("Expected `pnpm pack` to produce a tarball.");
+  }
+
+  execFileSync(
+    "npm",
+    ["install", "--no-package-lock", "--no-save", resolve(artifactsDir, tarball)],
+    {
+      cwd: installDir,
+      encoding: "utf8",
+      stdio: "pipe",
+    },
   );
+
+  const binaryPath = join(installDir, "node_modules", ".bin", "putio");
+  const versionOutput = execFileSync(binaryPath, ["version"], {
+    cwd: installDir,
+    encoding: "utf8",
+    stdio: "pipe",
+  });
+
+  JSON.parse(versionOutput);
+
+  const describeOutput = execFileSync(binaryPath, ["describe"], {
+    cwd: installDir,
+    encoding: "utf8",
+    stdio: "pipe",
+  });
+
+  JSON.parse(describeOutput);
+  smokeAuthProfiles(binaryPath);
 } finally {
-  rmSync(workDir, { force: true, recursive: true });
+  rmSync(installDir, { force: true, recursive: true });
 }
