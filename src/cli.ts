@@ -92,6 +92,31 @@ const replayBufferedConsole = (
 const formatCliParserError = (error: CliError.ShowHelp) =>
   error.errors.map((nestedError) => nestedError.message).join("\n");
 
+const executableName = (value: string) => {
+  const normalized = value.replaceAll("\\", "/");
+  return normalized.slice(normalized.lastIndexOf("/") + 1).toLowerCase();
+};
+
+const commandArgsFromArgv = (args: ReadonlyArray<string>) => {
+  const [first] = args;
+
+  if (first === undefined) {
+    return args;
+  }
+
+  const firstName = executableName(first);
+
+  if (firstName === "node" || firstName === "node.exe") {
+    return args.slice(2);
+  }
+
+  if (firstName === "putio" || firstName === "putio.exe" || firstName === "bin.mjs") {
+    return args.slice(1);
+  }
+
+  return args;
+};
+
 type CliCommandEnvironment =
   | Command.Environment
   | CliConfig
@@ -109,15 +134,16 @@ export function runCli(
 
   return Effect.flatMap(CliRuntime, (runtime) => {
     const outputMode = detectOutputModeFromArgv(args, runtime.isInteractiveTerminal);
+    const commandArgs = commandArgsFromArgv(args);
 
     if (!isStructuredOutputMode(outputMode)) {
-      return run(args.slice(2));
+      return run(commandArgs);
     }
 
     return Console.consoleWith((currentConsole) => {
       const entries: Array<BufferedConsoleEntry> = [];
 
-      return run(args.slice(2)).pipe(
+      return run(commandArgs).pipe(
         Effect.provideService(Console.Console, makeBufferedConsole(entries)),
         Effect.tap(() => replayBufferedConsole(currentConsole, entries)),
         Effect.catchFilter(
@@ -132,10 +158,7 @@ export function runCli(
 
             return Effect.fail(new Error(formatCliParserError(error)));
           },
-          (error) =>
-            Effect.flatMap(replayBufferedConsole(currentConsole, entries), () =>
-              Effect.fail(error),
-            ),
+          (error) => Effect.fail(error),
         ),
       );
     });

@@ -29,8 +29,7 @@ const parseCapturedText = (args: ReadonlyArray<unknown>) =>
 
 const parseJsonOutput = (value: string) => JSON.parse(value) as Record<string, unknown>;
 
-const runCli = async (argv: ReadonlyArray<string>): Promise<CliExecution> => {
-  const processArgv = ["node", "putio", ...argv.slice(1)];
+const runProcessArgv = async (processArgv: ReadonlyArray<string>): Promise<CliExecution> => {
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-parser-"));
   const configPath = join(configDir, "config.json");
   const stdoutChunks: string[] = [];
@@ -81,6 +80,9 @@ const runCli = async (argv: ReadonlyArray<string>): Promise<CliExecution> => {
   }
 };
 
+const runCli = (argv: ReadonlyArray<string>): Promise<CliExecution> =>
+  runProcessArgv(["node", "putio", ...argv.slice(1)]);
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -95,6 +97,13 @@ describe("cli argv parsing", () => {
 
   it("renders the global version without double-prefixing", async () => {
     const { result, stdout } = await runCli(["putio", "--version"]);
+
+    expect(result._tag).toBe("Success");
+    expect(stdout).toBe(`putio v${packageJson.version}`);
+  });
+
+  it("accepts argv that already starts at the CLI binary", async () => {
+    const { result, stdout } = await runProcessArgv(["putio", "--version"]);
 
     expect(result._tag).toBe("Success");
     expect(stdout).toBe(`putio v${packageJson.version}`);

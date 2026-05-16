@@ -328,10 +328,7 @@ export const makeCliOutput = (runtime: {
       : formatCliError(error),
   error: (message) => Console.error(sanitizeTerminalText(message)),
   write: (value, output, renderTerminalValue) => {
-    const outputMode = normalizeOutputMode(
-      output as RequestedOutputMode,
-      runtime.isInteractiveTerminal,
-    );
+    const outputMode = normalizeOutputMode(output, runtime.isInteractiveTerminal);
 
     const rendered =
       outputMode === "terminal"

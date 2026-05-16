@@ -1,6 +1,6 @@
 import { Command } from "effect/unstable/cli";
 import * as Terminal from "effect/Terminal";
-import { Console, Effect, Fiber, Option, Queue } from "effect";
+import { Cause, Console, Effect, Fiber, Option, Queue } from "effect";
 
 import { translate } from "../i18n/index.js";
 import {
@@ -53,7 +53,14 @@ type AuthCommandEnvironment =
   | CliSdk
   | CliState;
 
-type AuthCommand = Command.Command<"auth", {}, {}, unknown, AuthCommandEnvironment>;
+type EmptyCommandShape = Record<string, never>;
+type AuthCommand = Command.Command<
+  "auth",
+  EmptyCommandShape,
+  EmptyCommandShape,
+  unknown,
+  AuthCommandEnvironment
+>;
 
 const waitForOpenShortcut = (url: string) =>
   Effect.gen(function* () {
@@ -74,7 +81,7 @@ const waitForOpenShortcut = (url: string) =>
         return yield* runtimeService.openExternal(url);
       }
     }
-  }).pipe(Effect.catch(() => Effect.succeed(false)));
+  }).pipe(Effect.catchIf(Cause.isDone, () => Effect.succeed(false)));
 
 const renderAuthStatus = (status: AuthStatus) =>
   status.authenticated
