@@ -2,9 +2,10 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ConfigProvider, Effect } from "effect";
+import { ConfigProvider, Effect, Result } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import packageJson from "../package.json";
 import { runCli as executeCli } from "./cli.js";
 import { makeCliAppLayer } from "./internal/app-layer.js";
 import { makeCliRuntime } from "./internal/runtime.js";
@@ -15,7 +16,7 @@ const errorText = (error: unknown) =>
     : JSON.stringify(error);
 
 type CliExecution = {
-  readonly result: Awaited<ReturnType<typeof Effect.runPromise>>;
+  readonly result: Result.Result<void, unknown>;
   readonly stderr: string;
   readonly stdout: string;
 };
@@ -28,8 +29,7 @@ const parseCapturedText = (args: ReadonlyArray<unknown>) =>
 
 const parseJsonOutput = (value: string) => JSON.parse(value) as Record<string, unknown>;
 
-const runCli = async (argv: ReadonlyArray<string>): Promise<CliExecution> => {
-  const processArgv = ["node", "putio", ...argv.slice(1)];
+const runProcessArgv = async (processArgv: ReadonlyArray<string>): Promise<CliExecution> => {
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-parser-"));
   const configPath = join(configDir, "config.json");
   const stdoutChunks: string[] = [];
@@ -44,21 +44,23 @@ const runCli = async (argv: ReadonlyArray<string>): Promise<CliExecution> => {
   try {
     const result = await Effect.runPromise(
       Effect.scoped(
-        Effect.either(
+        Effect.result(
           executeCli(processArgv).pipe(
-            Effect.withConfigProvider(
-              ConfigProvider.fromMap(
-                new Map([
-                  ["PUTIO_CLI_CONFIG_PATH", configPath],
-                  ["XDG_CONFIG_HOME", configDir],
-                ]),
-              ),
+            Effect.provideService(
+              ConfigProvider.ConfigProvider,
+              ConfigProvider.fromUnknown({
+                PUTIO_CLI_CONFIG_PATH: configPath,
+                XDG_CONFIG_HOME: configDir,
+              }),
             ),
             Effect.provide(
               makeCliAppLayer(
                 makeCliRuntime({
                   argv: processArgv,
                   homeDirectory: configDir,
+                  writeStdout: (message) => {
+                    stdoutChunks.push(message.trim());
+                  },
                 }),
               ),
             ),
@@ -78,6 +80,9 @@ const runCli = async (argv: ReadonlyArray<string>): Promise<CliExecution> => {
   }
 };
 
+const runCli = (argv: ReadonlyArray<string>): Promise<CliExecution> =>
+  runProcessArgv(["node", "putio", ...argv.slice(1)]);
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -86,14 +91,28 @@ describe("cli argv parsing", () => {
   it("renders the root help successfully", async () => {
     const { result, stdout } = await runCli(["putio"]);
 
-    expect(result._tag).toBe("Right");
+    expect(result._tag).toBe("Success");
     expect(stdout).toContain("Use `putio describe` or `putio --help`.");
+  });
+
+  it("renders the global version without double-prefixing", async () => {
+    const { result, stdout } = await runCli(["putio", "--version"]);
+
+    expect(result._tag).toBe("Success");
+    expect(stdout).toBe(`putio v${packageJson.version}`);
+  });
+
+  it("accepts argv that already starts at the CLI binary", async () => {
+    const { result, stdout } = await runProcessArgv(["putio", "--version"]);
+
+    expect(result._tag).toBe("Success");
+    expect(stdout).toBe(`putio v${packageJson.version}`);
   });
 
   it("renders describe as machine-readable json", async () => {
     const { result, stdout } = await runCli(["putio", "describe"]);
 
-    expect(result._tag).toBe("Right");
+    expect(result._tag).toBe("Success");
     expect(parseJsonOutput(stdout)).toMatchObject({
       binary: "putio",
       output: {
@@ -129,6 +148,32 @@ describe("cli argv parsing", () => {
         }),
       ]),
     );
+    const commands = parseJsonOutput(stdout).commands as ReadonlyArray<{
+      readonly command: string;
+      readonly input: {
+        readonly json?: {
+          readonly properties?: ReadonlyArray<{
+            readonly name: string;
+            readonly required: boolean;
+          }>;
+        };
+      };
+    }>;
+    const mkdir = commands.find((entry) => entry.command === "files mkdir");
+    const deleteFiles = commands.find((entry) => entry.command === "files delete");
+
+    expect(mkdir?.input.json?.properties).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "name", required: true }),
+        expect.objectContaining({ name: "parent_id", required: false }),
+      ]),
+    );
+    expect(deleteFiles?.input.json?.properties).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "ids", required: true }),
+        expect.objectContaining({ name: "skip_trash", required: false }),
+      ]),
+    );
   });
 
   it("renders auth preview as json without hitting the API", async () => {
@@ -142,7 +187,7 @@ describe("cli argv parsing", () => {
       "json",
     ]);
 
-    expect(result._tag).toBe("Right");
+    expect(result._tag).toBe("Success");
     expect(parseJsonOutput(stdout)).toMatchObject({
       browserOpened: false,
       code: "PUTIO1",
@@ -153,7 +198,7 @@ describe("cli argv parsing", () => {
   it("renders auth status as json without a configured token", async () => {
     const { result, stdout } = await runCli(["putio", "auth", "status", "--output", "json"]);
 
-    expect(result._tag).toBe("Right");
+    expect(result._tag).toBe("Success");
     expect(parseJsonOutput(stdout)).toMatchObject({
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
@@ -164,7 +209,7 @@ describe("cli argv parsing", () => {
   it("defaults to json output for non-interactive auth status", async () => {
     const { result, stdout } = await runCli(["putio", "auth", "status"]);
 
-    expect(result._tag).toBe("Right");
+    expect(result._tag).toBe("Success");
     expect(parseJsonOutput(stdout)).toMatchObject({
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
@@ -187,10 +232,10 @@ describe("cli argv parsing", () => {
       "json",
     ]);
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(errorText(result.left)).toContain("No put.io token is configured");
-      expect(errorText(result.left)).not.toContain("not a integer");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(errorText(result.failure)).toContain("No put.io token is configured");
+      expect(errorText(result.failure)).not.toContain("not a integer");
     }
   });
 
@@ -207,10 +252,10 @@ describe("cli argv parsing", () => {
       "json",
     ]);
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(errorText(result.left)).toContain("No put.io token is configured");
-      expect(errorText(result.left)).not.toContain("not a integer");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(errorText(result.failure)).toContain("No put.io token is configured");
+      expect(errorText(result.failure)).not.toContain("not a integer");
     }
   });
 
@@ -227,10 +272,10 @@ describe("cli argv parsing", () => {
       "json",
     ]);
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(errorText(result.left)).toContain("No put.io token is configured");
-      expect(errorText(result.left)).not.toContain("not a integer");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(errorText(result.failure)).toContain("No put.io token is configured");
+      expect(errorText(result.failure)).not.toContain("not a integer");
     }
   });
 
@@ -247,15 +292,15 @@ describe("cli argv parsing", () => {
       "json",
     ]);
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(errorText(result.left)).toContain("No put.io token is configured");
-      expect(errorText(result.left)).not.toContain("not a integer");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(errorText(result.failure)).toContain("No put.io token is configured");
+      expect(errorText(result.failure)).not.toContain("not a integer");
     }
   });
 
   it("still rejects invalid repeated integer input", async () => {
-    const { result } = await runCli([
+    const { result, stderr, stdout } = await runCli([
       "putio",
       "files",
       "move",
@@ -269,9 +314,63 @@ describe("cli argv parsing", () => {
       "json",
     ]);
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(errorText(result.left)).toContain("Expected `--id` values to be integers");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(`${stdout}\n${stderr}\n${errorText(result.failure)}`).toContain(
+        "Expected `--id` values to be integers",
+      );
+    }
+  });
+
+  it("keeps structured parser failures machine-readable", async () => {
+    const { result, stderr, stdout } = await runCli([
+      "putio",
+      "files",
+      "list",
+      "--parent-id",
+      "foo",
+      "--output",
+      "json",
+    ]);
+
+    expect(result._tag).toBe("Failure");
+    expect(stdout).toBe("");
+    expect(stderr).toBe("");
+    if (result._tag === "Failure") {
+      expect(errorText(result.failure)).toContain("Invalid value for flag --parent-id");
+      expect(errorText(result.failure)).not.toContain("Help requested");
+    }
+  });
+
+  it("rejects whitespace-only JSON names before write dry-runs", async () => {
+    const mkdir = await runCli([
+      "putio",
+      "files",
+      "mkdir",
+      "--json",
+      '{"parent_id":1,"name":"   "}',
+      "--dry-run",
+      "--output",
+      "json",
+    ]);
+    const rename = await runCli([
+      "putio",
+      "files",
+      "rename",
+      "--json",
+      '{"file_id":1,"name":"   "}',
+      "--dry-run",
+      "--output",
+      "json",
+    ]);
+
+    expect(mkdir.result._tag).toBe("Failure");
+    expect(rename.result._tag).toBe("Failure");
+    if (mkdir.result._tag === "Failure") {
+      expect(errorText(mkdir.result.failure)).toContain("Expected `--json` to match");
+    }
+    if (rename.result._tag === "Failure") {
+      expect(errorText(rename.result.failure)).toContain("Expected `--json` to match");
     }
   });
 });

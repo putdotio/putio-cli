@@ -9,7 +9,7 @@ import { CliRuntime } from "./internal/runtime.js";
 NodeRuntime.runMain(
   Effect.scoped(
     Effect.flatMap(CliRuntime, (runtime) => runCli(runtime.argv)).pipe(
-      Effect.catchAllCause((cause) =>
+      Effect.catchCause((cause) =>
         Effect.gen(function* () {
           const cliOutput = yield* CliOutput;
           const runtime = yield* CliRuntime;

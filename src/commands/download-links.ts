@@ -1,4 +1,4 @@
-import { Command } from "@effect/cli";
+import { Command } from "effect/unstable/cli";
 import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
 import { Data, Effect, Option, Schema } from "effect";
 

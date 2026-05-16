@@ -5,8 +5,8 @@ import { makeCliAppLayer } from "./app-layer.js";
 import { resolveCliAuthFlowConfig, resolveCliRuntimeConfig } from "./config.js";
 import { makeCliRuntime } from "./runtime.js";
 
-const withRuntime = (
-  effect: Effect.Effect<unknown, unknown, never>,
+const withRuntime = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
   env: ReadonlyArray<readonly [string, string]>,
   runtime = makeCliRuntime({
     homeDirectory: "/Users/tester",
@@ -14,7 +14,10 @@ const withRuntime = (
   }),
 ) =>
   effect.pipe(
-    Effect.withConfigProvider(ConfigProvider.fromMap(new Map(env))),
+    Effect.provideService(
+      ConfigProvider.ConfigProvider,
+      ConfigProvider.fromUnknown(Object.fromEntries(env)),
+    ),
     Effect.provide(makeCliAppLayer(runtime)),
   );
 

@@ -1,29 +1,36 @@
 import { Schema } from "effect";
+import * as SchemaAST from "effect/SchemaAST";
 
-const NonEmptyStringSchema = Schema.String.pipe(
-  Schema.filter((value): value is string => value.length > 0, {
-    message: () => "Expected a non-empty string",
-  }),
-);
+const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 
-export const OutputModeSchema = Schema.Literal("json", "text", "ndjson");
+export const OutputModeSchema = Schema.Literals(["json", "text", "ndjson"] as const);
 export type OutputMode = Schema.Schema.Type<typeof OutputModeSchema>;
 
-export const InternalRendererSchema = Schema.Literal("json", "terminal", "ndjson");
+export const InternalRendererSchema = Schema.Literals(["json", "terminal", "ndjson"] as const);
 export type InternalRenderer = Schema.Schema.Type<typeof InternalRendererSchema>;
 
-export const CommandKindSchema = Schema.Literal("utility", "auth", "read", "write");
+export const CommandKindSchema = Schema.Literals(["utility", "auth", "read", "write"] as const);
 export type CommandKind = Schema.Schema.Type<typeof CommandKindSchema>;
 
-export const CommandOptionTypeSchema = Schema.Literal("string", "integer", "boolean", "enum");
+export const CommandOptionTypeSchema = Schema.Literals([
+  "string",
+  "integer",
+  "boolean",
+  "enum",
+] as const);
 export type CommandOptionType = Schema.Schema.Type<typeof CommandOptionTypeSchema>;
 
-const JsonPrimitiveKindSchema = Schema.Literal("string", "integer", "boolean", "null");
+const JsonPrimitiveKindSchema = Schema.Literals(["string", "integer", "boolean", "null"] as const);
 const JsonScalarSchema = Schema.Struct({
   kind: JsonPrimitiveKindSchema,
 });
 
-const JsonEnumValueSchema = Schema.Union(Schema.String, Schema.Number, Schema.Boolean, Schema.Null);
+const JsonEnumValueSchema = Schema.Union([
+  Schema.String,
+  Schema.Number,
+  Schema.Boolean,
+  Schema.Null,
+] as const);
 
 export type CommandJsonShape =
   | {
@@ -49,10 +56,10 @@ export type JsonProperty = {
   readonly schema: CommandJsonShape;
 };
 
-const JsonPropertySchema: Schema.Schema<JsonProperty> = Schema.Struct({
+const JsonPropertySchema: Schema.Codec<JsonProperty> = Schema.Struct({
   name: NonEmptyStringSchema,
   required: Schema.Boolean,
-  schema: Schema.suspend(() => CommandJsonShapeSchema),
+  schema: Schema.suspend((): Schema.Codec<CommandJsonShape> => CommandJsonShapeSchema),
 });
 
 const JsonObjectSchema = Schema.Struct({
@@ -63,7 +70,7 @@ const JsonObjectSchema = Schema.Struct({
 
 const JsonArraySchema = Schema.Struct({
   kind: Schema.Literal("array"),
-  items: Schema.suspend(() => CommandJsonShapeSchema),
+  items: Schema.suspend((): Schema.Codec<CommandJsonShape> => CommandJsonShapeSchema),
 });
 
 const JsonEnumSchema = Schema.Struct({
@@ -71,16 +78,18 @@ const JsonEnumSchema = Schema.Struct({
   values: Schema.Array(JsonEnumValueSchema),
 });
 
-export const CommandJsonShapeSchema: Schema.Schema<CommandJsonShape> = Schema.Union(
+export const CommandJsonShapeSchema: Schema.Codec<CommandJsonShape> = Schema.Union([
   JsonScalarSchema,
   JsonEnumSchema,
   JsonObjectSchema,
   JsonArraySchema,
-);
+] as const);
 
 export const CommandOptionSchema = Schema.Struct({
   choices: Schema.optional(Schema.Array(NonEmptyStringSchema)),
-  defaultValue: Schema.optional(Schema.Union(NonEmptyStringSchema, Schema.Number, Schema.Boolean)),
+  defaultValue: Schema.optional(
+    Schema.Union([NonEmptyStringSchema, Schema.Number, Schema.Boolean] as const),
+  ),
   description: Schema.optional(NonEmptyStringSchema),
   name: NonEmptyStringSchema,
   repeated: Schema.Boolean,
@@ -358,40 +367,13 @@ export const enumFlag = (
   type: "enum",
 });
 
-type SchemaAstNode =
-  | {
-      readonly _tag: string;
-      readonly from?: SchemaAstNode;
-      readonly literal?: string | number | boolean | null;
-      readonly to?: SchemaAstNode;
-      readonly propertySignatures?: ReadonlyArray<{
-        readonly isOptional?: boolean;
-        readonly name: string;
-        readonly type: SchemaAstNode;
-      }>;
-      readonly rest?: ReadonlyArray<{
-        readonly type: SchemaAstNode;
-      }>;
-      readonly type?: SchemaAstNode;
-      readonly types?: ReadonlyArray<SchemaAstNode>;
-    }
-  | undefined;
+type SchemaAstNode = SchemaAST.AST | undefined;
 
 const unwrapSchemaAst = (ast: SchemaAstNode): SchemaAstNode => {
   let current = ast;
 
-  while (
-    current &&
-    (current._tag === "Refinement" ||
-      current._tag === "Transformation" ||
-      current._tag === "Suspend")
-  ) {
-    current =
-      current._tag === "Suspend"
-        ? current.type
-        : current._tag === "Transformation"
-          ? current.to
-          : current.from;
+  while (current && current._tag === "Suspend") {
+    current = current.thunk();
   }
 
   return current;
@@ -401,20 +383,27 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
   const current = unwrapSchemaAst(ast);
 
   switch (current?._tag) {
-    case "StringKeyword":
+    case "String":
       return stringShape();
-    case "NumberKeyword":
+    case "Number":
       return integerShape();
-    case "BooleanKeyword":
+    case "Boolean":
       return booleanShape();
-    case "UndefinedKeyword":
-    case "VoidKeyword":
-    case "NullKeyword":
+    case "Undefined":
+    case "Void":
+    case "Null":
       return nullShape();
-    case "Literal":
-      return enumShape([current.literal ?? null]);
-    case "TupleType": {
-      const item = current.rest?.[0]?.type;
+    case "Literal": {
+      const literal = current.literal ?? null;
+
+      if (typeof literal === "bigint") {
+        throw new Error("BigInt literals are not supported in CLI json metadata.");
+      }
+
+      return enumShape([literal]);
+    }
+    case "Arrays": {
+      const item = current.rest[0] ?? current.elements[0];
 
       if (!item) {
         throw new Error("Unable to derive an array item schema from an empty tuple AST.");
@@ -422,29 +411,31 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
 
       return arrayShape(schemaAstToJsonShape(item));
     }
-    case "TypeLiteral":
+    case "Objects":
       return objectShape(
-        (current.propertySignatures ?? []).map((propertySignature) =>
+        current.propertySignatures.map((propertySignature) =>
           property(
-            propertySignature.name,
+            String(propertySignature.name),
             schemaAstToJsonShape(propertySignature.type),
-            propertySignature.isOptional !== true,
+            !SchemaAST.isOptional(propertySignature.type),
           ),
         ),
       );
     case "Union": {
-      const definedTypes = (current.types ?? []).filter(
-        (type) => unwrapSchemaAst(type)?._tag !== "UndefinedKeyword",
+      const definedTypes = current.types.filter(
+        (type) => unwrapSchemaAst(type)?._tag !== "Undefined",
       );
 
       const enumValues = definedTypes.flatMap((type) => {
         const unwrapped = unwrapSchemaAst(type);
 
         if (unwrapped?._tag === "Literal") {
-          return [unwrapped.literal ?? null];
+          const literal = unwrapped.literal ?? null;
+
+          return typeof literal === "bigint" ? [] : [literal];
         }
 
-        if (unwrapped?._tag === "NullKeyword" || unwrapped?._tag === "VoidKeyword") {
+        if (unwrapped?._tag === "Null" || unwrapped?._tag === "Void") {
           return [null];
         }
 
@@ -468,8 +459,8 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
   }
 };
 
-export const jsonShapeFromSchema = <A, I>(
-  schema: Schema.Schema<A, I>,
+export const jsonShapeFromSchema = <A>(
+  schema: Schema.Codec<A>,
   rules?: ReadonlyArray<string>,
 ): CommandJsonShape => {
   const shape = schemaAstToJsonShape(schema.ast);

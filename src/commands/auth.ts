@@ -1,6 +1,6 @@
-import { Command } from "@effect/cli";
-import * as Terminal from "@effect/platform/Terminal";
-import { Console, Effect, Fiber, Option } from "effect";
+import { Command } from "effect/unstable/cli";
+import * as Terminal from "effect/Terminal";
+import { Cause, Console, Effect, Fiber, Option, Queue } from "effect";
 
 import { translate } from "../i18n/index.js";
 import {
@@ -18,12 +18,15 @@ import {
   validateResourceIdentifier,
 } from "../internal/command.js";
 import { outputFlag, type CommandSpec } from "../internal/command-specs.js";
+import type { CliConfig } from "../internal/config.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
+import type { CliOutput } from "../internal/output-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
 import { CliRuntime } from "../internal/runtime.js";
-import { provideSdk, sdk } from "../internal/sdk.js";
+import { provideSdk, sdk, type CliSdk } from "../internal/sdk.js";
 import {
+  type CliState,
   type AuthStatus,
   clearPersistedState,
   getAuthStatus,
@@ -42,6 +45,23 @@ const openOption = openConfig.option;
 const timeoutSecondsOption = timeoutSecondsConfig.option;
 const previewCodeOption = previewCodeConfig.option;
 
+type AuthCommandEnvironment =
+  | Command.Environment
+  | CliConfig
+  | CliOutput
+  | CliRuntime
+  | CliSdk
+  | CliState;
+
+type EmptyCommandShape = Record<string, never>;
+type AuthCommand = Command.Command<
+  "auth",
+  EmptyCommandShape,
+  EmptyCommandShape,
+  unknown,
+  AuthCommandEnvironment
+>;
+
 const waitForOpenShortcut = (url: string) =>
   Effect.gen(function* () {
     const runtimeService = yield* CliRuntime;
@@ -51,23 +71,17 @@ const waitForOpenShortcut = (url: string) =>
     }
 
     const terminal = yield* Terminal.Terminal;
-    const isTTY = yield* terminal.isTTY;
-
-    if (!isTTY) {
-      return false;
-    }
-
     const input = yield* terminal.readInput;
 
     while (true) {
-      const event = yield* input.take;
+      const event = yield* Queue.take(input);
       const keyInput = Option.getOrElse(event.input, () => "").toLowerCase();
 
       if (event.key.name === "o" || keyInput === "o") {
         return yield* runtimeService.openExternal(url);
       }
     }
-  }).pipe(Effect.catchTag("NoSuchElementException", () => Effect.succeed(false)));
+  }).pipe(Effect.catchIf(Cause.isDone, () => Effect.succeed(false)));
 
 const renderAuthStatus = (status: AuthStatus) =>
   status.authenticated
@@ -134,7 +148,7 @@ const authLogin = Command.make(
 
       yield* outputMode === "terminal"
         ? Console.log(instructionMessage)
-        : Console.error(instructionMessage);
+        : runtimeService.writeStderr(`${instructionMessage}\n`);
 
       const openShortcutFiber =
         outputMode === "terminal" && !browserOpened
@@ -203,7 +217,7 @@ const authPreview = Command.make(
     }),
 );
 
-export const makeAuthCommand = () =>
+export const makeAuthCommand = (): AuthCommand =>
   Command.make("auth", {}, () => Console.log(translate("cli.root.chooseAuthSubcommand"))).pipe(
     Command.withSubcommands([authStatus, authLogin, authLogout, authPreview]),
   );

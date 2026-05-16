@@ -6,7 +6,7 @@ import { CliRuntime } from "./runtime.js";
 import { renderCliErrorTerminal, type CliTerminalErrorView } from "./terminal/error-terminal.js";
 
 export type OutputMode = "json" | "ndjson" | "terminal";
-type RequestedOutputMode = "json" | "ndjson" | "text" | undefined;
+export type RequestedOutputMode = "json" | "ndjson" | "text" | undefined;
 
 export const isStructuredOutputMode = (outputMode: OutputMode) =>
   outputMode === "json" || outputMode === "ndjson";
@@ -29,6 +29,12 @@ export const normalizeOutputMode = (
 
   return isInteractiveTerminal ? "terminal" : "json";
 };
+
+const normalizeRequestedOrResolvedOutputMode = (
+  output: RequestedOutputMode | OutputMode,
+  isInteractiveTerminal = true,
+): OutputMode =>
+  output === "terminal" ? "terminal" : normalizeOutputMode(output, isInteractiveTerminal);
 
 export const detectOutputModeFromArgv = (
   argv: ReadonlyArray<string>,
@@ -297,54 +303,48 @@ export const formatCliErrorJson = (error: unknown) => {
 };
 
 export type CliOutputService = {
-  readonly formatError: (error: unknown, output: string | undefined) => string;
+  readonly formatError: (error: unknown, output: RequestedOutputMode | OutputMode) => string;
   readonly error: (message: string) => Effect.Effect<void>;
   readonly write: <A>(
     value: A,
-    output: string | undefined,
+    output: RequestedOutputMode,
     renderTerminalValue: (value: A) => string,
   ) => Effect.Effect<void>;
 };
 
-export class CliOutput extends Context.Tag("@putdotio/cli/CliOutput")<
-  CliOutput,
-  CliOutputService
->() {}
+export class CliOutput extends Context.Service<CliOutput, CliOutputService>()(
+  "@putdotio/cli/CliOutput",
+) {}
 
 export const makeCliOutput = (runtime: {
   readonly isInteractiveTerminal: boolean;
+  readonly writeStdout: (message: string) => Effect.Effect<void>;
 }): CliOutputService => ({
   formatError: (error, output) =>
     isStructuredOutputMode(
-      normalizeOutputMode(output as RequestedOutputMode, runtime.isInteractiveTerminal),
+      normalizeRequestedOrResolvedOutputMode(output, runtime.isInteractiveTerminal),
     )
       ? formatCliErrorJson(error)
       : formatCliError(error),
   error: (message) => Console.error(sanitizeTerminalText(message)),
-  write: (value, output, renderTerminalValue) =>
-    Console.log(
-      (() => {
-        const outputMode = normalizeOutputMode(
-          output as RequestedOutputMode,
-          runtime.isInteractiveTerminal,
-        );
+  write: (value, output, renderTerminalValue) => {
+    const outputMode = normalizeOutputMode(output, runtime.isInteractiveTerminal);
 
-        switch (outputMode) {
-          case "terminal":
-            return renderTerminal(value, renderTerminalValue);
-          case "ndjson":
-            return renderNdjson(value);
-          case "json":
-            return renderJson(value);
-        }
-      })(),
-    ),
+    const rendered =
+      outputMode === "terminal"
+        ? renderTerminal(value, renderTerminalValue)
+        : outputMode === "ndjson"
+          ? renderNdjson(value)
+          : renderJson(value);
+
+    return runtime.writeStdout(`${rendered}\n`);
+  },
 });
 
 export const CliOutputLive = Layer.effect(CliOutput, Effect.map(CliRuntime, makeCliOutput));
 
 export const writeOutput = <A>(
   value: A,
-  output: string | undefined,
+  output: RequestedOutputMode,
   renderTerminalValue: (value: A) => string,
 ) => Effect.flatMap(CliOutput, (cliOutput) => cliOutput.write(value, output, renderTerminalValue));

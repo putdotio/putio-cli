@@ -9,8 +9,7 @@ import {
   resolveAuthFlowConfig,
   waitForDeviceToken,
 } from "./auth-flow.js";
-import type { CliRuntime as CliRuntimeService } from "./runtime.js";
-import { CliRuntime, makeCliRuntime } from "./runtime.js";
+import { CliRuntime, makeCliRuntime, type CliRuntimeService } from "./runtime.js";
 
 const mockRuntime: CliRuntimeService = {
   argv: ["node", "putio"],
@@ -21,6 +20,8 @@ const mockRuntime: CliRuntimeService = {
   joinPath: (...segments) => segments.join("/"),
   openExternal: (_url) => Effect.succeed(true),
   setExitCode: (_code) => Effect.void,
+  writeStdout: (_message) => Effect.void,
+  writeStderr: (_message) => Effect.void,
   startSpinner: (_message) =>
     Effect.succeed({
       stop: Effect.void,
@@ -43,13 +44,12 @@ describe("resolveAuthFlowConfig", () => {
   it("uses env overrides for client name and web app url", async () => {
     const result = await Effect.runPromise(
       resolveAuthFlowConfig().pipe(
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([
-              ["PUTIO_CLI_CLIENT_NAME", "putio-cli-test"],
-              ["PUTIO_CLI_WEB_APP_URL", "https://app.put.io"],
-            ]),
-          ),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CLIENT_NAME: "putio-cli-test",
+            PUTIO_CLI_WEB_APP_URL: "https://app.put.io",
+          }),
         ),
         Effect.provide(makeCliAppLayer(makeCliRuntime({ hostName: "cli-test-host" }))),
       ),
@@ -111,7 +111,7 @@ describe("waitForDeviceToken", () => {
 
   it("fails with a timeout error when authorization never completes", async () => {
     const resultPromise = Effect.runPromise(
-      Effect.either(
+      Effect.result(
         waitForDeviceToken({
           code: "ABCD1234",
           pollIntervalMs: 1_000,
@@ -125,15 +125,17 @@ describe("waitForDeviceToken", () => {
 
     const result = await resultPromise;
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.message).toBe("Timed out waiting for device authorization to complete.");
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.message).toBe(
+        "Timed out waiting for device authorization to complete.",
+      );
     }
   });
 
   it("fails with a polling error when the backend check fails", async () => {
     const result = await Effect.runPromise(
-      Effect.either(
+      Effect.result(
         waitForDeviceToken({
           code: "ABCD1234",
           checkCodeMatch: () => Effect.fail(new Error("boom")),
@@ -141,9 +143,9 @@ describe("waitForDeviceToken", () => {
       ),
     );
 
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") {
-      expect(result.left.message).toBe(
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(result.failure.message).toBe(
         "Unable to poll put.io for the device authorization result.",
       );
     }

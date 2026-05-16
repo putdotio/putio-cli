@@ -18,12 +18,12 @@ export const buildDeviceLinkUrl = (code: string, webAppUrl: string = DEFAULT_PUT
 export const openBrowser = (url: string): Effect.Effect<boolean, never, CliRuntime> =>
   Effect.flatMap(CliRuntime, (runtime) => runtime.openExternal(url));
 
-export const waitForDeviceToken = (options: {
+export const waitForDeviceToken = <R>(options: {
   readonly code: string;
-  readonly checkCodeMatch: (code: string) => Effect.Effect<string | null, unknown, never>;
+  readonly checkCodeMatch: (code: string) => Effect.Effect<string | null, unknown, R>;
   readonly pollIntervalMs?: number;
   readonly timeoutMs?: number;
-}): Effect.Effect<string, PutioCliAuthFlowError, never> =>
+}): Effect.Effect<string, PutioCliAuthFlowError, R> =>
   Effect.gen(function* () {
     const pollIntervalMs = options.pollIntervalMs ?? 2_000;
     const timeoutMs = options.timeoutMs ?? 120_000;

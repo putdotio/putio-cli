@@ -18,11 +18,7 @@ import {
 } from "./env.js";
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 
-const NonEmptyStringSchema = Schema.String.pipe(
-  Schema.filter((value): value is string => value.length > 0, {
-    message: () => "Expected a non-empty string",
-  }),
-);
+const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 
 const CliMetadataSchema = Schema.Struct({
   agentDx: AgentDxScorecardSchema,
@@ -46,9 +42,11 @@ const CliMetadataSchema = Schema.Struct({
   version: NonEmptyStringSchema,
 });
 
+export type CliMetadata = Schema.Schema.Type<typeof CliMetadataSchema>;
+
 const decodeCliMetadata = Schema.decodeUnknownSync(CliMetadataSchema);
 
-export const describeCli = () =>
+export const describeCli = (): CliMetadata =>
   decodeCliMetadata({
     agentDx: scoreAgentDx({
       commands: commandCatalog,
