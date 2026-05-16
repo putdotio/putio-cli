@@ -30,7 +30,7 @@ Release GitHub writes use `putio-release-bot` for version sync commits, `v*` tag
 
 The npm package uses Trusted Publishing from GitHub Actions. On npm, configure owner `putdotio`, repository `putio-cli`, workflow `ci.yml`, and Environment named `release` for the package.
 
-The workflow grants `id-token: write` so npm mints short-lived publish credentials and provenance for the release job.
+During the `@semantic-release/npm` publish step, npm detects the GitHub OIDC identity, mints short-lived publish credentials, and publishes provenance for the release job.
 
 The workflow keeps dependency caches only on the secretless verify job. Secret-bearing release, binary asset, and Homebrew publish jobs use fresh installs or release tooling with package-manager caching disabled.
 
