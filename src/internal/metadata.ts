@@ -20,6 +20,14 @@ import {
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
+const ConfigStringFieldSchema = Schema.Struct({
+  required: Schema.Boolean,
+  type: Schema.Literal("string"),
+});
+const PersistedProfileShapeSchema = Schema.Struct({
+  api_base_url: ConfigStringFieldSchema,
+  auth_token: ConfigStringFieldSchema,
+});
 
 const CliMetadataSchema = Schema.Struct({
   agentDx: AgentDxScorecardSchema,
@@ -32,16 +40,14 @@ const CliMetadataSchema = Schema.Struct({
     loginWebAppUrlEnv: NonEmptyStringSchema,
     persistedConfigEnv: NonEmptyStringSchema,
     persistedConfigShape: Schema.Struct({
-      api_base_url: Schema.Literal("string"),
-      auth_token: Schema.Literal("string"),
-      default_profile: Schema.Literal("string"),
-      profiles: Schema.Record(
-        NonEmptyStringSchema,
-        Schema.Struct({
-          api_base_url: Schema.Literal("string"),
-          auth_token: Schema.Literal("string"),
-        }),
-      ),
+      api_base_url: ConfigStringFieldSchema,
+      auth_token: ConfigStringFieldSchema,
+      default_profile: ConfigStringFieldSchema,
+      profiles: Schema.Struct({
+        required: Schema.Boolean,
+        type: Schema.Literal("record"),
+        values: PersistedProfileShapeSchema,
+      }),
     }),
     profileEnv: NonEmptyStringSchema,
   }),
@@ -77,13 +83,15 @@ export const describeCli = (): CliMetadata =>
       loginWebAppUrlEnv: ENV_CLI_WEB_APP_URL,
       persistedConfigEnv: ENV_CLI_CONFIG_PATH,
       persistedConfigShape: {
-        api_base_url: "string",
-        auth_token: "string",
-        default_profile: "string",
+        api_base_url: { required: true, type: "string" },
+        auth_token: { required: false, type: "string" },
+        default_profile: { required: false, type: "string" },
         profiles: {
-          "devs-fe-auto": {
-            api_base_url: "string",
-            auth_token: "string",
+          required: false,
+          type: "record",
+          values: {
+            api_base_url: { required: false, type: "string" },
+            auth_token: { required: false, type: "string" },
           },
         },
       },

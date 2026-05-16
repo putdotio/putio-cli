@@ -276,14 +276,23 @@ const authLogout = Command.make(
         try: () => resolveProfileInput(profile),
         catch: (error) => error,
       });
-      const { configPath, profile: clearedProfile } = yield* clearPersistedState(undefined, {
+      const {
+        cleared,
+        configPath,
+        profile: clearedProfile,
+      } = yield* clearPersistedState(undefined, {
         profile: selectedProfile,
       });
 
       yield* writeOutput(
-        { cleared: true, configPath, profile: clearedProfile },
+        { cleared, configPath, profile: clearedProfile },
         getOption(output),
-        (value) => translate("cli.auth.logout.cleared", { configPath: value.configPath }),
+        (value) =>
+          value.cleared
+            ? translate("cli.auth.logout.cleared", { configPath: value.configPath })
+            : value.profile
+              ? translate("cli.auth.profiles.notFound", { profile: value.profile })
+              : translate("cli.auth.logout.notFound", { configPath: value.configPath }),
       );
     }),
 );

@@ -101,7 +101,7 @@ export type CliStateService = {
     configPath?: string,
     selection?: AuthProfileSelection,
   ) => Effect.Effect<
-    { readonly configPath: string; readonly profile: string | null },
+    { readonly cleared: boolean; readonly configPath: string; readonly profile: string | null },
     AuthStateError,
     CliConfig | FileSystem.FileSystem | CliRuntime
   >;
@@ -177,6 +177,20 @@ const validateProfileName = (profile: string) => {
 const validateOptionalProfileName = (profile: string | undefined) =>
   profile === undefined ? undefined : validateProfileName(profile);
 
+const validateProfileNameEffect = (profile: string) =>
+  Effect.try({
+    try: () => validateProfileName(profile),
+    catch: (error) =>
+      error instanceof AuthStateError
+        ? error
+        : new AuthStateError({
+            message: profileErrorMessage(profile),
+          }),
+  });
+
+const validateOptionalProfileNameEffect = (profile: string | undefined) =>
+  profile === undefined ? Effect.succeed(undefined) : validateProfileNameEffect(profile);
+
 const validatePersistedConfig = (state: PutioCliConfig) => {
   validateOptionalProfileName(state.default_profile);
 
@@ -214,14 +228,24 @@ const parsePersistedConfig = (raw: string): PutioCliConfig => {
 const profileConfigApiBaseUrl = (state: PutioCliConfig, profile: PutioCliProfileConfig) =>
   profile.api_base_url ?? state.api_base_url;
 
-const selectProfileName = (input: {
+const selectProfileNameEffect = (input: {
   readonly explicitProfile?: string;
   readonly runtimeProfile?: string;
   readonly state: PutioCliConfig | null;
 }) =>
-  validateOptionalProfileName(input.explicitProfile) ??
-  validateOptionalProfileName(input.runtimeProfile) ??
-  validateOptionalProfileName(input.state?.default_profile);
+  Effect.gen(function* () {
+    const explicitProfile = yield* validateOptionalProfileNameEffect(input.explicitProfile);
+    if (explicitProfile !== undefined) {
+      return explicitProfile;
+    }
+
+    const runtimeProfile = yield* validateOptionalProfileNameEffect(input.runtimeProfile);
+    if (runtimeProfile !== undefined) {
+      return runtimeProfile;
+    }
+
+    return yield* validateOptionalProfileNameEffect(input.state?.default_profile);
+  });
 
 const shouldRemoveConfigFile = (state: PutioCliConfig) =>
   state.api_base_url === DEFAULT_PUTIO_API_BASE_URL &&
@@ -314,7 +338,7 @@ const savePersistedStateEffect = (
     const runtime = yield* resolveAuthRuntimeConfig();
     const effectiveConfigPath = configPath ?? runtime.configPath;
     const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
-    const selectedProfile = selectProfileName({
+    const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
       state: existingConfig,
@@ -373,7 +397,7 @@ const clearPersistedStateEffect = (
   configPath?: string,
   selection: AuthProfileSelection = {},
 ): Effect.Effect<
-  { readonly configPath: string; readonly profile: string | null },
+  { readonly cleared: boolean; readonly configPath: string; readonly profile: string | null },
   AuthStateError,
   CliConfig | FileSystem.FileSystem | CliRuntime
 > =>
@@ -381,14 +405,14 @@ const clearPersistedStateEffect = (
     const runtime = yield* resolveAuthRuntimeConfig();
     const effectiveConfigPath = configPath ?? runtime.configPath;
     const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
-    const selectedProfile = selectProfileName({
+    const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
       state: existingConfig,
     });
 
     if (existingConfig === null) {
-      return { configPath: effectiveConfigPath, profile: selectedProfile ?? null };
+      return { cleared: false, configPath: effectiveConfigPath, profile: selectedProfile ?? null };
     }
 
     if (selectedProfile) {
@@ -396,7 +420,7 @@ const clearPersistedStateEffect = (
       const existingProfile = existingProfiles[selectedProfile];
 
       if (existingProfile === undefined) {
-        return { configPath: effectiveConfigPath, profile: selectedProfile };
+        return { cleared: false, configPath: effectiveConfigPath, profile: selectedProfile };
       }
 
       const nextProfile: PutioCliProfileConfig = {
@@ -416,9 +440,14 @@ const clearPersistedStateEffect = (
         `Unable to clear CLI auth state at ${effectiveConfigPath}.`,
       );
 
-      return { configPath: effectiveConfigPath, profile: selectedProfile };
+      return {
+        cleared: typeof existingProfile.auth_token === "string",
+        configPath: effectiveConfigPath,
+        profile: selectedProfile,
+      };
     }
 
+    const hadLegacyToken = typeof existingConfig.auth_token === "string";
     const nextState: PutioCliConfig = {
       ...existingConfig,
       auth_token: undefined,
@@ -430,7 +459,7 @@ const clearPersistedStateEffect = (
       `Unable to clear CLI auth state at ${effectiveConfigPath}.`,
     );
 
-    return { configPath: effectiveConfigPath, profile: null };
+    return { cleared: hadLegacyToken, configPath: effectiveConfigPath, profile: null };
   });
 
 const listProfilesEffect = (): Effect.Effect<
@@ -442,7 +471,10 @@ const listProfilesEffect = (): Effect.Effect<
     const runtime = yield* resolveAuthRuntimeConfig();
     const state = yield* loadPersistedStateEffect(runtime.configPath);
     const defaultProfile = state?.default_profile ?? null;
-    const currentProfile = runtime.profile ?? defaultProfile;
+    const currentProfile = yield* selectProfileNameEffect({
+      runtimeProfile: runtime.profile,
+      state,
+    });
     const profiles = Object.entries(state?.profiles ?? {})
       .map(([name, profile]) => ({
         apiBaseUrl: profileConfigApiBaseUrl(state ?? makeEmptyState(), profile),
@@ -473,14 +505,14 @@ const getAuthStatusEffect = (
         configPath: runtime.configPath,
         defaultProfile: null,
         profile:
-          validateOptionalProfileName(selection.profile) ??
-          validateOptionalProfileName(runtime.profile) ??
+          (yield* validateOptionalProfileNameEffect(selection.profile)) ??
+          (yield* validateOptionalProfileNameEffect(runtime.profile)) ??
           null,
       };
     }
 
     const state = yield* loadPersistedStateEffect(runtime.configPath);
-    const selectedProfile = selectProfileName({
+    const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
       state,
@@ -546,7 +578,7 @@ const removeProfileEffect = (
   CliConfig | FileSystem.FileSystem | CliRuntime
 > =>
   Effect.gen(function* () {
-    const profileName = validateProfileName(profile);
+    const profileName = yield* validateProfileNameEffect(profile);
     const runtime = yield* resolveAuthRuntimeConfig();
     const state = yield* loadPersistedStateEffect(runtime.configPath);
 
@@ -588,8 +620,8 @@ const resolveAuthStateEffect = (
   Effect.gen(function* () {
     const runtime = yield* resolveAuthRuntimeConfig();
     const explicitOrEnvProfile =
-      validateOptionalProfileName(selection.profile) ??
-      validateOptionalProfileName(runtime.profile) ??
+      (yield* validateOptionalProfileNameEffect(selection.profile)) ??
+      (yield* validateOptionalProfileNameEffect(runtime.profile)) ??
       null;
 
     if (runtime.token) {
@@ -603,7 +635,7 @@ const resolveAuthStateEffect = (
     }
 
     const state = yield* loadPersistedStateEffect(runtime.configPath);
-    const selectedProfile = selectProfileName({
+    const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
       state,
@@ -662,7 +694,7 @@ const useProfileEffect = (
   CliConfig | FileSystem.FileSystem | CliRuntime
 > =>
   Effect.gen(function* () {
-    const profileName = validateProfileName(profile);
+    const profileName = yield* validateProfileNameEffect(profile);
     const runtime = yield* resolveAuthRuntimeConfig();
     const state = yield* loadPersistedStateEffect(runtime.configPath);
 

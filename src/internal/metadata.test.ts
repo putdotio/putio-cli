@@ -194,6 +194,19 @@ describe("describeCli", () => {
     expect(metadata.auth.envPrecedence).toEqual(["PUTIO_CLI_TOKEN"]);
     expect(metadata.auth.loginAppId).toBe("8993");
     expect(metadata.auth.loginOpensBrowserByDefault).toBe(false);
+    expect(metadata.auth.persistedConfigShape).toMatchObject({
+      api_base_url: { required: true, type: "string" },
+      auth_token: { required: false, type: "string" },
+      default_profile: { required: false, type: "string" },
+      profiles: {
+        required: false,
+        type: "record",
+        values: {
+          api_base_url: { required: false, type: "string" },
+          auth_token: { required: false, type: "string" },
+        },
+      },
+    });
     expect(metadata.auth.profileEnv).toBe("PUTIO_CLI_PROFILE");
   });
 });

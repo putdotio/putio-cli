@@ -52,6 +52,7 @@ export const en = {
       },
       logout: {
         cleared: "cleared persisted auth state at {{configPath}}",
+        notFound: "no persisted auth state was configured at {{configPath}}",
       },
       preview: {
         browserOpened: "opened automatically in your browser",

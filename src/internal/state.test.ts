@@ -367,15 +367,35 @@ describe("resolveConfigPath", () => {
     });
   });
 
-  it("keeps PUTIO_CLI_TOKEN as an override when a profile is selected", async () => {
+  it("keeps PUTIO_CLI_TOKEN as an override when a persisted profile is selected", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://staging.put.io",
+        default_profile: "human",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+          human: {
+            auth_token: "human-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
     const authState = await Effect.runPromise(
       resolveAuthState().pipe(
         Effect.provideService(
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
             PUTIO_CLI_PROFILE: "devs-fe-auto",
             PUTIO_CLI_TOKEN: "env-token",
-            XDG_CONFIG_HOME: "/tmp/xdg",
           }),
         ),
         makeRuntimeLayer(),
@@ -386,7 +406,30 @@ describe("resolveConfigPath", () => {
       token: "env-token",
       source: "env",
       apiBaseUrl: "https://api.put.io",
-      configPath: "/tmp/xdg/putio/config.json",
+      configPath,
+      profile: "devs-fe-auto",
+    });
+
+    const status = await Effect.runPromise(
+      getAuthStatus().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_PROFILE: "devs-fe-auto",
+            PUTIO_CLI_TOKEN: "env-token",
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(status).toEqual({
+      authenticated: true,
+      source: "env",
+      apiBaseUrl: "https://api.put.io",
+      configPath,
+      defaultProfile: null,
       profile: "devs-fe-auto",
     });
   });
@@ -485,6 +528,45 @@ describe("resolveConfigPath", () => {
     ]);
   });
 
+  it("rejects invalid PUTIO_CLI_PROFILE values when listing profiles", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const exit = await Effect.runPromiseExit(
+      listProfiles().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_PROFILE: "bad/name",
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = expectFailure(exit);
+      expect(failure).toBeInstanceOf(AuthStateError);
+      expect(failure.message).toContain("Invalid auth profile `bad/name`");
+    }
+  });
+
   it("sets and removes the default profile", async () => {
     const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
     const configPath = join(dir, "config.json");
@@ -541,6 +623,28 @@ describe("resolveConfigPath", () => {
     expect(contents.profiles).toBeUndefined();
   });
 
+  it("rejects invalid profile names through typed profile operations", async () => {
+    const useExit = await Effect.runPromiseExit(useProfile("bad/name").pipe(makeRuntimeLayer()));
+    const removeExit = await Effect.runPromiseExit(
+      removeProfile("bad/name").pipe(makeRuntimeLayer()),
+    );
+
+    expect(Exit.isFailure(useExit)).toBe(true);
+    expect(Exit.isFailure(removeExit)).toBe(true);
+
+    if (Exit.isFailure(useExit)) {
+      const failure = expectFailure(useExit);
+      expect(failure).toBeInstanceOf(AuthStateError);
+      expect(failure.message).toContain("Invalid auth profile `bad/name`");
+    }
+
+    if (Exit.isFailure(removeExit)) {
+      const failure = expectFailure(removeExit);
+      expect(failure).toBeInstanceOf(AuthStateError);
+      expect(failure.message).toContain("Invalid auth profile `bad/name`");
+    }
+  });
+
   it("clears only the selected profile on profile logout", async () => {
     const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
     const configPath = join(dir, "config.json");
@@ -561,9 +665,15 @@ describe("resolveConfigPath", () => {
       "utf8",
     );
 
-    await Effect.runPromise(
+    const result = await Effect.runPromise(
       clearPersistedState(configPath, { profile: "devs-fe-auto" }).pipe(makeRuntimeLayer()),
     );
+
+    expect(result).toEqual({
+      cleared: true,
+      configPath,
+      profile: "devs-fe-auto",
+    });
 
     const contents = JSON.parse(await readFile(configPath, "utf8")) as {
       profiles: {
@@ -593,9 +703,15 @@ describe("resolveConfigPath", () => {
       "utf8",
     );
 
-    await Effect.runPromise(
+    const result = await Effect.runPromise(
       clearPersistedState(configPath, { profile: "devs-fe-auto" }).pipe(makeRuntimeLayer()),
     );
+
+    expect(result).toEqual({
+      cleared: false,
+      configPath,
+      profile: "devs-fe-auto",
+    });
 
     const contents = JSON.parse(await readFile(configPath, "utf8")) as {
       profiles: Record<string, unknown>;
