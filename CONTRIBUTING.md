@@ -43,6 +43,7 @@ Run focused checks when they match your change:
 
 ```bash
 vp run smoke:pack
+vp run smoke:auth-profiles
 vp run build:sea
 vp run verify:sea
 ```
