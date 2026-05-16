@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,7 +29,15 @@ const parseCapturedText = (args: ReadonlyArray<unknown>) =>
 
 const parseJsonOutput = (value: string) => JSON.parse(value) as Record<string, unknown>;
 
-const runProcessArgv = async (processArgv: ReadonlyArray<string>): Promise<CliExecution> => {
+type CliRunOptions = {
+  readonly configContents?: string;
+  readonly env?: Record<string, string>;
+};
+
+const runProcessArgv = async (
+  processArgv: ReadonlyArray<string>,
+  options: CliRunOptions = {},
+): Promise<CliExecution & { readonly configPath: string }> => {
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-parser-"));
   const configPath = join(configDir, "config.json");
   const stdoutChunks: string[] = [];
@@ -42,6 +50,10 @@ const runProcessArgv = async (processArgv: ReadonlyArray<string>): Promise<CliEx
   });
 
   try {
+    if (options.configContents !== undefined) {
+      await writeFile(configPath, options.configContents, "utf8");
+    }
+
     const result = await Effect.runPromise(
       Effect.scoped(
         Effect.result(
@@ -49,6 +61,7 @@ const runProcessArgv = async (processArgv: ReadonlyArray<string>): Promise<CliEx
             Effect.provideService(
               ConfigProvider.ConfigProvider,
               ConfigProvider.fromUnknown({
+                ...options.env,
                 PUTIO_CLI_CONFIG_PATH: configPath,
                 XDG_CONFIG_HOME: configDir,
               }),
@@ -70,6 +83,7 @@ const runProcessArgv = async (processArgv: ReadonlyArray<string>): Promise<CliEx
     );
 
     return {
+      configPath,
       result,
       stderr: stderrChunks.join("\n"),
       stdout: stdoutChunks.join("\n"),
@@ -80,8 +94,8 @@ const runProcessArgv = async (processArgv: ReadonlyArray<string>): Promise<CliEx
   }
 };
 
-const runCli = (argv: ReadonlyArray<string>): Promise<CliExecution> =>
-  runProcessArgv(["node", "putio", ...argv.slice(1)]);
+const runCli = (argv: ReadonlyArray<string>, options?: CliRunOptions) =>
+  runProcessArgv(["node", "putio", ...argv.slice(1)], options);
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -202,6 +216,8 @@ describe("cli argv parsing", () => {
     expect(parseJsonOutput(stdout)).toMatchObject({
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
+      defaultProfile: null,
+      profile: null,
       source: null,
     });
   });
@@ -213,8 +229,82 @@ describe("cli argv parsing", () => {
     expect(parseJsonOutput(stdout)).toMatchObject({
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
+      defaultProfile: null,
+      profile: null,
       source: null,
     });
+  });
+
+  it("renders auth profiles list as json", async () => {
+    const { result, stdout } = await runCli([
+      "putio",
+      "auth",
+      "profiles",
+      "list",
+      "--output",
+      "json",
+    ]);
+
+    expect(result._tag).toBe("Success");
+    expect(parseJsonOutput(stdout)).toMatchObject({
+      defaultProfile: null,
+      profiles: [],
+    });
+  });
+
+  it("rejects invalid env profile selection for auth profiles list", async () => {
+    const { result } = await runCli(["putio", "auth", "profiles", "list", "--output", "json"], {
+      env: {
+        PUTIO_CLI_PROFILE: "bad/name",
+      },
+    });
+
+    expect(result._tag).toBe("Failure");
+    if (result._tag === "Failure") {
+      expect(errorText(result.failure)).toContain("Invalid auth profile `bad/name`");
+    }
+  });
+
+  it("uses and removes profiles against an isolated config path", async () => {
+    const initialConfig = JSON.stringify({
+      api_base_url: "https://api.put.io",
+      profiles: {
+        "devs-fe-auto": {
+          auth_token: "profile-token",
+        },
+      },
+    });
+    const useResult = await runCli(
+      ["putio", "auth", "profiles", "use", "devs-fe-auto", "--output", "json"],
+      {
+        configContents: initialConfig,
+      },
+    );
+
+    expect(useResult.result._tag).toBe("Success");
+    expect(parseJsonOutput(useResult.stdout)).toMatchObject({
+      profile: "devs-fe-auto",
+    });
+
+    const afterUse = JSON.parse(await readFile(useResult.configPath, "utf8")) as {
+      readonly default_profile?: string;
+    };
+    expect(afterUse.default_profile).toBe("devs-fe-auto");
+
+    const removeResult = await runCli(
+      ["putio", "auth", "profiles", "remove", "devs-fe-auto", "--output", "json"],
+      {
+        configContents: await readFile(useResult.configPath, "utf8"),
+      },
+    );
+
+    expect(removeResult.result._tag).toBe("Success");
+    expect(parseJsonOutput(removeResult.stdout)).toMatchObject({
+      profile: "devs-fe-auto",
+      removed: true,
+    });
+
+    await expect(readFile(removeResult.configPath, "utf8")).rejects.toThrow();
   });
 
   it("accepts repeated file ids for move and reaches auth resolution", async () => {

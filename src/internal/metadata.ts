@@ -13,12 +13,21 @@ import {
   ENV_API_BASE_URL,
   ENV_CLI_CLIENT_NAME,
   ENV_CLI_CONFIG_PATH,
+  ENV_CLI_PROFILE,
   ENV_CLI_TOKEN,
   ENV_CLI_WEB_APP_URL,
 } from "./env.js";
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
+const ConfigStringFieldSchema = Schema.Struct({
+  required: Schema.Boolean,
+  type: Schema.Literal("string"),
+});
+const PersistedProfileShapeSchema = Schema.Struct({
+  api_base_url: ConfigStringFieldSchema,
+  auth_token: ConfigStringFieldSchema,
+});
 
 const CliMetadataSchema = Schema.Struct({
   agentDx: AgentDxScorecardSchema,
@@ -31,9 +40,16 @@ const CliMetadataSchema = Schema.Struct({
     loginWebAppUrlEnv: NonEmptyStringSchema,
     persistedConfigEnv: NonEmptyStringSchema,
     persistedConfigShape: Schema.Struct({
-      api_base_url: Schema.Literal("string"),
-      auth_token: Schema.Literal("string"),
+      api_base_url: ConfigStringFieldSchema,
+      auth_token: ConfigStringFieldSchema,
+      default_profile: ConfigStringFieldSchema,
+      profiles: Schema.Struct({
+        required: Schema.Boolean,
+        type: Schema.Literal("record"),
+        values: PersistedProfileShapeSchema,
+      }),
     }),
+    profileEnv: NonEmptyStringSchema,
   }),
   binary: NonEmptyStringSchema,
   commands: Schema.Array(CommandDescriptorSchema),
@@ -67,9 +83,19 @@ export const describeCli = (): CliMetadata =>
       loginWebAppUrlEnv: ENV_CLI_WEB_APP_URL,
       persistedConfigEnv: ENV_CLI_CONFIG_PATH,
       persistedConfigShape: {
-        api_base_url: "string",
-        auth_token: "string",
+        api_base_url: { required: true, type: "string" },
+        auth_token: { required: false, type: "string" },
+        default_profile: { required: false, type: "string" },
+        profiles: {
+          required: false,
+          type: "record",
+          values: {
+            api_base_url: { required: false, type: "string" },
+            auth_token: { required: false, type: "string" },
+          },
+        },
       },
+      profileEnv: ENV_CLI_PROFILE,
     },
     binary: translate("cli.brand.binary"),
     commands: commandCatalog,

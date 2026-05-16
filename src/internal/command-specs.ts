@@ -99,7 +99,18 @@ export const CommandOptionSchema = Schema.Struct({
 
 export type CommandOption = Schema.Schema.Type<typeof CommandOptionSchema>;
 
+export const CommandArgumentSchema = Schema.Struct({
+  choices: Schema.optional(Schema.Array(NonEmptyStringSchema)),
+  description: Schema.optional(NonEmptyStringSchema),
+  name: NonEmptyStringSchema,
+  required: Schema.Boolean,
+  type: CommandOptionTypeSchema,
+});
+
+export type CommandArgument = Schema.Schema.Type<typeof CommandArgumentSchema>;
+
 const CommandInputSchema = Schema.Struct({
+  arguments: Schema.optional(Schema.Array(CommandArgumentSchema)),
   flags: Schema.Array(CommandOptionSchema),
   json: Schema.optional(CommandJsonShapeSchema),
 });
@@ -145,6 +156,7 @@ export type CommandSpec = {
   };
   readonly command: string;
   readonly input?: {
+    readonly arguments?: ReadonlyArray<CommandArgument>;
     readonly flags: ReadonlyArray<CommandOption>;
     readonly json?: CommandJsonShape;
   };
@@ -334,6 +346,19 @@ export const stringFlag = (
   name,
   repeated: false,
   required: options.required ?? false,
+  type: "string",
+});
+
+export const stringArgument = (
+  name: string,
+  options: {
+    readonly description?: string;
+    readonly required?: boolean;
+  } = {},
+): CommandArgument => ({
+  description: options.description,
+  name,
+  required: options.required ?? true,
   type: "string",
 });
 

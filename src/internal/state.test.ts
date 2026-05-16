@@ -13,9 +13,12 @@ import {
   CliState,
   clearPersistedState,
   getAuthStatus,
+  listProfiles,
   loadPersistedState,
+  removeProfile,
   resolveAuthState,
   savePersistedState,
+  useProfile,
 } from "./state.js";
 
 const makeRuntimeLayer = (homeDirectory = "/Users/tester") =>
@@ -144,6 +147,8 @@ describe("resolveConfigPath", () => {
       source: "env",
       apiBaseUrl: "https://api.put.io",
       configPath: "/tmp/xdg/putio/config.json",
+      defaultProfile: null,
+      profile: null,
     });
   });
 
@@ -246,6 +251,479 @@ describe("resolveConfigPath", () => {
     });
   });
 
+  it("saves named profiles without rewriting the legacy token", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        auth_token: "legacy-token",
+      }),
+      "utf8",
+    );
+
+    const result = await Effect.runPromise(
+      savePersistedState(
+        {
+          token: "profile-token",
+          apiBaseUrl: "https://staging.put.io",
+        },
+        configPath,
+        { profile: "devs-fe-auto" },
+      ).pipe(makeRuntimeLayer()),
+    );
+
+    expect(result.profile).toBe("devs-fe-auto");
+    expect(result.state).toEqual({
+      api_base_url: "https://api.put.io",
+      auth_token: "legacy-token",
+      profiles: {
+        "devs-fe-auto": {
+          api_base_url: "https://staging.put.io",
+          auth_token: "profile-token",
+        },
+      },
+    });
+  });
+
+  it("uses the configured default profile when no profile is specified", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        default_profile: "devs-fe-auto",
+        profiles: {
+          "devs-fe-auto": {
+            api_base_url: "https://staging.put.io",
+            auth_token: "profile-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const authState = await Effect.runPromise(
+      resolveAuthState().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(authState).toEqual({
+      token: "profile-token",
+      source: "profile",
+      apiBaseUrl: "https://staging.put.io",
+      configPath,
+      profile: "devs-fe-auto",
+    });
+  });
+
+  it("uses PUTIO_CLI_PROFILE to select a named profile", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://staging.put.io",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const authState = await Effect.runPromise(
+      resolveAuthState().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_PROFILE: "devs-fe-auto",
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(authState).toEqual({
+      token: "profile-token",
+      source: "profile",
+      apiBaseUrl: "https://staging.put.io",
+      configPath,
+      profile: "devs-fe-auto",
+    });
+  });
+
+  it("keeps PUTIO_CLI_TOKEN as an override when a persisted profile is selected", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://staging.put.io",
+        default_profile: "human",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+          human: {
+            auth_token: "human-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const authState = await Effect.runPromise(
+      resolveAuthState().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_PROFILE: "devs-fe-auto",
+            PUTIO_CLI_TOKEN: "env-token",
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(authState).toEqual({
+      token: "env-token",
+      source: "env",
+      apiBaseUrl: "https://api.put.io",
+      configPath,
+      profile: "devs-fe-auto",
+    });
+
+    const status = await Effect.runPromise(
+      getAuthStatus().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_PROFILE: "devs-fe-auto",
+            PUTIO_CLI_TOKEN: "env-token",
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(status).toEqual({
+      authenticated: true,
+      source: "env",
+      apiBaseUrl: "https://api.put.io",
+      configPath,
+      defaultProfile: null,
+      profile: "devs-fe-auto",
+    });
+  });
+
+  it("lists profiles without token material", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        default_profile: "devs-fe-auto",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const result = await Effect.runPromise(
+      listProfiles().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(result).toEqual({
+      configPath,
+      defaultProfile: "devs-fe-auto",
+      profiles: [
+        {
+          apiBaseUrl: "https://api.put.io",
+          authenticated: true,
+          current: true,
+          name: "devs-fe-auto",
+        },
+      ],
+    });
+  });
+
+  it("marks the PUTIO_CLI_PROFILE selection as the current listed profile", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        default_profile: "human",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+          human: {
+            auth_token: "human-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const result = await Effect.runPromise(
+      listProfiles().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_PROFILE: "devs-fe-auto",
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(result.profiles).toEqual([
+      {
+        apiBaseUrl: "https://api.put.io",
+        authenticated: true,
+        current: true,
+        name: "devs-fe-auto",
+      },
+      {
+        apiBaseUrl: "https://api.put.io",
+        authenticated: true,
+        current: false,
+        name: "human",
+      },
+    ]);
+  });
+
+  it("rejects invalid PUTIO_CLI_PROFILE values when listing profiles", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const exit = await Effect.runPromiseExit(
+      listProfiles().pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_PROFILE: "bad/name",
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
+
+    if (Exit.isFailure(exit)) {
+      const failure = expectFailure(exit);
+      expect(failure).toBeInstanceOf(AuthStateError);
+      expect(failure.message).toContain("Invalid auth profile `bad/name`");
+    }
+  });
+
+  it("sets and removes the default profile", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://staging.put.io",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    await Effect.runPromise(
+      useProfile("devs-fe-auto").pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    let contents = JSON.parse(await readFile(configPath, "utf8")) as {
+      default_profile?: string;
+      profiles?: Record<string, unknown>;
+    };
+    expect(contents.default_profile).toBe("devs-fe-auto");
+
+    const result = await Effect.runPromise(
+      removeProfile("devs-fe-auto").pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+          }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(result.removed).toBe(true);
+    contents = JSON.parse(await readFile(configPath, "utf8")) as {
+      default_profile?: string;
+      profiles?: Record<string, unknown>;
+    };
+    expect(contents.default_profile).toBeUndefined();
+    expect(contents.profiles).toBeUndefined();
+  });
+
+  it("rejects invalid profile names through typed profile operations", async () => {
+    const useExit = await Effect.runPromiseExit(useProfile("bad/name").pipe(makeRuntimeLayer()));
+    const removeExit = await Effect.runPromiseExit(
+      removeProfile("bad/name").pipe(makeRuntimeLayer()),
+    );
+
+    expect(Exit.isFailure(useExit)).toBe(true);
+    expect(Exit.isFailure(removeExit)).toBe(true);
+
+    if (Exit.isFailure(useExit)) {
+      const failure = expectFailure(useExit);
+      expect(failure).toBeInstanceOf(AuthStateError);
+      expect(failure.message).toContain("Invalid auth profile `bad/name`");
+    }
+
+    if (Exit.isFailure(removeExit)) {
+      const failure = expectFailure(removeExit);
+      expect(failure).toBeInstanceOf(AuthStateError);
+      expect(failure.message).toContain("Invalid auth profile `bad/name`");
+    }
+  });
+
+  it("clears only the selected profile on profile logout", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        profiles: {
+          "devs-fe-auto": {
+            auth_token: "profile-token",
+          },
+          human: {
+            auth_token: "human-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const result = await Effect.runPromise(
+      clearPersistedState(configPath, { profile: "devs-fe-auto" }).pipe(makeRuntimeLayer()),
+    );
+
+    expect(result).toEqual({
+      cleared: true,
+      configPath,
+      profile: "devs-fe-auto",
+    });
+
+    const contents = JSON.parse(await readFile(configPath, "utf8")) as {
+      profiles: {
+        readonly "devs-fe-auto": { readonly auth_token?: string };
+        readonly human: { readonly auth_token?: string };
+      };
+    };
+
+    expect(contents.profiles["devs-fe-auto"].auth_token).toBeUndefined();
+    expect(contents.profiles.human.auth_token).toBe("human-token");
+  });
+
+  it("does not create a profile when logging out of a missing profile", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        api_base_url: "https://api.put.io",
+        profiles: {
+          human: {
+            auth_token: "human-token",
+          },
+        },
+      }),
+      "utf8",
+    );
+
+    const result = await Effect.runPromise(
+      clearPersistedState(configPath, { profile: "devs-fe-auto" }).pipe(makeRuntimeLayer()),
+    );
+
+    expect(result).toEqual({
+      cleared: false,
+      configPath,
+      profile: "devs-fe-auto",
+    });
+
+    const contents = JSON.parse(await readFile(configPath, "utf8")) as {
+      profiles: Record<string, unknown>;
+    };
+
+    expect(contents.profiles).toEqual({
+      human: {
+        auth_token: "human-token",
+      },
+    });
+  });
+
   it("removes the persisted config when clearing the default api base url", async () => {
     const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
     const configPath = join(dir, "config.json");
@@ -296,6 +774,7 @@ describe("resolveConfigPath", () => {
       source: "config",
       apiBaseUrl: "https://api.put.io",
       configPath,
+      profile: null,
     });
   });
 
@@ -330,6 +809,8 @@ describe("resolveConfigPath", () => {
       source: "config",
       apiBaseUrl: "https://staging.put.io",
       configPath,
+      defaultProfile: null,
+      profile: null,
     });
   });
 
@@ -363,6 +844,8 @@ describe("resolveConfigPath", () => {
       source: null,
       apiBaseUrl: "https://staging.put.io",
       configPath,
+      defaultProfile: null,
+      profile: null,
     });
   });
 

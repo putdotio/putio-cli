@@ -79,12 +79,16 @@ export const renderAuthLoginSuccessTerminal = (value: {
   readonly apiBaseUrl: string;
   readonly browserOpened: boolean;
   readonly configPath: string;
+  readonly profile?: string | null;
 }) =>
   [
     renderPutioSignature(),
     renderPanel(
       [
         ansi.bold(translate("cli.auth.success.savedToken")),
+        translate("cli.auth.success.profile", {
+          value: value.profile ?? translate("cli.common.none"),
+        }),
         translate("cli.auth.success.apiBaseUrl", { value: value.apiBaseUrl }),
         translate("cli.auth.success.configPath", { value: value.configPath }),
         translate("cli.auth.success.browserOpened", {

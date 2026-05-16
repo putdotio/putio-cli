@@ -6,6 +6,7 @@ import {
   ENV_API_BASE_URL,
   ENV_CLI_CLIENT_NAME,
   ENV_CLI_CONFIG_PATH,
+  ENV_CLI_PROFILE,
   ENV_CLI_TOKEN,
   ENV_CLI_WEB_APP_URL,
   ENV_XDG_CONFIG_HOME,
@@ -38,6 +39,7 @@ type PutioCliAuthFlowConfig = Schema.Schema.Type<typeof PutioCliAuthFlowConfigSc
 export const CliRuntimeConfigSchema = Schema.Struct({
   apiBaseUrl: UrlStringSchema,
   configPath: NonEmptyStringSchema,
+  profile: Schema.optional(NonEmptyStringSchema),
   token: Schema.optional(NonEmptyStringSchema),
 });
 
@@ -116,6 +118,7 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
       Config.map((value) => Option.getOrElse(value, () => DEFAULT_PUTIO_API_BASE_URL)),
     );
     const token = yield* optionalTrimmedString(ENV_CLI_TOKEN);
+    const profile = yield* optionalTrimmedString(ENV_CLI_PROFILE);
     const explicitConfigPath = yield* optionalTrimmedString(ENV_CLI_CONFIG_PATH);
     const xdgConfigHome = yield* optionalTrimmedString(ENV_XDG_CONFIG_HOME);
 
@@ -129,6 +132,7 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
             homePath,
             joinPath: runtime.joinPath,
           }),
+          profile: Option.getOrUndefined(profile),
           token: Option.getOrUndefined(token),
         }),
       catch: mapCliConfigError("Unable to resolve the CLI runtime configuration."),
