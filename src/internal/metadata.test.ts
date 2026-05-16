@@ -18,6 +18,9 @@ describe("describeCli", () => {
     const transfersListCommand = metadata.commands.find(
       (command) => command.command === "transfers list",
     );
+    const authProfilesUseCommand = metadata.commands.find(
+      (command) => command.command === "auth profiles use",
+    );
 
     expect(metadata.binary).toBe("putio");
     expect(metadata.agentDx.provenance).toBe("metadata-derived");
@@ -33,6 +36,9 @@ describe("describeCli", () => {
       "auth status",
       "auth logout",
       "auth preview",
+      "auth profiles list",
+      "auth profiles use",
+      "auth profiles remove",
       "whoami",
       "download-links create",
       "download-links get",
@@ -174,8 +180,20 @@ describe("describeCli", () => {
       },
       kind: "read",
     });
+    expect(authProfilesUseCommand).toMatchObject({
+      input: {
+        arguments: [
+          expect.objectContaining({
+            name: "profile",
+            required: true,
+            type: "string",
+          }),
+        ],
+      },
+    });
     expect(metadata.auth.envPrecedence).toEqual(["PUTIO_CLI_TOKEN"]);
     expect(metadata.auth.loginAppId).toBe("8993");
     expect(metadata.auth.loginOpensBrowserByDefault).toBe(false);
+    expect(metadata.auth.profileEnv).toBe("PUTIO_CLI_PROFILE");
   });
 });

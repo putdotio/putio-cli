@@ -41,7 +41,7 @@ flowchart TD
 
 - Runtime and terminal capabilities
 - Output rendering and structured writes
-- Config resolution and persisted state
+- Config resolution, profile-aware auth selection, and persisted state
 - SDK access through the SDK-owned live layer and portable fetch transport
 
 ## Invariants
@@ -66,6 +66,7 @@ The current CLI contract already includes:
 
 - schema-backed `describe` metadata for command purpose, capabilities, flags, and raw JSON payload shapes
 - raw `--json` input and `--dry-run` on mutating commands
+- named auth profiles with env/default-profile selection and legacy single-token fallback
 - `--fields` on agent-relevant read commands
 - cursor-backed `--page-all` on `files list`, `files search`, `search`, and `transfers list`
 - shared hardening for field selectors and identifier-like inputs before API calls

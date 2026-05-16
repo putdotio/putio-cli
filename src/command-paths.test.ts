@@ -188,12 +188,35 @@ const mocks = vi.hoisted(() => {
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
       configPath: "/tmp/putio-cli.json",
+      defaultProfile: null,
+      profile: null,
       source: null,
+    }),
+  );
+  const listProfilesMock = vi.fn(() =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      defaultProfile: null,
+      profiles: [],
+    }),
+  );
+  const removeProfileMock = vi.fn((profile: string) =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      profile,
+      removed: true,
+    }),
+  );
+  const useProfileMock = vi.fn((profile: string) =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      profile,
     }),
   );
   const savePersistedStateMock = vi.fn(() =>
     Effect.succeed({
       configPath: "/tmp/putio-cli.json",
+      profile: null,
       state: {
         api_base_url: "https://api.put.io",
         auth_token: "token-123",
@@ -203,6 +226,7 @@ const mocks = vi.hoisted(() => {
   const clearPersistedStateMock = vi.fn(() =>
     Effect.succeed({
       configPath: "/tmp/putio-cli.json",
+      profile: null,
     }),
   );
   const resolveCliRuntimeConfigMock = vi.fn(() =>
@@ -279,17 +303,20 @@ const mocks = vi.hoisted(() => {
     getTransferMock,
     listEventsMock,
     listFilesMock,
+    listProfilesMock,
     listTransfersMock,
     moveFilesMock,
     openBrowserMock,
     provideSdkMock,
     renameFileMock,
     reannounceTransferMock,
+    removeProfileMock,
     resolveAuthFlowConfigMock,
     resolveCliRuntimeConfigMock,
     retryTransferMock,
     savePersistedStateMock,
     searchFilesMock,
+    useProfileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
     withTerminalLoaderMock,
@@ -339,7 +366,10 @@ vi.mock("./internal/state.js", async () => {
     ...actual,
     clearPersistedState: mocks.clearPersistedStateMock,
     getAuthStatus: mocks.getAuthStatusMock,
+    listProfiles: mocks.listProfilesMock,
+    removeProfile: mocks.removeProfileMock,
     savePersistedState: mocks.savePersistedStateMock,
+    useProfile: mocks.useProfileMock,
   };
 });
 
@@ -426,10 +456,14 @@ describe("cli command paths", () => {
     );
     await Effect.runPromise(getWaitForDeviceTokenOptions().checkCodeMatch("MATCH"));
     expect(mocks.checkCodeMatchMock).toHaveBeenCalledWith("MATCH");
-    expect(mocks.savePersistedStateMock).toHaveBeenCalledWith({
-      apiBaseUrl: "https://api.put.io",
-      token: "token-123",
-    });
+    expect(mocks.savePersistedStateMock).toHaveBeenCalledWith(
+      {
+        apiBaseUrl: "https://api.put.io",
+        token: "token-123",
+      },
+      undefined,
+      { profile: undefined },
+    );
     expect(mocks.writeOutputMock).toHaveBeenCalledWith(
       expect.objectContaining({
         authenticated: true,
@@ -444,6 +478,7 @@ describe("cli command paths", () => {
         apiBaseUrl: "https://api.put.io",
         browserOpened: false,
         configPath: "/tmp/putio-cli.json",
+        profile: null,
       }),
     ).toContain("authenticated and saved token");
   });
@@ -473,6 +508,31 @@ describe("cli command paths", () => {
     );
   });
 
+  it("executes auth login for a named profile", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "auth",
+        "login",
+        "--profile",
+        "devs-fe-auto",
+        "--output",
+        "json",
+        "--timeout-seconds",
+        "1",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.savePersistedStateMock).toHaveBeenCalledWith(
+      {
+        apiBaseUrl: "https://api.put.io",
+        token: "token-123",
+      },
+      undefined,
+      { profile: "devs-fe-auto" },
+    );
+  });
+
   it("executes auth status without a token", async () => {
     await expect(
       runCliInTest(["putio", "auth", "status", "--output", "json"]),
@@ -493,9 +553,19 @@ describe("cli command paths", () => {
         apiBaseUrl: "https://api.put.io",
         authenticated: true,
         configPath: "/tmp/putio-cli.json",
+        defaultProfile: null,
+        profile: null,
         source: "env",
       }),
     ).toContain("authenticated: yes");
+  });
+
+  it("executes auth status for a named profile", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "status", "--profile", "devs-fe-auto", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.getAuthStatusMock).toHaveBeenCalledWith({ profile: "devs-fe-auto" });
   });
 
   it("executes auth preview", async () => {
@@ -532,10 +602,38 @@ describe("cli command paths", () => {
       {
         cleared: true,
         configPath: "/tmp/putio-cli.json",
+        profile: null,
       },
       "json",
       expect.any(Function),
     );
+  });
+
+  it("executes auth logout for a named profile", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "logout", "--profile", "devs-fe-auto", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.clearPersistedStateMock).toHaveBeenCalledWith(undefined, {
+      profile: "devs-fe-auto",
+    });
+  });
+
+  it("executes auth profiles commands", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "profiles", "list", "--output", "json"]),
+    ).resolves.toBeUndefined();
+    expect(mocks.listProfilesMock).toHaveBeenCalled();
+
+    await expect(
+      runCliInTest(["putio", "auth", "profiles", "use", "devs-fe-auto", "--output", "json"]),
+    ).resolves.toBeUndefined();
+    expect(mocks.useProfileMock).toHaveBeenCalledWith("devs-fe-auto");
+
+    await expect(
+      runCliInTest(["putio", "auth", "profiles", "remove", "devs-fe-auto", "--output", "json"]),
+    ).resolves.toBeUndefined();
+    expect(mocks.removeProfileMock).toHaveBeenCalledWith("devs-fe-auto");
   });
 
   it("rejects auth preview codes with query fragments", async () => {

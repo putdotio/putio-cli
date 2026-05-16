@@ -13,6 +13,7 @@ import {
   ENV_API_BASE_URL,
   ENV_CLI_CLIENT_NAME,
   ENV_CLI_CONFIG_PATH,
+  ENV_CLI_PROFILE,
   ENV_CLI_TOKEN,
   ENV_CLI_WEB_APP_URL,
 } from "./env.js";
@@ -33,7 +34,16 @@ const CliMetadataSchema = Schema.Struct({
     persistedConfigShape: Schema.Struct({
       api_base_url: Schema.Literal("string"),
       auth_token: Schema.Literal("string"),
+      default_profile: Schema.Literal("string"),
+      profiles: Schema.Record(
+        NonEmptyStringSchema,
+        Schema.Struct({
+          api_base_url: Schema.Literal("string"),
+          auth_token: Schema.Literal("string"),
+        }),
+      ),
     }),
+    profileEnv: NonEmptyStringSchema,
   }),
   binary: NonEmptyStringSchema,
   commands: Schema.Array(CommandDescriptorSchema),
@@ -69,7 +79,15 @@ export const describeCli = (): CliMetadata =>
       persistedConfigShape: {
         api_base_url: "string",
         auth_token: "string",
+        default_profile: "string",
+        profiles: {
+          "devs-fe-auto": {
+            api_base_url: "string",
+            auth_token: "string",
+          },
+        },
       },
+      profileEnv: ENV_CLI_PROFILE,
     },
     binary: translate("cli.brand.binary"),
     commands: commandCatalog,

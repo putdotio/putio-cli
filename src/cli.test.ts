@@ -202,6 +202,8 @@ describe("cli argv parsing", () => {
     expect(parseJsonOutput(stdout)).toMatchObject({
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
+      defaultProfile: null,
+      profile: null,
       source: null,
     });
   });
@@ -213,7 +215,26 @@ describe("cli argv parsing", () => {
     expect(parseJsonOutput(stdout)).toMatchObject({
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
+      defaultProfile: null,
+      profile: null,
       source: null,
+    });
+  });
+
+  it("renders auth profiles list as json", async () => {
+    const { result, stdout } = await runCli([
+      "putio",
+      "auth",
+      "profiles",
+      "list",
+      "--output",
+      "json",
+    ]);
+
+    expect(result._tag).toBe("Success");
+    expect(parseJsonOutput(stdout)).toMatchObject({
+      defaultProfile: null,
+      profiles: [],
     });
   });
 

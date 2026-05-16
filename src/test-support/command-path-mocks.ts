@@ -185,12 +185,35 @@ const createCommandPathMocks = () => {
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
       configPath: "/tmp/putio-cli.json",
+      defaultProfile: null,
+      profile: null,
       source: null,
+    }),
+  );
+  const listProfilesMock = vi.fn(() =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      defaultProfile: null,
+      profiles: [],
+    }),
+  );
+  const removeProfileMock = vi.fn((profile: string) =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      profile,
+      removed: true,
+    }),
+  );
+  const useProfileMock = vi.fn((profile: string) =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      profile,
     }),
   );
   const savePersistedStateMock = vi.fn(() =>
     Effect.succeed({
       configPath: "/tmp/putio-cli.json",
+      profile: null,
       state: {
         api_base_url: "https://api.put.io",
         auth_token: "token-123",
@@ -200,6 +223,7 @@ const createCommandPathMocks = () => {
   const clearPersistedStateMock = vi.fn(() =>
     Effect.succeed({
       configPath: "/tmp/putio-cli.json",
+      profile: null,
     }),
   );
   const resolveCliRuntimeConfigMock = vi.fn(() =>
@@ -276,17 +300,20 @@ const createCommandPathMocks = () => {
     getTransferMock,
     listEventsMock,
     listFilesMock,
+    listProfilesMock,
     listTransfersMock,
     moveFilesMock,
     openBrowserMock,
     provideSdkMock,
     renameFileMock,
     reannounceTransferMock,
+    removeProfileMock,
     resolveAuthFlowConfigMock,
     resolveCliRuntimeConfigMock,
     retryTransferMock,
     savePersistedStateMock,
     searchFilesMock,
+    useProfileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
     withTerminalLoaderMock,
@@ -423,12 +450,35 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
       apiBaseUrl: "https://api.put.io",
       authenticated: false,
       configPath: "/tmp/putio-cli.json",
+      defaultProfile: null,
+      profile: null,
       source: null,
+    }),
+  );
+  mocks.listProfilesMock.mockImplementation(() =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      defaultProfile: null,
+      profiles: [],
+    }),
+  );
+  mocks.removeProfileMock.mockImplementation((profile: string) =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      profile,
+      removed: true,
+    }),
+  );
+  mocks.useProfileMock.mockImplementation((profile: string) =>
+    Effect.succeed({
+      configPath: "/tmp/putio-cli.json",
+      profile,
     }),
   );
   mocks.savePersistedStateMock.mockImplementation(() =>
     Effect.succeed({
       configPath: "/tmp/putio-cli.json",
+      profile: null,
       state: {
         api_base_url: "https://api.put.io",
         auth_token: "token-123",
@@ -438,6 +488,7 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
   mocks.clearPersistedStateMock.mockImplementation(() =>
     Effect.succeed({
       configPath: "/tmp/putio-cli.json",
+      profile: null,
     }),
   );
   mocks.resolveCliRuntimeConfigMock.mockImplementation(() =>

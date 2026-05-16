@@ -11,6 +11,7 @@ Use this skill when you need to use `putio` itself, not when you are developing 
 
 - Start with `putio describe`.
 - Prefer structured output: `json` by default in non-interactive runs, `ndjson` for streaming reads, `text` for human TTY sessions.
+- Prefer a named profile such as `devs-fe-auto` for non-human sessions.
 - Use `--fields` to keep responses small.
 - Use `--page-all` only when the full dataset is truly needed.
 - Use `--dry-run` before writes.
