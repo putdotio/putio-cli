@@ -5,6 +5,70 @@ import { resetCommandPathMocks } from "./test-support/command-path-mocks.js";
 import { runCliInTest } from "./test-support/run-cli.js";
 
 const mocks = vi.hoisted(() => {
+  type FileListItem = {
+    readonly file_type?: string;
+    readonly id: number;
+    readonly name?: string;
+    readonly size?: number;
+  };
+  type FileListPage = {
+    readonly cursor: string | null;
+    readonly files: ReadonlyArray<FileListItem>;
+    readonly total?: number;
+  };
+  type TransferListItem = {
+    readonly id: number;
+    readonly name: string;
+    readonly percent_done?: number;
+    readonly status?: string;
+  };
+  type TransferListPage = {
+    readonly cursor: string | null;
+    readonly transfers: ReadonlyArray<TransferListItem>;
+  };
+  const emptyFileListPage: FileListPage = {
+    cursor: null,
+    files: [],
+    total: 1,
+  };
+  const emptyTransferListPage: TransferListPage = {
+    cursor: null,
+    transfers: [],
+  };
+  const defaultFileListPage: FileListPage = {
+    cursor: null,
+    files: [
+      {
+        file_type: "FOLDER",
+        id: 1,
+        name: "Movies",
+        size: 0,
+      },
+    ],
+    total: 1,
+  };
+  const defaultSearchFilesPage: FileListPage = {
+    cursor: null,
+    files: [
+      {
+        file_type: "VIDEO",
+        id: 2,
+        name: "movie.mkv",
+        size: 42,
+      },
+    ],
+  };
+  const defaultTransferListPage: TransferListPage = {
+    cursor: null,
+    transfers: [
+      {
+        id: 7,
+        name: "ubuntu.iso",
+        percent_done: 50,
+        status: "DOWNLOADING",
+      },
+    ],
+  };
   const writeOutputMock = vi.fn(() => Effect.void);
   const withTerminalLoaderMock = vi.fn((_options, program) => program);
   const withAuthedSdkMock = vi.fn((program) =>
@@ -21,25 +85,8 @@ const mocks = vi.hoisted(() => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
-  const continueTransfersMock = vi.fn(() =>
-    Effect.succeed({
-      cursor: null,
-      transfers: [],
-    }),
-  );
-  const listTransfersMock = vi.fn(() =>
-    Effect.succeed({
-      cursor: null,
-      transfers: [
-        {
-          id: 7,
-          name: "ubuntu.iso",
-          percent_done: 50,
-          status: "DOWNLOADING",
-        },
-      ],
-    }),
-  );
+  const continueTransfersMock = vi.fn((_cursor?: string) => Effect.succeed(emptyTransferListPage));
+  const listTransfersMock = vi.fn(() => Effect.succeed(defaultTransferListPage));
   const addTransfersMock = vi.fn(() =>
     Effect.succeed({
       errors: [],
@@ -81,46 +128,10 @@ const mocks = vi.hoisted(() => {
   const moveFilesMock = vi.fn(() => Effect.succeed([]));
   const renameFileMock = vi.fn(() => Effect.void);
   const deleteFilesMock = vi.fn(() => Effect.succeed({ skipped: 1 }));
-  const continueFilesMock = vi.fn(() =>
-    Effect.succeed({
-      cursor: null,
-      files: [],
-      total: 1,
-    }),
-  );
-  const continueSearchFilesMock = vi.fn(() =>
-    Effect.succeed({
-      cursor: null,
-      files: [],
-    }),
-  );
-  const listFilesMock = vi.fn(() =>
-    Effect.succeed({
-      cursor: null,
-      files: [
-        {
-          file_type: "FOLDER",
-          id: 1,
-          name: "Movies",
-          size: 0,
-        },
-      ],
-      total: 1,
-    }),
-  );
-  const searchFilesMock = vi.fn(() =>
-    Effect.succeed({
-      cursor: null,
-      files: [
-        {
-          file_type: "VIDEO",
-          id: 2,
-          name: "movie.mkv",
-          size: 42,
-        },
-      ],
-    }),
-  );
+  const continueFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
+  const continueSearchFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
+  const listFilesMock = vi.fn(() => Effect.succeed(defaultFileListPage));
+  const searchFilesMock = vi.fn(() => Effect.succeed(defaultSearchFilesPage));
   const getAccountInfoMock = vi.fn(() =>
     Effect.succeed({
       account_status: "ACTIVE",
@@ -392,8 +403,21 @@ describe("cli command paths", () => {
   });
 
   it("executes auth login through the happy path", async () => {
+    const stderrChunks: string[] = [];
+
+    mocks.waitForDeviceTokenMock.mockImplementationOnce(() => {
+      expect(stderrChunks.join("")).toContain("https://app.put.io/link?code=PUTIO1");
+      expect(stderrChunks.join("")).toContain("code: PUTIO1");
+
+      return Effect.succeed("token-123");
+    });
+
     await expect(
-      runCliInTest(["putio", "auth", "login", "--output", "json", "--timeout-seconds", "1"]),
+      runCliInTest(["putio", "auth", "login", "--output", "json", "--timeout-seconds", "1"], {
+        writeStderr: (message) => {
+          stderrChunks.push(message);
+        },
+      }),
     ).resolves.toBeUndefined();
 
     expect(mocks.getCodeMock).toHaveBeenCalled();
@@ -1369,6 +1393,23 @@ describe("cli command paths", () => {
     expect(mocks.writeOutputMock).toHaveBeenCalledWith(
       {
         deleted_ids: [8, 9],
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("omits absent transfers clean ids from dry-run output", async () => {
+    await expect(
+      runCliInTest(["putio", "transfers", "clean", "--dry-run", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.cleanTransfersMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "transfers clean",
+        dryRun: true,
+        request: {},
       },
       "json",
       expect.any(Function),

@@ -1,4 +1,4 @@
-import { Command } from "@effect/cli";
+import { Command } from "effect/unstable/cli";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -83,26 +83,22 @@ const sortByOption = sortByConfig.option;
 const optionalFileIdOption = optionalFileIdConfig.option;
 const optionalFileNameOption = optionalFileNameConfig.option;
 
-const NonEmptyStringSchema = Schema.String.pipe(
-  Schema.filter((value): value is string => value.trim().length > 0, {
-    message: () => "Expected a non-empty string",
-  }),
+const NonBlankStringSchema = Schema.String.check(
+  Schema.makeFilter((value) =>
+    value.trim().length > 0 ? undefined : "Expected a non-empty string",
+  ),
 );
 
-const NonEmptyIdsSchema = Schema.Array(Schema.Number).pipe(
-  Schema.filter((value): value is ReadonlyArray<number> => value.length > 0, {
-    message: () => "Expected at least one id",
-  }),
-);
+const NonEmptyIdsSchema = Schema.Array(Schema.Number).check(Schema.isNonEmpty());
 
 export const FilesMkdirInputSchema = Schema.Struct({
-  name: NonEmptyStringSchema,
+  name: NonBlankStringSchema,
   parent_id: Schema.optional(Schema.Number),
 });
 
 export const FilesRenameInputSchema = Schema.Struct({
   file_id: Schema.Number,
-  name: NonEmptyStringSchema,
+  name: NonBlankStringSchema,
 });
 
 export const FilesDeleteInputSchema = Schema.Struct({

@@ -12,6 +12,8 @@ export const runCliInTest = async (
   argv: ReadonlyArray<string>,
   options: {
     readonly isInteractiveTerminal?: boolean;
+    readonly writeStdout?: (message: string) => void;
+    readonly writeStderr?: (message: string) => void;
   } = {},
 ) => {
   const processArgv = ["node", "putio", ...argv.slice(1)];
@@ -21,13 +23,12 @@ export const runCliInTest = async (
   return Effect.runPromise(
     Effect.scoped(
       executeCli(processArgv).pipe(
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([
-              ["PUTIO_CLI_CONFIG_PATH", configPath],
-              ["XDG_CONFIG_HOME", configDir],
-            ]),
-          ),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            XDG_CONFIG_HOME: configDir,
+          }),
         ),
         Effect.provide(
           makeCliAppLayer(
@@ -35,6 +36,8 @@ export const runCliInTest = async (
               argv: processArgv,
               homeDirectory: configDir,
               isInteractiveTerminal: options.isInteractiveTerminal,
+              writeStdout: options.writeStdout ?? (() => undefined),
+              writeStderr: options.writeStderr ?? (() => undefined),
             }),
           ),
         ),

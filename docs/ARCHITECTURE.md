@@ -4,7 +4,7 @@ This repository is being refactored toward an agent-first, deeply Effect-native 
 
 ## North Star
 
-- Thin `@effect/cli` command adapters
+- Thin Effect CLI command adapters from `effect/unstable/cli`
 - Explicit services and layers for runtime, output, config, state, SDK access, and workflows
 - Schema-backed request and response boundaries
 - Tagged errors for recoverable failures
@@ -42,7 +42,7 @@ flowchart TD
 - Runtime and terminal capabilities
 - Output rendering and structured writes
 - Config resolution and persisted state
-- Authenticated and unauthenticated SDK access
+- SDK access through the SDK-owned live layer and portable fetch transport
 
 ## Invariants
 

@@ -1,5 +1,4 @@
-import { NodeContext } from "@effect/platform-node";
-import * as NodeTerminal from "@effect/platform-node/NodeTerminal";
+import { NodeServices } from "@effect/platform-node";
 import { Layer } from "effect";
 
 import { CliConfigLive } from "./config.js";
@@ -12,8 +11,7 @@ export const makeCliAppLayer = (runtime?: CliRuntimeService) => {
   const runtimeLayer = runtime ? Layer.succeed(CliRuntime, runtime) : CliRuntimeLive;
 
   return Layer.mergeAll(
-    NodeContext.layer,
-    NodeTerminal.layer,
+    NodeServices.layer,
     runtimeLayer,
     CliOutputLive.pipe(Layer.provide(runtimeLayer)),
     CliConfigLive.pipe(Layer.provide(runtimeLayer)),

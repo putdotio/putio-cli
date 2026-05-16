@@ -12,6 +12,8 @@ export type CliRuntimeService = {
   readonly argv: ReadonlyArray<string>;
   readonly isInteractiveTerminal: boolean;
   readonly setExitCode: (code: number) => Effect.Effect<void>;
+  readonly writeStdout: (message: string) => Effect.Effect<void>;
+  readonly writeStderr: (message: string) => Effect.Effect<void>;
   readonly openExternal: (url: string) => Effect.Effect<boolean>;
   readonly startSpinner: (message: string) => Effect.Effect<CliSpinner>;
   readonly getHomeDirectory: Effect.Effect<string>;
@@ -20,10 +22,9 @@ export type CliRuntimeService = {
   readonly dirname: (path: string) => string;
 };
 
-export class CliRuntime extends Context.Tag("@putdotio/cli/CliRuntime")<
-  CliRuntime,
-  CliRuntimeService
->() {}
+export class CliRuntime extends Context.Service<CliRuntime, CliRuntimeService>()(
+  "@putdotio/cli/CliRuntime",
+) {}
 
 const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
   const command =
@@ -54,6 +55,8 @@ export const makeCliRuntime = (
     readonly platform?: NodeJS.Platform;
     readonly homeDirectory?: string;
     readonly hostName?: string;
+    readonly writeStdout?: (message: string) => void;
+    readonly writeStderr?: (message: string) => void;
   } = {},
 ): CliRuntimeService => {
   const argv = options.argv ?? process.argv;
@@ -70,6 +73,24 @@ export const makeCliRuntime = (
     setExitCode: (code) =>
       Effect.sync(() => {
         process.exitCode = code;
+      }),
+    writeStdout: (message) =>
+      Effect.sync(() => {
+        if (options.writeStdout) {
+          options.writeStdout(message);
+          return;
+        }
+
+        process.stdout.write(message);
+      }),
+    writeStderr: (message) =>
+      Effect.sync(() => {
+        if (options.writeStderr) {
+          options.writeStderr(message);
+          return;
+        }
+
+        process.stderr.write(message);
       }),
     openExternal: (url) => Effect.sync(() => openExternalWithPlatform(platform, url)),
     startSpinner: (message) =>

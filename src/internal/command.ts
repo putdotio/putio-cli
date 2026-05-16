@@ -1,4 +1,4 @@
-import { Options } from "@effect/cli";
+import { Flag } from "effect/unstable/cli";
 import { Data, Effect, Option, Schema } from "effect";
 
 import type { ResolvedAuthState } from "./state.js";
@@ -9,6 +9,7 @@ import {
   repeatedIntegerFlag,
   repeatedStringFlag,
   stringFlag,
+  type CommandOption,
 } from "./command-specs.js";
 import {
   isStructuredOutputMode,
@@ -16,18 +17,19 @@ import {
   renderJson,
   writeOutput,
   type OutputMode,
+  type RequestedOutputMode,
 } from "./output-service.js";
 import { CliRuntime } from "./runtime.js";
 import { CliSdk, sdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
 
-export const outputOption = Options.choice("output", ["json", "text", "ndjson"] as const).pipe(
-  Options.optional,
+export const outputOption = Flag.choice("output", ["json", "text", "ndjson"] as const).pipe(
+  Flag.optional,
 );
-export const dryRunOption = Options.boolean("dry-run").pipe(Options.withDefault(false));
-export const fieldsOption = Options.text("fields").pipe(Options.optional);
-export const jsonOption = Options.text("json").pipe(Options.optional);
-export const pageAllOption = Options.boolean("page-all").pipe(Options.withDefault(false));
+export const dryRunOption = Flag.boolean("dry-run").pipe(Flag.withDefault(false));
+export const fieldsOption = Flag.string("fields").pipe(Flag.optional);
+export const jsonOption = Flag.string("json").pipe(Flag.optional);
+export const pageAllOption = Flag.boolean("page-all").pipe(Flag.withDefault(false));
 
 export const defineBooleanOption = (
   name: string,
@@ -38,8 +40,8 @@ export const defineBooleanOption = (
 ) => {
   const option =
     options.defaultValue === undefined
-      ? Options.boolean(name)
-      : Options.boolean(name).pipe(Options.withDefault(options.defaultValue));
+      ? Flag.boolean(name)
+      : Flag.boolean(name).pipe(Flag.withDefault(options.defaultValue));
 
   return {
     flag: booleanFlag(name, options),
@@ -47,28 +49,89 @@ export const defineBooleanOption = (
   };
 };
 
-export const defineIntegerOption = (
+export function defineIntegerOption(
+  name: string,
+  options: {
+    readonly description?: string;
+    readonly optional: true;
+    readonly required?: boolean;
+  },
+): {
+  readonly flag: CommandOption;
+  readonly option: Flag.Flag<Option.Option<number>>;
+};
+export function defineIntegerOption(
+  name: string,
+  options?: {
+    readonly description?: string;
+    readonly optional?: false;
+    readonly required?: boolean;
+  },
+): {
+  readonly flag: CommandOption;
+  readonly option: Flag.Flag<number>;
+};
+export function defineIntegerOption(
   name: string,
   options: {
     readonly description?: string;
     readonly optional?: boolean;
     readonly required?: boolean;
   } = {},
-) => {
-  const option = options.optional
-    ? Options.integer(name).pipe(Options.optional)
-    : Options.integer(name);
+) {
+  const flag = integerFlag(name, {
+    description: options.description,
+    required: options.required ?? options.optional !== true,
+  });
 
-  return {
-    flag: integerFlag(name, {
-      description: options.description,
-      required: options.required ?? options.optional !== true,
-    }),
-    option,
-  };
+  return options.optional === true
+    ? {
+        flag,
+        option: Flag.integer(name).pipe(Flag.optional),
+      }
+    : {
+        flag,
+        option: Flag.integer(name),
+      };
+}
+
+export function defineTextOption(
+  name: string,
+  options: {
+    readonly defaultValue: string;
+    readonly description?: string;
+    readonly optional?: false;
+    readonly required?: boolean;
+  },
+): {
+  readonly flag: CommandOption;
+  readonly option: Flag.Flag<string>;
 };
-
-export const defineTextOption = (
+export function defineTextOption(
+  name: string,
+  options: {
+    readonly defaultValue?: undefined;
+    readonly description?: string;
+    readonly optional: true;
+    readonly required?: boolean;
+  },
+): {
+  readonly flag: CommandOption;
+  readonly option: Flag.Flag<Option.Option<string>>;
+};
+export function defineTextOption(
+  name: string,
+  options?: {
+    readonly defaultValue?: undefined;
+    readonly description?: string;
+    readonly optional?: false;
+    readonly required?: boolean;
+  },
+): {
+  readonly flag: CommandOption;
+  readonly option: Flag.Flag<string>;
+};
+export function defineTextOption(
   name: string,
   options: {
     readonly defaultValue?: string;
@@ -76,27 +139,56 @@ export const defineTextOption = (
     readonly optional?: boolean;
     readonly required?: boolean;
   } = {},
-) => {
-  let option = Options.text(name);
+) {
+  const flag = stringFlag(name, {
+    defaultValue: options.defaultValue,
+    description: options.description,
+    required: options.required ?? (options.defaultValue === undefined && options.optional !== true),
+  });
 
   if (options.defaultValue !== undefined) {
-    option = option.pipe(Options.withDefault(options.defaultValue));
-  } else if (options.optional) {
-    option = option.pipe(Options.optional);
+    return {
+      flag,
+      option: Flag.string(name).pipe(Flag.withDefault(options.defaultValue)),
+    };
   }
 
-  return {
-    flag: stringFlag(name, {
-      defaultValue: options.defaultValue,
-      description: options.description,
-      required:
-        options.required ?? (options.defaultValue === undefined && options.optional !== true),
-    }),
-    option,
-  };
-};
+  return options.optional === true
+    ? {
+        flag,
+        option: Flag.string(name).pipe(Flag.optional),
+      }
+    : {
+        flag,
+        option: Flag.string(name),
+      };
+}
 
-export const defineChoiceOption = <A extends ReadonlyArray<string>>(
+export function defineChoiceOption<const A extends ReadonlyArray<string>>(
+  name: string,
+  choices: A,
+  options: {
+    readonly description?: string;
+    readonly optional: true;
+    readonly required?: boolean;
+  },
+): {
+  readonly flag: CommandOption;
+  readonly option: Flag.Flag<Option.Option<A[number]>>;
+};
+export function defineChoiceOption<const A extends ReadonlyArray<string>>(
+  name: string,
+  choices: A,
+  options?: {
+    readonly description?: string;
+    readonly optional?: false;
+    readonly required?: boolean;
+  },
+): {
+  readonly flag: CommandOption;
+  readonly option: Flag.Flag<A[number]>;
+};
+export function defineChoiceOption<const A extends ReadonlyArray<string>>(
   name: string,
   choices: A,
   options: {
@@ -104,19 +196,22 @@ export const defineChoiceOption = <A extends ReadonlyArray<string>>(
     readonly optional?: boolean;
     readonly required?: boolean;
   } = {},
-) => {
-  const option = options.optional
-    ? Options.choice(name, choices).pipe(Options.optional)
-    : Options.choice(name, choices);
+) {
+  const flag = enumFlag(name, choices, {
+    description: options.description,
+    required: options.required ?? options.optional !== true,
+  });
 
-  return {
-    flag: enumFlag(name, choices, {
-      description: options.description,
-      required: options.required ?? options.optional !== true,
-    }),
-    option,
-  };
-};
+  return options.optional === true
+    ? {
+        flag,
+        option: Flag.choice(name, choices).pipe(Flag.optional),
+      }
+    : {
+        flag,
+        option: Flag.choice(name, choices),
+      };
+}
 
 export const getOption = <A>(option: Option.Option<A>) => Option.getOrUndefined(option);
 
@@ -125,7 +220,7 @@ export class CliCommandInputError extends Data.TaggedError("CliCommandInputError
 }> {}
 
 type ReadOutputControls = {
-  readonly output: string | undefined;
+  readonly output: RequestedOutputMode;
   readonly outputMode: OutputMode;
   readonly pageAll: boolean;
   readonly requestedFields: ReadonlyArray<string> | undefined;
@@ -300,9 +395,9 @@ export const parseRepeatedIntegers = (
 };
 
 export const parseRepeatedIntegerOption = (name: string) =>
-  Options.text(name).pipe(
-    Options.repeated,
-    Options.filterMap(parseRepeatedIntegers, `Expected \`--${name}\` values to be integers.`),
+  Flag.string(name).pipe(
+    Flag.atLeast(0),
+    Flag.filterMap(parseRepeatedIntegers, () => `Expected \`--${name}\` values to be integers.`),
   );
 
 export const defineRepeatedIntegerOption = (
@@ -324,7 +419,7 @@ export const defineRepeatedTextOption = (
   } = {},
 ) => ({
   flag: repeatedStringFlag(name, options),
-  option: Options.text(name).pipe(Options.repeated),
+  option: Flag.string(name).pipe(Flag.atLeast(0)),
 });
 
 const mapInputError = (error: unknown, fallbackMessage: string) =>
@@ -334,7 +429,7 @@ const mapInputError = (error: unknown, fallbackMessage: string) =>
         message: fallbackMessage,
       });
 
-export const decodeJsonOption = <A, I>(schema: Schema.Schema<A, I>, raw: string) =>
+export const decodeJsonOption = <A>(schema: Schema.Codec<A>, raw: string) =>
   Effect.try({
     try: () => JSON.parse(raw) as unknown,
     catch: () =>
@@ -353,9 +448,9 @@ export const decodeJsonOption = <A, I>(schema: Schema.Schema<A, I>, raw: string)
     ),
   );
 
-export const resolveMutationInput = <A, I>(input: {
+export const resolveMutationInput = <A>(input: {
   readonly buildFromFlags: () => A;
-  readonly schema: Schema.Schema<A, I>;
+  readonly schema: Schema.Codec<A>;
   readonly json: Option.Option<string>;
 }) =>
   Option.match(input.json, {
@@ -369,7 +464,7 @@ export const resolveMutationInput = <A, I>(input: {
 
 export const resolveReadOutputControls = (input: {
   readonly fields: Option.Option<string>;
-  readonly output: string | undefined;
+  readonly output: RequestedOutputMode;
   readonly pageAll?: boolean;
 }) =>
   Effect.flatMap(CliRuntime, (runtime) =>
@@ -497,7 +592,7 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
 
 export const writeReadOutput = <A extends Record<string, unknown>>(input: {
   readonly command: string;
-  readonly output: string | undefined;
+  readonly output: RequestedOutputMode;
   readonly outputMode: OutputMode;
   readonly renderTerminalValue: (value: A) => string;
   readonly requestedFields: ReadonlyArray<string> | undefined;
@@ -607,7 +702,7 @@ type DryRunPlan<A> = {
 const renderDryRunPlanTerminal = <A>(value: DryRunPlan<A>) =>
   [`Dry run: ${value.command}`, "No API call was made.", "", renderJson(value.request)].join("\n");
 
-export const writeDryRunPlan = <A>(command: string, request: A, output: string | undefined) =>
+export const writeDryRunPlan = <A>(command: string, request: A, output: RequestedOutputMode) =>
   writeOutput(
     {
       command,

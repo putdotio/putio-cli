@@ -1,4 +1,4 @@
-import { Command, Options } from "@effect/cli";
+import { Command, Flag } from "effect/unstable/cli";
 import { TransferAddInputSchema } from "@putdotio/sdk";
 import { Clock, Duration, Effect, Option, Schema } from "effect";
 
@@ -56,20 +56,10 @@ const optionalTransferIdOption = optionalTransferIdConfig.option;
 
 const WATCH_TERMINAL_STATUSES = ["COMPLETED", "ERROR", "SEEDING"] as const;
 
-const NonEmptyIdsSchema = Schema.Array(Schema.Number).pipe(
-  Schema.filter((value): value is ReadonlyArray<number> => value.length > 0, {
-    message: () => "Expected at least one id",
-  }),
-);
+const NonEmptyIdsSchema = Schema.Array(Schema.Number).check(Schema.isNonEmpty());
 
-export const TransfersAddInputSchema = Schema.Array(TransferAddInputSchema).pipe(
-  Schema.filter(
-    (value): value is ReadonlyArray<Schema.Schema.Type<typeof TransferAddInputSchema>> =>
-      value.length > 0,
-    {
-      message: () => "Expected at least one transfer input",
-    },
-  ),
+export const TransfersAddInputSchema = Schema.Array(TransferAddInputSchema).check(
+  Schema.isNonEmpty(),
 );
 
 export const TransfersCancelInputSchema = Schema.Struct({
@@ -323,16 +313,18 @@ const transfersClean = Command.make(
   "clean",
   {
     dryRun: dryRunOption,
-    id: transferIdsOption.pipe(Options.optional),
+    id: transferIdsOption.pipe(Flag.optional),
     json: jsonOption,
     output: outputOption,
   },
   ({ dryRun, id, json, output }) =>
     Effect.gen(function* () {
       const input = yield* resolveMutationInput({
-        buildFromFlags: () => ({
-          ids: Option.getOrUndefined(id),
-        }),
+        buildFromFlags: () => {
+          const ids = Option.getOrUndefined(id);
+
+          return ids === undefined || ids.length === 0 ? {} : { ids };
+        },
         json,
         schema: TransfersCleanInputSchema,
       });

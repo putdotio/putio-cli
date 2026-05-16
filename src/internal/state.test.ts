@@ -26,7 +26,7 @@ const expectFailure = <E>(exit: Exit.Exit<unknown, E>): E => {
     throw new Error("Expected the effect to fail.");
   }
 
-  const failure = Cause.failureOption(exit.cause);
+  const failure = Cause.findErrorOption(exit.cause);
 
   if (Option.isNone(failure)) {
     throw Cause.squash(exit.cause);
@@ -35,8 +35,8 @@ const expectFailure = <E>(exit: Exit.Exit<unknown, E>): E => {
   return failure.value;
 };
 
-const withStateService = <A, E>(
-  effect: Effect.Effect<A, E, CliState>,
+const withStateService = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
   homeDirectory = "/Users/tester",
 ) => effect.pipe(Effect.provide(makeCliAppLayer(makeCliRuntime({ homeDirectory }))));
 
@@ -128,13 +128,12 @@ describe("resolveConfigPath", () => {
   it("does not expose token previews in auth status", async () => {
     const status = await Effect.runPromise(
       getAuthStatus().pipe(
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([
-              ["PUTIO_CLI_TOKEN", "dummy-token"],
-              ["XDG_CONFIG_HOME", "/tmp/xdg"],
-            ]),
-          ),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            PUTIO_CLI_TOKEN: "dummy-token",
+            XDG_CONFIG_HOME: "/tmp/xdg",
+          }),
         ),
         Effect.provide(makeCliAppLayer(makeCliRuntime({ homeDirectory: "/Users/tester" }))),
       ),
@@ -281,13 +280,12 @@ describe("resolveConfigPath", () => {
 
     const authState = await Effect.runPromise(
       resolveAuthState().pipe(
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([
-              ["PUTIO_CLI_CONFIG_PATH", configPath],
-              ["HOME", "/Users/tester"],
-            ]),
-          ),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            HOME: "/Users/tester",
+            PUTIO_CLI_CONFIG_PATH: configPath,
+          }),
         ),
         makeRuntimeLayer(),
       ),
@@ -316,13 +314,12 @@ describe("resolveConfigPath", () => {
 
     const status = await Effect.runPromise(
       getAuthStatus().pipe(
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([
-              ["PUTIO_CLI_CONFIG_PATH", configPath],
-              ["HOME", "/Users/tester"],
-            ]),
-          ),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            HOME: "/Users/tester",
+            PUTIO_CLI_CONFIG_PATH: configPath,
+          }),
         ),
         makeRuntimeLayer(),
       ),
@@ -350,13 +347,12 @@ describe("resolveConfigPath", () => {
 
     const status = await Effect.runPromise(
       getAuthStatus().pipe(
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([
-              ["PUTIO_CLI_CONFIG_PATH", configPath],
-              ["HOME", "/Users/tester"],
-            ]),
-          ),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            HOME: "/Users/tester",
+            PUTIO_CLI_CONFIG_PATH: configPath,
+          }),
         ),
         makeRuntimeLayer(),
       ),
@@ -373,13 +369,12 @@ describe("resolveConfigPath", () => {
   it("fails to resolve auth state when neither env nor config contains a token", async () => {
     const exit = await Effect.runPromiseExit(
       resolveAuthState().pipe(
-        Effect.withConfigProvider(
-          ConfigProvider.fromMap(
-            new Map([
-              ["XDG_CONFIG_HOME", "/tmp/xdg"],
-              ["HOME", "/Users/tester"],
-            ]),
-          ),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({
+            HOME: "/Users/tester",
+            XDG_CONFIG_HOME: "/tmp/xdg",
+          }),
         ),
         makeRuntimeLayer(),
       ),

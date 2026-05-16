@@ -34,6 +34,7 @@
     "check": "vp check .",
     "coverage": "vp test --coverage",
     "dev": "vp pack --watch",
+    "prepare": "./scripts/prepare-effect.sh",
     "prepack": "vp pack",
     "smoke:pack": "node ./scripts/smoke-packed-install.mjs",
     "test": "vp test",
@@ -42,18 +43,17 @@
     "verify": "vp check . && vp pack && vp test && vp test --coverage"
   },
   "dependencies": {
-    "@effect/cli": "^0.73.2",
-    "@effect/platform": "0.94.5",
-    "@effect/platform-node": "0.104.1",
-    "@putdotio/sdk": "^9.1.0",
+    "@effect/platform-node": "4.0.0-beta.66",
+    "@putdotio/sdk": "^9.3.0",
     "cli-table3": "^0.6.5",
-    "effect": "3.19.19",
+    "effect": "4.0.0-beta.66",
     "i18next": "^25.5.2"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^4.1.5",
     "esbuild": "^0.27.0",
+    "is-ci": "^4.1.0",
     "postject": "^1.0.0-alpha.6",
     "typescript": "^5.9.3",
     "vite-plus": "0.1.20"

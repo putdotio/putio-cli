@@ -12,25 +12,18 @@ import {
 } from "./env.js";
 import { CliRuntime, type CliRuntimeService } from "./runtime.js";
 
-const NonEmptyStringSchema = Schema.String.pipe(
-  Schema.filter((value): value is string => value.length > 0, {
-    message: () => "Expected a non-empty string",
-  }),
-);
+const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 
 const UrlStringSchema = NonEmptyStringSchema.pipe(
-  Schema.filter(
-    (value): value is string => {
+  Schema.check(
+    Schema.makeFilter((value) => {
       try {
         new URL(value);
-        return true;
+        return undefined;
       } catch {
-        return false;
+        return "Expected a valid absolute URL";
       }
-    },
-    {
-      message: () => "Expected a valid absolute URL",
-    },
+    }),
   ),
 );
 
@@ -55,14 +48,13 @@ export class CliConfigError extends Data.TaggedError("CliConfigError")<{
 }> {}
 
 export type CliConfigService = {
-  readonly authFlowConfig: Effect.Effect<PutioCliAuthFlowConfig>;
-  readonly runtimeConfig: Effect.Effect<CliRuntimeConfig>;
+  readonly authFlowConfig: Effect.Effect<PutioCliAuthFlowConfig, CliConfigError>;
+  readonly runtimeConfig: Effect.Effect<CliRuntimeConfig, CliConfigError>;
 };
 
-export class CliConfig extends Context.Tag("@putdotio/cli/CliConfig")<
-  CliConfig,
-  CliConfigService
->() {}
+export class CliConfig extends Context.Service<CliConfig, CliConfigService>()(
+  "@putdotio/cli/CliConfig",
+) {}
 
 const optionalTrimmedString = (name: string) =>
   Config.option(Config.string(name)).pipe(

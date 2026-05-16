@@ -1,6 +1,13 @@
 import { defineConfig } from "vite-plus";
 
-const coverageConfig = {
+type CoverageConfig = {
+  readonly exclude: Array<string>;
+  readonly include: Array<string>;
+  readonly provider: "v8";
+  readonly reporter: Array<"text" | "lcov">;
+};
+
+const coverageConfig: CoverageConfig = {
   exclude: [
     "src/**/*.d.ts",
     "src/**/*.test.*",
@@ -12,7 +19,7 @@ const coverageConfig = {
   include: ["src/**/*.{ts,tsx}"],
   provider: "v8",
   reporter: ["text", "lcov"],
-} as const;
+};
 
 export default defineConfig({
   pack: {
@@ -28,6 +35,7 @@ export default defineConfig({
     "*.{js,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix",
   },
   test: {
+    exclude: [".repos/**"],
     coverage: {
       ...coverageConfig,
       exclude: [

@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import type { CliOutputContract, CommandDescriptor } from "./cli-contract.js";
 
-const AgentDxCategoryNameSchema = Schema.Literal(
+const AgentDxCategoryNameSchema = Schema.Literals([
   "machineReadableOutput",
   "rawPayloadInput",
   "schemaIntrospection",
@@ -10,7 +10,7 @@ const AgentDxCategoryNameSchema = Schema.Literal(
   "inputHardening",
   "safetyRails",
   "agentKnowledgePackaging",
-);
+] as const);
 
 export type AgentDxCategoryName = Schema.Schema.Type<typeof AgentDxCategoryNameSchema>;
 

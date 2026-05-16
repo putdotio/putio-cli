@@ -1,18 +1,14 @@
-import * as FileSystem from "@effect/platform/FileSystem";
-import { SystemError } from "@effect/platform/Error";
+import * as FileSystem from "effect/FileSystem";
+import { PlatformError, SystemError } from "effect/PlatformError";
 
 import { DEFAULT_PUTIO_API_BASE_URL } from "@putdotio/sdk";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { CONFIG_FILE_MODE } from "./constants.js";
-import { resolveCliRuntimeConfig } from "./config.js";
+import { CliConfig, resolveCliRuntimeConfig } from "./config.js";
 import { CliRuntime } from "./runtime.js";
 
-const NonEmptyStringSchema = Schema.String.pipe(
-  Schema.filter((value): value is string => value.length > 0, {
-    message: () => "Expected a non-empty string",
-  }),
-);
+const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 
 export const PutioCliConfigSchema = Schema.Struct({
   api_base_url: NonEmptyStringSchema,
@@ -24,7 +20,7 @@ export type PutioCliConfig = Schema.Schema.Type<typeof PutioCliConfigSchema>;
 export const ResolvedAuthStateSchema = Schema.Struct({
   apiBaseUrl: NonEmptyStringSchema,
   configPath: NonEmptyStringSchema,
-  source: Schema.Literal("env", "config"),
+  source: Schema.Literals(["env", "config"] as const),
   token: NonEmptyStringSchema,
 });
 
@@ -34,7 +30,7 @@ export const AuthStatusSchema = Schema.Struct({
   apiBaseUrl: NonEmptyStringSchema,
   authenticated: Schema.Boolean,
   configPath: NonEmptyStringSchema,
-  source: Schema.NullOr(Schema.Literal("env", "config")),
+  source: Schema.NullOr(Schema.Literals(["env", "config"] as const)),
 });
 
 export type AuthStatus = Schema.Schema.Type<typeof AuthStatusSchema>;
@@ -46,7 +42,11 @@ export class AuthStateError extends Data.TaggedError("AuthStateError")<{
 export type CliStateService = {
   readonly loadPersistedState: (
     configPath?: string,
-  ) => Effect.Effect<PutioCliConfig | null, AuthStateError, FileSystem.FileSystem | CliRuntime>;
+  ) => Effect.Effect<
+    PutioCliConfig | null,
+    AuthStateError,
+    CliConfig | FileSystem.FileSystem | CliRuntime
+  >;
   readonly savePersistedState: (
     state: {
       readonly apiBaseUrl?: string;
@@ -59,28 +59,30 @@ export type CliStateService = {
       readonly state: PutioCliConfig;
     },
     AuthStateError,
-    FileSystem.FileSystem | CliRuntime
+    CliConfig | FileSystem.FileSystem | CliRuntime
   >;
   readonly clearPersistedState: (
     configPath?: string,
   ) => Effect.Effect<
     { readonly configPath: string },
     AuthStateError,
-    FileSystem.FileSystem | CliRuntime
+    CliConfig | FileSystem.FileSystem | CliRuntime
   >;
   readonly getAuthStatus: () => Effect.Effect<
     AuthStatus,
     AuthStateError,
-    FileSystem.FileSystem | CliRuntime
+    CliConfig | FileSystem.FileSystem | CliRuntime
   >;
   readonly resolveAuthState: () => Effect.Effect<
     ResolvedAuthState,
     AuthStateError,
-    FileSystem.FileSystem | CliRuntime
+    CliConfig | FileSystem.FileSystem | CliRuntime
   >;
 };
 
-export class CliState extends Context.Tag("@putdotio/cli/CliState")<CliState, CliStateService>() {}
+export class CliState extends Context.Service<CliState, CliStateService>()(
+  "@putdotio/cli/CliState",
+) {}
 
 const decodePersistedConfig = Schema.decodeUnknownSync(PutioCliConfigSchema);
 
@@ -90,6 +92,16 @@ const mapFileSystemError = (error: unknown, message: string): AuthStateError =>
     : new AuthStateError({
         message,
       });
+
+const resolveAuthRuntimeConfig = () =>
+  resolveCliRuntimeConfig().pipe(
+    Effect.mapError(
+      (error) =>
+        new AuthStateError({
+          message: error.message,
+        }),
+    ),
+  );
 
 const parsePersistedConfig = (raw: string): PutioCliConfig => {
   let value: unknown;
@@ -113,15 +125,21 @@ const parsePersistedConfig = (raw: string): PutioCliConfig => {
 
 const loadPersistedStateEffect = (
   configPath?: string,
-): Effect.Effect<PutioCliConfig | null, AuthStateError, FileSystem.FileSystem | CliRuntime> =>
+): Effect.Effect<
+  PutioCliConfig | null,
+  AuthStateError,
+  CliConfig | FileSystem.FileSystem | CliRuntime
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const effectiveConfigPath = configPath ?? (yield* resolveCliRuntimeConfig()).configPath;
+    const effectiveConfigPath = configPath ?? (yield* resolveAuthRuntimeConfig()).configPath;
 
     const rawConfig = yield* fs.readFileString(effectiveConfigPath, "utf8").pipe(
       Effect.catchIf(
-        (error): error is SystemError =>
-          error instanceof SystemError && error.reason === "NotFound",
+        (error): error is PlatformError =>
+          error instanceof PlatformError &&
+          error.reason instanceof SystemError &&
+          error.reason._tag === "NotFound",
         () => Effect.succeed(null),
       ),
       Effect.mapError((error) =>
@@ -152,12 +170,12 @@ const savePersistedStateEffect = (
     readonly state: PutioCliConfig;
   },
   AuthStateError,
-  FileSystem.FileSystem | CliRuntime
+  CliConfig | FileSystem.FileSystem | CliRuntime
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const runtime = yield* CliRuntime;
-    const effectiveConfigPath = configPath ?? (yield* resolveCliRuntimeConfig()).configPath;
+    const effectiveConfigPath = configPath ?? (yield* resolveAuthRuntimeConfig()).configPath;
     const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
     const persistedState: PutioCliConfig = {
       api_base_url: state.apiBaseUrl ?? existingConfig?.api_base_url ?? DEFAULT_PUTIO_API_BASE_URL,
@@ -197,12 +215,12 @@ const clearPersistedStateEffect = (
 ): Effect.Effect<
   { readonly configPath: string },
   AuthStateError,
-  FileSystem.FileSystem | CliRuntime
+  CliConfig | FileSystem.FileSystem | CliRuntime
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const runtime = yield* CliRuntime;
-    const effectiveConfigPath = configPath ?? (yield* resolveCliRuntimeConfig()).configPath;
+    const effectiveConfigPath = configPath ?? (yield* resolveAuthRuntimeConfig()).configPath;
     const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
 
     if (existingConfig && existingConfig.api_base_url !== DEFAULT_PUTIO_API_BASE_URL) {
@@ -247,10 +265,10 @@ const clearPersistedStateEffect = (
 const getAuthStatusEffect = (): Effect.Effect<
   AuthStatus,
   AuthStateError,
-  FileSystem.FileSystem | CliRuntime
+  CliConfig | FileSystem.FileSystem | CliRuntime
 > =>
   Effect.gen(function* () {
-    const runtime = yield* resolveCliRuntimeConfig();
+    const runtime = yield* resolveAuthRuntimeConfig();
 
     if (runtime.token) {
       return {
@@ -281,10 +299,10 @@ const getAuthStatusEffect = (): Effect.Effect<
 const resolveAuthStateEffect = (): Effect.Effect<
   ResolvedAuthState,
   AuthStateError,
-  FileSystem.FileSystem | CliRuntime
+  CliConfig | FileSystem.FileSystem | CliRuntime
 > =>
   Effect.gen(function* () {
-    const runtime = yield* resolveCliRuntimeConfig();
+    const runtime = yield* resolveAuthRuntimeConfig();
 
     if (runtime.token) {
       return {

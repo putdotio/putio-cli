@@ -1,5 +1,8 @@
-import { FetchHttpClient } from "@effect/platform";
-import { createPutioSdkEffectClient, makePutioSdkLayer } from "@putdotio/sdk";
+import {
+  createPutioSdkEffectClient,
+  makePutioSdkLiveLayer,
+  type PutioSdkContext,
+} from "@putdotio/sdk";
 import { Context, Effect, Layer } from "effect";
 
 export type CliSdkClient = ReturnType<typeof createPutioSdkEffectClient>;
@@ -14,17 +17,17 @@ export type CliSdkService = {
       readonly apiBaseUrl?: string;
     },
     program: Effect.Effect<A, E, R>,
-  ) => Effect.Effect<A, E, R>;
+  ) => Effect.Effect<A, E, Exclude<R, PutioSdkContext>>;
 };
 
-export class CliSdk extends Context.Tag("@putdotio/cli/CliSdk")<CliSdk, CliSdkService>() {}
+export class CliSdk extends Context.Service<CliSdk, CliSdkService>()("@putdotio/cli/CliSdk") {}
 
 const makeCliSdk = (): CliSdkService => ({
   client: sdk,
   provide: (config, program) =>
     program.pipe(
       Effect.provide(
-        makePutioSdkLayer({
+        makePutioSdkLiveLayer({
           accessToken: config.token,
           baseUrl: config.apiBaseUrl,
         }),
@@ -32,10 +35,7 @@ const makeCliSdk = (): CliSdkService => ({
     ),
 });
 
-export const CliSdkLive = Layer.mergeAll(
-  FetchHttpClient.layer,
-  Layer.succeed(CliSdk, makeCliSdk()),
-);
+export const CliSdkLive = Layer.succeed(CliSdk, makeCliSdk());
 
 export const provideSdk = <A, E, R>(
   config: {
