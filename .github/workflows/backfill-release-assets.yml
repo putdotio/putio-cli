@@ -8,6 +8,8 @@ on:
         required: true
         type: string
 
+permissions: {}
+
 jobs:
   validate-release-tag:
     name: Validate release tag
@@ -55,16 +57,17 @@ jobs:
     steps:
       - name: Create release bot token
         id: release-bot
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
           permission-contents: write
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           ref: ${{ needs.validate-release-tag.outputs.tag_name }}
+          persist-credentials: false
 
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0
@@ -128,16 +131,17 @@ jobs:
     steps:
       - name: Create release bot token
         id: release-bot
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
           permission-contents: write
       - name: Check out repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           ref: ${{ needs.validate-release-tag.outputs.tag_name }}
+          persist-credentials: false
 
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0

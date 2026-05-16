@@ -20,7 +20,7 @@ Release jobs declare the protected GitHub Environment named `release`.
 
 Environment entries:
 
-- secrets: `NPM_TOKEN`, `PUTIO_RELEASE_BOT_PRIVATE_KEY`, `HOMEBREW_TAP_TOKEN`
+- secrets: `PUTIO_RELEASE_BOT_PRIVATE_KEY`, `HOMEBREW_TAP_TOKEN`
 - variables: `PUTIO_RELEASE_BOT_CLIENT_ID`
 - approval: none; releases are continuous after the `main` gate passes
 - refs: release branch/tag policy constrains what can publish
@@ -28,7 +28,13 @@ Environment entries:
 
 Release GitHub writes use `putio-release-bot` for version sync commits, `v*` tags, GitHub Releases, and binary asset uploads.
 
+The npm package uses Trusted Publishing from GitHub Actions. On npm, configure owner `putdotio`, repository `putio-cli`, workflow `ci.yml`, and Environment named `release` for the package.
+
+The workflow grants `id-token: write` so npm can mint short-lived publish credentials and provenance; do not add a long-lived `NPM_TOKEN` secret.
+
 The workflow keeps dependency caches only on the secretless verify job. Secret-bearing release, binary asset, and Homebrew publish jobs run fresh installs or release tooling without package-manager caches.
+
+The release-bot remote is configured only after dependencies are installed and the package build completes.
 
 ## Local Checks
 
