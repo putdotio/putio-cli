@@ -34,6 +34,7 @@ Read only the reference you need:
 This skill is the router for the put.io CLI consumer skill library. The reference files are the versioned surface guides for the CLI contract shipped by this package.
 
 - Treat `putio describe --output json` as the runtime source of truth for commands, flags, auth requirements, and `agentDx`.
+- Treat `agents/openai.yaml` as the OpenAI/Codex picker-facing display and default-prompt metadata.
 - Refresh this skill and its references whenever the public command surface, auth flow, output contract, or agent safety posture changes.
 - Prefer loading only the one reference that matches the current task, then return to `describe` when a command shape is unclear.
 
