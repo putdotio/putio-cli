@@ -43,6 +43,7 @@ export const scoreAgentDx = (input: {
   readonly commands: ReadonlyArray<CommandDescriptor>;
   readonly hasConsumerSkill: boolean;
   readonly output: CliOutputContract;
+  readonly responseSanitization: boolean;
 }): AgentDxScorecard => {
   const writeCommands = input.commands.filter((command) => command.kind === "write");
   const readCommands = input.commands.filter((command) => command.kind === "read");
@@ -135,9 +136,14 @@ export const scoreAgentDx = (input: {
     {
       maxScore: 3,
       name: "safetyRails",
-      score: writeCommands.every((command) => command.capabilities.dryRun) ? 2 : 1,
+      score:
+        writeCommands.every((command) => command.capabilities.dryRun) && input.responseSanitization
+          ? 3
+          : writeCommands.every((command) => command.capabilities.dryRun)
+            ? 2
+            : 1,
       summary:
-        "Mutating commands offer dry-run planning across the surface, but the CLI does not yet add stronger confirmation or policy layers beyond that.",
+        "Mutating commands offer dry-run planning across the surface, and structured renderers redact sensitive values while annotating prompt-injection-like API text.",
     },
     {
       maxScore: 3,

@@ -24,7 +24,7 @@ describe("describeCli", () => {
 
     expect(metadata.binary).toBe("putio");
     expect(metadata.agentDx.provenance).toBe("metadata-derived");
-    expect(metadata.agentDx.totalScore).toBeGreaterThanOrEqual(17);
+    expect(metadata.agentDx.totalScore).toBeGreaterThanOrEqual(19);
     expect(metadata.output.defaultInteractive).toBe("text");
     expect(metadata.output.defaultNonInteractive).toBe("json");
     expect(metadata.output.internalRenderers).toEqual(["json", "terminal", "ndjson"]);
@@ -65,6 +65,14 @@ describe("describeCli", () => {
         fieldSelection: false,
         rawJsonInput: false,
         streaming: false,
+      },
+      input: {
+        flags: expect.arrayContaining([
+          expect.objectContaining({
+            name: "output",
+            type: "enum",
+          }),
+        ]),
       },
       kind: "utility",
     });

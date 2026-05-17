@@ -58,6 +58,7 @@ flowchart TD
 - Mutating commands should grow raw JSON payload input and dry-run support.
 - Read commands should grow field-selection and pagination controls.
 - Machine-readable introspection should describe command purpose and capabilities without relying on prose docs.
+- Structured renderers should redact sensitive values and mark prompt-injection-like API text as untrusted data.
 - Repo docs should explain the architecture and guardrails in formats agents can consume quickly.
 
 ## Current Phase
@@ -65,10 +66,12 @@ flowchart TD
 The current CLI contract already includes:
 
 - schema-backed `describe` metadata for command purpose, capabilities, flags, and raw JSON payload shapes
+- an `agentDx` scorecard in `describe` metadata for agent-readiness auditing
 - raw `--json` input and `--dry-run` on mutating commands
 - named auth profiles with env/default-profile selection and legacy single-token fallback
 - `--fields` on agent-relevant read commands
 - cursor-backed `--page-all` on `files list`, `files search`, `search`, and `transfers list`
 - shared hardening for field selectors and identifier-like inputs before API calls
+- structured output redaction plus `_meta.agentSafety.untrustedTextPaths` annotations for prompt-injection-like API text
 
 Next architectural work can keep extracting deeper services and workflows without losing the agent-first CLI surface.

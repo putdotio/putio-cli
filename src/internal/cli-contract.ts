@@ -11,6 +11,7 @@ import {
   CliOutputContractSchema,
   CommandDescriptorSchema,
   decodeCommandSpecs,
+  outputFlag,
   type CliOutputContract,
   type CommandDescriptor,
   type CommandSpec,
@@ -28,7 +29,7 @@ const describeCommandSpec = {
     streaming: false,
   },
   command: "describe",
-  input: { flags: [] },
+  input: { flags: [outputFlag()] },
   kind: "utility",
   purpose: translate("cli.metadata.describe"),
 } satisfies CommandSpec;

@@ -1,6 +1,6 @@
 # Writes
 
-Check `putio describe` before constructing a payload, then prefer raw `--json` when supported.
+Check `putio describe --output json` before constructing a payload, then prefer raw `--json` when supported.
 
 Dry-run first:
 

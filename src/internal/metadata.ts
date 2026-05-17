@@ -73,6 +73,7 @@ export const describeCli = (): CliMetadata =>
         internalRenderers: ["json", "terminal", "ndjson"],
         supported: ["json", "text", "ndjson"],
       },
+      responseSanitization: true,
     }),
     auth: {
       apiBaseUrlEnv: ENV_API_BASE_URL,

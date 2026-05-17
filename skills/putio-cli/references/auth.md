@@ -3,10 +3,10 @@
 Check auth state first:
 
 ```bash
-putio auth status
+putio auth status --profile devs-fe-auto --output json
 ```
 
-For explicit machine output:
+For the selected default profile or legacy token state:
 
 ```bash
 putio auth status --output json
@@ -15,7 +15,6 @@ putio auth status --output json
 For a stable agent or test-harness session:
 
 ```bash
-putio auth status --profile devs-fe-auto --output json
 putio auth login --profile devs-fe-auto
 putio auth profiles use devs-fe-auto
 ```
@@ -26,7 +25,7 @@ For interactive login:
 putio auth login
 ```
 
-For previewing a device link without logging in:
+For put.io device approval or previewing a device link without logging in:
 
 ```bash
 putio auth preview --code PUTIO1 --output json

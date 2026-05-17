@@ -14,17 +14,21 @@ import { whoamiCommand } from "./commands/whoami.js";
 import { describeCli } from "./internal/metadata.js";
 import type { CliOutput } from "./internal/output-service.js";
 import { CliRuntime } from "./internal/runtime.js";
+import { getOption, outputOption } from "./internal/command.js";
 import {
   detectOutputModeFromArgv,
   isStructuredOutputMode,
   renderJson,
+  writeOutput,
 } from "./internal/output-service.js";
 import type { CliSdk } from "./internal/sdk.js";
 import type { CliState } from "./internal/state.js";
 
 const authCommand = makeAuthCommand();
 
-const describeCommand = Command.make("describe", {}, () => Console.log(renderJson(describeCli())));
+const describeCommand = Command.make("describe", { output: outputOption }, ({ output }) =>
+  writeOutput(describeCli(), getOption(output), renderJson),
+);
 
 const command = Command.make("putio", {}, () => Console.log(translate("cli.root.help"))).pipe(
   Command.withSubcommands([

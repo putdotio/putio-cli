@@ -9,7 +9,7 @@ describe("scoreAgentDx", () => {
     expect(metadata.agentDx.maxScore).toBe(21);
     expect(metadata.agentDx.provenance).toBe("metadata-derived");
     expect(metadata.agentDx.summary).toContain("metadata");
-    expect(metadata.agentDx.totalScore).toBeGreaterThanOrEqual(17);
+    expect(metadata.agentDx.totalScore).toBeGreaterThanOrEqual(19);
     expect(metadata.agentDx.dimensions).toEqual([
       expect.objectContaining({
         name: "machineReadableOutput",
@@ -33,7 +33,7 @@ describe("scoreAgentDx", () => {
       }),
       expect.objectContaining({
         name: "safetyRails",
-        score: 2,
+        score: 3,
       }),
       expect.objectContaining({
         name: "agentKnowledgePackaging",

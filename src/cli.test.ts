@@ -190,6 +190,18 @@ describe("cli argv parsing", () => {
     );
   });
 
+  it("accepts an explicit output mode on describe", async () => {
+    const { result, stdout } = await runCli(["putio", "describe", "--output", "json"]);
+
+    expect(result._tag).toBe("Success");
+    expect(parseJsonOutput(stdout)).toMatchObject({
+      binary: "putio",
+      output: {
+        defaultNonInteractive: "json",
+      },
+    });
+  });
+
   it("renders auth preview as json without hitting the API", async () => {
     const { result, stdout } = await runCli([
       "putio",

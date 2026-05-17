@@ -73,7 +73,7 @@ If `putio` is not installed, follow the install instructions in the repository R
 https://github.com/putdotio/putio-cli/blob/main/README.md
 
 After install, run:
-putio describe
+putio describe --output json
 putio auth status --profile devs-fe-auto --output json
 
 If auth is missing, start login with:
@@ -96,7 +96,7 @@ Rules:
 Inspect the live contract:
 
 ```bash
-putio describe
+putio describe --output json
 ```
 
 Link your account:
