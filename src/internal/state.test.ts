@@ -2,6 +2,8 @@ import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as FileSystem from "effect/FileSystem";
+import * as PlatformError from "effect/PlatformError";
 import { Cause, ConfigProvider, Effect, Exit, Option } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -96,6 +98,47 @@ describe("resolveConfigPath", () => {
     expect(file.mode & 0o777).toBe(0o600);
     expect(contents.api_base_url).toBe("https://api.put.io");
     expect(contents.auth_token).toBe("dummy-token");
+  });
+
+  it("creates config files with private permissions before chmod", async () => {
+    const writeModes: Array<number | undefined> = [];
+    const chmodModes: Array<number> = [];
+    const fileSystem = FileSystem.makeNoop({
+      chmod: (_path, mode) =>
+        Effect.sync(() => {
+          chmodModes.push(mode);
+        }),
+      makeDirectory: () => Effect.void,
+      readFileString: (path) =>
+        Effect.fail(
+          PlatformError.systemError({
+            _tag: "NotFound",
+            module: "FileSystem",
+            method: "readFileString",
+            pathOrDescriptor: path,
+          }),
+        ),
+      writeFileString: (_path, _data, options) =>
+        Effect.sync(() => {
+          writeModes.push(options?.mode);
+        }),
+    });
+
+    await Effect.runPromise(
+      savePersistedState(
+        {
+          token: "dummy-token",
+          apiBaseUrl: "https://api.put.io",
+        },
+        "/tmp/putio-cli/config.json",
+      ).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provide(makeCliAppLayer(makeCliRuntime())),
+      ),
+    );
+
+    expect(writeModes).toEqual([0o600]);
+    expect(chmodModes).toEqual([0o600]);
   });
 
   it("exposes persisted-state operations through the CliState service", async () => {

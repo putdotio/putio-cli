@@ -272,7 +272,9 @@ const persistConfigEffect = (
       .makeDirectory(runtime.dirname(effectiveConfigPath), { recursive: true })
       .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
     yield* fs
-      .writeFileString(effectiveConfigPath, `${JSON.stringify(state, null, 2)}\n`)
+      .writeFileString(effectiveConfigPath, `${JSON.stringify(state, null, 2)}\n`, {
+        mode: CONFIG_FILE_MODE,
+      })
       .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
     yield* fs
       .chmod(effectiveConfigPath, CONFIG_FILE_MODE)
