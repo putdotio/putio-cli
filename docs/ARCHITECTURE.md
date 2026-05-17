@@ -73,5 +73,6 @@ The current CLI contract already includes:
 - cursor-backed `--page-all` on `files list`, `files search`, `search`, and `transfers list`
 - shared hardening for field selectors and identifier-like inputs before API calls
 - structured output redaction plus `_meta.agentSafety.untrustedTextPaths` annotations for prompt-injection-like API text
+- a versioned consumer skill library in `skills/putio-cli` with surface guides for discovery, auth/device approval, reads, writes, and guardrails
 
 Next architectural work can keep extracting deeper services and workflows without losing the agent-first CLI surface.

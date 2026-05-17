@@ -42,6 +42,7 @@ const streamingReadCommands = [...cursorReadCommands, "transfers watch"] as cons
 export const scoreAgentDx = (input: {
   readonly commands: ReadonlyArray<CommandDescriptor>;
   readonly hasConsumerSkill: boolean;
+  readonly hasConsumerSkillLibrary: boolean;
   readonly output: CliOutputContract;
   readonly responseSanitization: boolean;
 }): AgentDxScorecard => {
@@ -148,9 +149,9 @@ export const scoreAgentDx = (input: {
     {
       maxScore: 3,
       name: "agentKnowledgePackaging",
-      score: input.hasConsumerSkill ? 2 : 0,
+      score: input.hasConsumerSkillLibrary ? 3 : input.hasConsumerSkill ? 2 : 0,
       summary:
-        "The repo ships a dedicated consumer skill with progressive disclosure references, even though it is still a single skill rather than a broader skill library.",
+        "The repo ships a versioned consumer skill library with surface references for discovery, auth/device approval, reads, writes, and guardrails.",
     },
   ];
 

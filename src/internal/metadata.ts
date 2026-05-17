@@ -67,6 +67,7 @@ export const describeCli = (): CliMetadata =>
     agentDx: scoreAgentDx({
       commands: commandCatalog,
       hasConsumerSkill: true,
+      hasConsumerSkillLibrary: true,
       output: {
         defaultInteractive: "text",
         defaultNonInteractive: "json",

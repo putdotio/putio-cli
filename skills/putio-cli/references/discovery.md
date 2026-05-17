@@ -24,6 +24,12 @@ Structured output defaults:
 
 Use `agentDx.dimensions` to decide how defensive to be. A score below 3 names the current gap; do not paper over it with assumptions.
 
+Versioning rules:
+
+- The skill library follows the CLI contract exposed by `putio describe --output json`.
+- If `describe.version`, `commands`, `output`, `auth`, or `agentDx` changes in a way agents need to know, refresh `SKILL.md` and the relevant reference file in the same change.
+- Keep `SKILL.md` as the router and put surface-specific detail in the matching reference.
+
 Use `ndjson` when:
 
 - the command advertises streaming support

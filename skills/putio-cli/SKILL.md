@@ -29,6 +29,14 @@ Read only the reference you need:
 - write workflows, `--json`, and `--dry-run`: [`references/writes.md`](references/writes.md)
 - safety posture and fallback rules: [`references/guardrails.md`](references/guardrails.md)
 
+## Library Contract
+
+This skill is the router for the put.io CLI consumer skill library. The reference files are the versioned surface guides for the CLI contract shipped by this package.
+
+- Treat `putio describe --output json` as the runtime source of truth for commands, flags, auth requirements, and `agentDx`.
+- Refresh this skill and its references whenever the public command surface, auth flow, output contract, or agent safety posture changes.
+- Prefer loading only the one reference that matches the current task, then return to `describe` when a command shape is unclear.
+
 ## First Move
 
 Inspect the live command contract before guessing:
