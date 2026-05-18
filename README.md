@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh 
 npm install --global @putdotio/cli
 ```
 
-Node `24.14+`
+Node `>=24.14 <25`
 
 Verify:
 

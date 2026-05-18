@@ -10,7 +10,7 @@ Use this skill when you need to use `putio` itself, not when you are developing 
 ## Quick Rules
 
 - Start with `putio describe --output json`.
-- Check `agentDx` in the describe output for the current machine-readable contract and known safety posture.
+- Check `automation` in the describe output for the current machine-readable contract and supported safety features.
 - Prefer structured output: `json` by default in non-interactive runs, `ndjson` for streaming reads, `text` for human TTY sessions.
 - Prefer a named profile such as `devs-fe-auto` for non-human sessions.
 - Use `--fields` to keep responses small.
@@ -33,7 +33,7 @@ Read only the reference you need:
 
 This skill is the router for the put.io CLI consumer skill library. The reference files are the versioned surface guides for the CLI contract shipped by this package.
 
-- Treat `putio describe --output json` as the runtime source of truth for commands, flags, auth requirements, and `agentDx`.
+- Treat `putio describe --output json` as the runtime source of truth for commands, flags, auth requirements, and `automation`.
 - Treat `agents/openai.yaml` as the OpenAI/Codex picker-facing display and default-prompt metadata.
 - Refresh this skill and its references whenever the public command surface, auth flow, output contract, or agent safety posture changes.
 - Prefer loading only the one reference that matches the current task, then return to `describe` when a command shape is unclear.

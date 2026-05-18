@@ -3,7 +3,6 @@ import { Schema } from "effect";
 
 import { translate } from "../i18n/index.js";
 
-import { AgentDxScorecardSchema, scoreAgentDx } from "./agent-dx.js";
 import {
   CliOutputContractSchema,
   CommandDescriptorSchema,
@@ -28,9 +27,22 @@ const PersistedProfileShapeSchema = Schema.Struct({
   api_base_url: ConfigStringFieldSchema,
   auth_token: ConfigStringFieldSchema,
 });
+const SupportedOutputModeSchema = Schema.Literals(["json", "text", "ndjson"] as const);
+const AutomationContractSchema = Schema.Struct({
+  consumerSkillLibrary: Schema.Boolean,
+  defaultNonInteractiveOutput: Schema.Literal("json"),
+  dryRunForWrites: Schema.Boolean,
+  fieldSelectionForReads: Schema.Boolean,
+  rawJsonInputForWrites: Schema.Boolean,
+  schemaIntrospection: Schema.Boolean,
+  secretRedaction: Schema.Boolean,
+  streamingReadCommands: Schema.Array(NonEmptyStringSchema),
+  supportedOutputModes: Schema.Array(SupportedOutputModeSchema),
+  untrustedTextAnnotations: Schema.Boolean,
+});
 
 const CliMetadataSchema = Schema.Struct({
-  agentDx: AgentDxScorecardSchema,
+  automation: AutomationContractSchema,
   auth: Schema.Struct({
     apiBaseUrlEnv: NonEmptyStringSchema,
     envPrecedence: Schema.Array(NonEmptyStringSchema),
@@ -62,20 +74,29 @@ export type CliMetadata = Schema.Schema.Type<typeof CliMetadataSchema>;
 
 const decodeCliMetadata = Schema.decodeUnknownSync(CliMetadataSchema);
 
+const makeAutomationContract = (): Schema.Schema.Type<typeof AutomationContractSchema> => {
+  const readCommands = commandCatalog.filter((command) => command.kind === "read");
+  const writeCommands = commandCatalog.filter((command) => command.kind === "write");
+
+  return {
+    consumerSkillLibrary: true,
+    defaultNonInteractiveOutput: "json",
+    dryRunForWrites: writeCommands.every((command) => command.capabilities.dryRun),
+    fieldSelectionForReads: readCommands.every((command) => command.capabilities.fieldSelection),
+    rawJsonInputForWrites: writeCommands.every((command) => command.capabilities.rawJsonInput),
+    schemaIntrospection: true,
+    secretRedaction: true,
+    streamingReadCommands: commandCatalog
+      .filter((command) => command.capabilities.streaming)
+      .map((command) => command.command),
+    supportedOutputModes: ["json", "text", "ndjson"],
+    untrustedTextAnnotations: true,
+  };
+};
+
 export const describeCli = (): CliMetadata =>
   decodeCliMetadata({
-    agentDx: scoreAgentDx({
-      commands: commandCatalog,
-      hasConsumerSkill: true,
-      hasConsumerSkillLibrary: true,
-      output: {
-        defaultInteractive: "text",
-        defaultNonInteractive: "json",
-        internalRenderers: ["json", "terminal", "ndjson"],
-        supported: ["json", "text", "ndjson"],
-      },
-      responseSanitization: true,
-    }),
+    automation: makeAutomationContract(),
     auth: {
       apiBaseUrlEnv: ENV_API_BASE_URL,
       envPrecedence: [ENV_CLI_TOKEN],

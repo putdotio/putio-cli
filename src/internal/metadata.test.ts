@@ -23,8 +23,24 @@ describe("describeCli", () => {
     );
 
     expect(metadata.binary).toBe("putio");
-    expect(metadata.agentDx.provenance).toBe("metadata-derived");
-    expect(metadata.agentDx.totalScore).toBe(20);
+    expect(metadata.automation).toMatchObject({
+      consumerSkillLibrary: true,
+      defaultNonInteractiveOutput: "json",
+      dryRunForWrites: true,
+      fieldSelectionForReads: true,
+      rawJsonInputForWrites: true,
+      schemaIntrospection: true,
+      secretRedaction: true,
+      supportedOutputModes: ["json", "text", "ndjson"],
+      untrustedTextAnnotations: true,
+    });
+    expect(metadata.automation.streamingReadCommands).toEqual([
+      "files list",
+      "files search",
+      "search",
+      "transfers list",
+      "transfers watch",
+    ]);
     expect(metadata.output.defaultInteractive).toBe("text");
     expect(metadata.output.defaultNonInteractive).toBe("json");
     expect(metadata.output.internalRenderers).toEqual(["json", "terminal", "ndjson"]);

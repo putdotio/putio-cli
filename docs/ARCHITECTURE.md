@@ -66,7 +66,7 @@ flowchart TD
 The current CLI contract already includes:
 
 - schema-backed `describe` metadata for command purpose, capabilities, flags, and raw JSON payload shapes
-- an `agentDx` scorecard in `describe` metadata for agent-readiness auditing
+- neutral automation metadata in `describe` for supported output, dry-run, raw JSON input, field-selection, streaming, and safety features
 - raw `--json` input and `--dry-run` on mutating commands
 - named auth profiles with env/default-profile selection and legacy single-token fallback
 - `--fields` on agent-relevant read commands
