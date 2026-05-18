@@ -101,6 +101,24 @@ const executableName = (value: string) => {
   return normalized.slice(normalized.lastIndexOf("/") + 1).toLowerCase();
 };
 
+const isNodeExecutable = (value: string) => {
+  const name = executableName(value);
+  return name === "node" || name === "node.exe";
+};
+
+const isPutioExecutable = (value: string) => {
+  const name = executableName(value);
+  return name === "putio" || name === "putio.exe" || name === "bin.mjs";
+};
+
+const stripLeadingPutioExecutables = (args: ReadonlyArray<string>) => {
+  let start = 0;
+  while (isPutioExecutable(args[start] ?? "")) {
+    start++;
+  }
+  return args.slice(start);
+};
+
 const commandArgsFromArgv = (args: ReadonlyArray<string>) => {
   const [first] = args;
 
@@ -108,17 +126,11 @@ const commandArgsFromArgv = (args: ReadonlyArray<string>) => {
     return args;
   }
 
-  const firstName = executableName(first);
-
-  if (firstName === "node" || firstName === "node.exe") {
-    return args.slice(2);
+  if (isNodeExecutable(first)) {
+    return stripLeadingPutioExecutables(args.slice(2));
   }
 
-  if (firstName === "putio" || firstName === "putio.exe" || firstName === "bin.mjs") {
-    return args.slice(1);
-  }
-
-  return args;
+  return stripLeadingPutioExecutables(args);
 };
 
 type CliCommandEnvironment =

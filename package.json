@@ -34,7 +34,7 @@
     "check": "vp check .",
     "coverage": "vp test --coverage",
     "dev": "vp pack --watch",
-    "prepare": "./scripts/prepare-effect.sh",
+    "prepare": "node ./scripts/prepare-effect.mts",
     "prepack": "vp pack",
     "smoke:pack": "node ./scripts/smoke-packed-install.mts",
     "test": "vp test",

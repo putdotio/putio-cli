@@ -123,6 +123,17 @@ describe("cli argv parsing", () => {
     expect(stdout).toBe(`putio v${packageJson.version}`);
   });
 
+  it("accepts SEA argv that repeats the CLI binary path", async () => {
+    const { result, stdout } = await runProcessArgv([
+      "/opt/putio/bin/putio",
+      "/opt/putio/bin/putio",
+      "--version",
+    ]);
+
+    expect(result._tag).toBe("Success");
+    expect(stdout).toBe(`putio v${packageJson.version}`);
+  });
+
   it("renders describe as machine-readable json", async () => {
     const { result, stdout } = await runCli(["putio", "describe"]);
 
