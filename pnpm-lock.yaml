@@ -14,7 +14,7 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 4.0.0-beta.66
-        version: 4.0.0-beta.66(effect@4.0.0-beta.66)(ioredis@5.10.1)
+        version: 4.0.0-beta.66(effect@4.0.0-beta.69)(ioredis@5.10.1)
       '@putdotio/sdk':
         specifier: ^9.3.0
         version: 9.3.0
@@ -22,8 +22,8 @@ importers:
         specifier: ^0.6.5
         version: 0.6.5
       effect:
-        specifier: 4.0.0-beta.66
-        version: 4.0.0-beta.66
+        specifier: 4.0.0-beta.69
+        version: 4.0.0-beta.69
       i18next:
         specifier: ^26.2.0
         version: 26.2.0(typescript@6.0.3)
@@ -953,6 +953,9 @@ packages:
   effect@4.0.0-beta.66:
     resolution: {integrity: sha512-4arEr62cziFa8BBVDUwJCJJmaVepXf/kRg7KtC0h8+bufngscrHbwWFhr9c+HonwOF+31U3iD3xUJmw9KzX7Dw==}
 
+  effect@4.0.0-beta.69:
+    resolution: {integrity: sha512-o6og4Dkh0/esTnCJq7UwQ5PZhuQQYCxNCrEYPVk5Z2Fo7oPTHj0/AAVi5kF2Dln53+jEVxA7quXMC/+jPnATuw==}
+
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
 
@@ -1013,6 +1016,10 @@ packages:
   ini@6.0.0:
     resolution: {integrity: sha512-IBTdIkzZNOpqm7q3dRqJvMaldXjDHWkEDfrwGEQTs5eaQMWV+djAhR+wahyNNMAa+qpbDUhBMVt4ZKNwpPm7xQ==}
     engines: {node: ^20.17.0 || >=22.9.0}
+
+  ini@7.0.0:
+    resolution: {integrity: sha512-ifK0CgjALofS5bkrcTy4RaQ9Vx2Knf/eLeIO+NaswQEpH1UblrtTSCIvN71qQDMq0PeQ/SSPojvEJp9vvvfr+w==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
 
   ioredis@5.10.1:
     resolution: {integrity: sha512-HuEDBTI70aYdx1v6U97SbNx9F1+svQKBDo30o0b9fw055LMepzpOOd0Ccg9Q6tbqmBSJaMuY0fB7yw9/vjBYCA==}
@@ -1152,6 +1159,9 @@ packages:
 
   msgpackr@1.11.9:
     resolution: {integrity: sha512-FkoAAyyA6HM8wL882EcEyFZ9s7hVADSwG9xrVx3dxxNQAtgADTrJoEWivID82Iv1zWDsv/OtbrrcZAzGzOMdNw==}
+
+  msgpackr@2.0.1:
+    resolution: {integrity: sha512-9J+tqTEsbHqY8YohazYgty7LgerFIWxvMLpUjqETSmjHojtJm2WnX2kK/2a1fLI7CO7ERP1YSEUXMucz4j+yBA==}
 
   multipasta@0.2.7:
     resolution: {integrity: sha512-KPA58d68KgGil15oDqXjkUBEBYc00XvbPj5/X+dyzeo/lWm9Nc25pQRlf1D+gv4OpK7NM0J1odrbu9JNNGvynA==}
@@ -1337,6 +1347,10 @@ packages:
     resolution: {integrity: sha512-vzi9uRZ926x4XV73S/4qQaTwPXM2JBj6/6lI/byHH1jOpCzb0zDbfytgA9LcN/hzb2l7WQSQnxITOVx5un/wGw==}
     hasBin: true
 
+  uuid@14.0.0:
+    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
+    hasBin: true
+
   vite-plus@0.1.20:
     resolution: {integrity: sha512-hxJqXTxiiFhszwAeD0MvKlztVuXE4TztTdJ64BPxGqgY67F0PDa5eZkUsrN91Ae8aYUMfweW6V/J57OUO9/0zw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1480,19 +1494,19 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@effect/platform-node-shared@4.0.0-beta.66(effect@4.0.0-beta.66)':
+  '@effect/platform-node-shared@4.0.0-beta.66(effect@4.0.0-beta.69)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0-beta.66
+      effect: 4.0.0-beta.69
       ws: 8.20.1
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.66(effect@4.0.0-beta.66)(ioredis@5.10.1)':
+  '@effect/platform-node@4.0.0-beta.66(effect@4.0.0-beta.69)(ioredis@5.10.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-beta.66(effect@4.0.0-beta.66)
-      effect: 4.0.0-beta.66
+      '@effect/platform-node-shared': 4.0.0-beta.66(effect@4.0.0-beta.69)
+      effect: 4.0.0-beta.69
       ioredis: 5.10.1
       mime: 4.1.0
       undici: 8.3.0
@@ -2031,6 +2045,19 @@ snapshots:
       uuid: 13.0.2
       yaml: 2.9.0
 
+  effect@4.0.0-beta.69:
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      fast-check: 4.8.0
+      find-my-way-ts: 0.1.6
+      ini: 7.0.0
+      kubernetes-types: 1.30.0
+      msgpackr: 2.0.1
+      multipasta: 0.2.7
+      toml: 4.1.1
+      uuid: 14.0.0
+      yaml: 2.9.0
+
   emoji-regex@8.0.0: {}
 
   es-module-lexer@1.7.0: {}
@@ -2098,6 +2125,8 @@ snapshots:
       typescript: 6.0.3
 
   ini@6.0.0: {}
+
+  ini@7.0.0: {}
 
   ioredis@5.10.1:
     dependencies:
@@ -2222,6 +2251,10 @@ snapshots:
     optional: true
 
   msgpackr@1.11.9:
+    optionalDependencies:
+      msgpackr-extract: 3.0.3
+
+  msgpackr@2.0.1:
     optionalDependencies:
       msgpackr-extract: 3.0.3
 
@@ -2424,6 +2457,8 @@ snapshots:
   undici@8.3.0: {}
 
   uuid@13.0.2: {}
+
+  uuid@14.0.0: {}
 
   vite-plus@0.1.20(@types/node@25.9.1)(@vitest/coverage-v8@4.1.5)(esbuild@0.27.4)(typescript@6.0.3)(vite@8.0.0(@emnapi/core@1.9.0)(@emnapi/runtime@1.9.0)(@types/node@25.9.1)(esbuild@0.27.4)(yaml@2.9.0))(yaml@2.9.0):
     dependencies:
