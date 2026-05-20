@@ -46,7 +46,7 @@
     "@effect/platform-node": "4.0.0-beta.66",
     "@putdotio/sdk": "^9.3.0",
     "cli-table3": "^0.6.5",
-    "effect": "4.0.0-beta.66",
+    "effect": "4.0.0-beta.69",
     "i18next": "^26.2.0"
   },
   "devDependencies": {
