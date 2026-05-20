@@ -29,7 +29,11 @@ export default defineConfig({
       index: "src/index.ts",
       bin: "src/bin.ts",
     },
-    exports: true,
+    exports: {
+      bin: {
+        putio: "src/bin.ts",
+      },
+    },
   },
   staged: {
     "*.{js,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix",
