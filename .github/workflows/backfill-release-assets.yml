@@ -69,9 +69,17 @@ jobs:
           ref: ${{ needs.validate-release-tag.outputs.tag_name }}
           persist-credentials: false
 
+      - name: Read Vite+ version
+        id: tool-versions
+        shell: bash
+        run: |
+          version=$(jq -er '.devDependencies["vite-plus"] | sub("^[~^]"; "")' package.json)
+          echo "vite-plus-version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0
         with:
+          version: ${{ steps.tool-versions.outputs.vite-plus-version }}
           node-version-file: ".node-version"
           cache: false
 
@@ -143,9 +151,17 @@ jobs:
           ref: ${{ needs.validate-release-tag.outputs.tag_name }}
           persist-credentials: false
 
+      - name: Read Vite+ version
+        id: tool-versions
+        shell: bash
+        run: |
+          version=$(jq -er '.devDependencies["vite-plus"] | sub("^[~^]"; "")' package.json)
+          echo "vite-plus-version=${version}" >> "$GITHUB_OUTPUT"
+
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0
         with:
+          version: ${{ steps.tool-versions.outputs.vite-plus-version }}
           node-version-file: ".node-version"
           cache: false
 

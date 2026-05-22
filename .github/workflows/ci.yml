@@ -29,7 +29,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0
+        uses: ./.github/actions/setup-vp
         with:
           node-version-file: ".node-version"
           cache: true
@@ -78,7 +78,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0
+        uses: ./.github/actions/setup-vp
         with:
           node-version-file: ".node-version"
           cache: false
@@ -151,7 +151,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0
+        uses: ./.github/actions/setup-vp
         with:
           node-version-file: ".node-version"
           cache: false
@@ -224,7 +224,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: voidzero-dev/setup-vp@ca1c46663915d6c1042ae23bd39ab85718bfb0fa # v1.10.0
+        uses: ./.github/actions/setup-vp
         with:
           node-version-file: ".node-version"
           cache: false
