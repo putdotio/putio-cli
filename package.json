@@ -16,7 +16,12 @@
     "putio": "./dist/bin.mjs"
   },
   "files": [
-    "dist"
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "dist",
+    "docs",
+    "SECURITY.md",
+    "skills"
   ],
   "type": "module",
   "sideEffects": false,

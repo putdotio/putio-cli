@@ -36,6 +36,13 @@ The workflow keeps dependency caches only on the secretless verify job. Secret-b
 
 The release-bot remote is configured only after dependencies are installed and the package build completes.
 
+## Package Contents
+
+The npm package includes `dist`, `README.md`, `docs`, `skills`, `AGENTS.md`,
+`CONTRIBUTING.md`, and `SECURITY.md`. The distributed `skills/putio-cli`
+library is part of the public package contract so consuming repos and agents can
+install the same guidance that maintainers use from git.
+
 ## Local Checks
 
 Before changing distribution wiring, validate the repo-local guardrails the workflow depends on:
