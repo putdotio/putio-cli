@@ -48,10 +48,10 @@
     "verify": "vp check . && vp run smoke:pack && vp test && vp test --coverage"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.70",
+    "@effect/platform-node": "4.0.0-beta.78",
     "@putdotio/sdk": "^9.3.0",
     "cli-table3": "^0.6.5",
-    "effect": "4.0.0-beta.70",
+    "effect": "4.0.0-beta.78",
     "i18next": "^26.2.0"
   },
   "devDependencies": {
