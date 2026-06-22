@@ -188,7 +188,7 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
           token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ needs.release.outputs.new_release_git_tag }}
@@ -256,7 +256,7 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3
         with:
           token: ${{ steps.release-bot.outputs.token }}
           tag_name: ${{ needs.release.outputs.new_release_git_tag }}
