@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.0-beta.83
-        version: 4.0.0-beta.83(effect@4.0.0-beta.85)(ioredis@5.10.1)
+        specifier: 4.0.0-beta.85
+        version: 4.0.0-beta.85(effect@4.0.0-beta.85)(ioredis@5.10.1)
       '@putdotio/sdk':
         specifier: ^9.3.0
         version: 9.3.0
@@ -90,17 +90,17 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@effect/platform-node-shared@4.0.0-beta.83':
-    resolution: {integrity: sha512-+yr/+PJmKTgmJq1QOINSBPgLu7Cjc4CZcotBXnGjyDEizOmimFgTkN2B8PBJAKIKUWYWfobjXqC+58/VhhPKAw==}
+  '@effect/platform-node-shared@4.0.0-beta.86':
+    resolution: {integrity: sha512-QNixdacCFZ001duRVZTIRUa6BS1YkU9cbC8yN7NnAMc0upUiIuLI6YO9jKMG3HetW1MjZ3PeSOzMM6nneUYPow==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.83
+      effect: ^4.0.0-beta.86
 
-  '@effect/platform-node@4.0.0-beta.83':
-    resolution: {integrity: sha512-RmpVGu/+X/Bif3/g1Rzj8oFzTOknoVB3yHCa0b179vytPpKe+Kj9ZwKNcAnKWqHUDkbSPBq1Ca60mvOHr2/+LQ==}
+  '@effect/platform-node@4.0.0-beta.85':
+    resolution: {integrity: sha512-tfZ/nUGB6gsw/b7ZQuhIv6w0iXNKOYj5m7dltd3SouY3y1BvIYrS/KxIUi4s3w8Qfx83i9l17q2Wa2b9Fzth5A==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.83
+      effect: ^4.0.0-beta.85
       ioredis: ^5.7.0
 
   '@esbuild/aix-ppc64@0.28.1':
@@ -1347,7 +1347,7 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@effect/platform-node-shared@4.0.0-beta.83(effect@4.0.0-beta.85)':
+  '@effect/platform-node-shared@4.0.0-beta.86(effect@4.0.0-beta.85)':
     dependencies:
       '@types/ws': 8.18.1
       effect: 4.0.0-beta.85
@@ -1356,9 +1356,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.83(effect@4.0.0-beta.85)(ioredis@5.10.1)':
+  '@effect/platform-node@4.0.0-beta.85(effect@4.0.0-beta.85)(ioredis@5.10.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-beta.83(effect@4.0.0-beta.85)
+      '@effect/platform-node-shared': 4.0.0-beta.86(effect@4.0.0-beta.85)
       effect: 4.0.0-beta.85
       ioredis: 5.10.1
       mime: 4.1.0
