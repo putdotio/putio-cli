@@ -55,7 +55,7 @@
     "i18next": "^26.2.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.0.0",
     "@vitest/coverage-v8": "4.1.9",
     "esbuild": "^0.28.1",
     "is-ci": "^4.1.0",
