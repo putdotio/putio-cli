@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.0-beta.85
-        version: 4.0.0-beta.85(effect@4.0.0-beta.85)(ioredis@5.10.1)
+        specifier: 4.0.0-beta.91
+        version: 4.0.0-beta.91(effect@4.0.0-beta.85)(ioredis@5.10.1)
       '@putdotio/sdk':
         specifier: ^9.3.0
         version: 9.3.0
@@ -90,17 +90,17 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@effect/platform-node-shared@4.0.0-beta.86':
-    resolution: {integrity: sha512-QNixdacCFZ001duRVZTIRUa6BS1YkU9cbC8yN7NnAMc0upUiIuLI6YO9jKMG3HetW1MjZ3PeSOzMM6nneUYPow==}
+  '@effect/platform-node-shared@4.0.0-beta.91':
+    resolution: {integrity: sha512-JX++yhomaOEpQmnTYuhn+pKAgKg5MQvycAf1rXGtyVKi202Nc5nK37xbywDcugfwrc1FrPxrxa3BY3lbSc74cw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.86
+      effect: ^4.0.0-beta.91
 
-  '@effect/platform-node@4.0.0-beta.85':
-    resolution: {integrity: sha512-tfZ/nUGB6gsw/b7ZQuhIv6w0iXNKOYj5m7dltd3SouY3y1BvIYrS/KxIUi4s3w8Qfx83i9l17q2Wa2b9Fzth5A==}
+  '@effect/platform-node@4.0.0-beta.91':
+    resolution: {integrity: sha512-gP7Xlmce/HJxg3WaacmrRMJtRw2j6uJ4UrLEDy596tokdXcMoakz2oAtULSXiLzihLeQnt9nrm9K5nHhqKdBdA==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.85
+      effect: ^4.0.0-beta.91
       ioredis: ^5.7.0
 
   '@esbuild/aix-ppc64@0.28.1':
@@ -1229,8 +1229,8 @@ packages:
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
-  undici@8.4.1:
-    resolution: {integrity: sha512-RNHlB4fxZK0IrkhBsxhlbx7s8kFWwr7rzzOqj5nvZugw3ig3RsB7KW3zVlV0eu8POl+rx5d1hmL7rRg0z1owow==}
+  undici@8.5.0:
+    resolution: {integrity: sha512-xamtWoB1EshgjpmlXd7GGm2VfdDtw1+rD8uhry8pSNW3If6S8E0m2T2+orSKeZXEn/aPJMviCpDBA65WJt8zhg==}
     engines: {node: '>=22.19.0'}
 
   uuid@13.0.2:
@@ -1347,7 +1347,7 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@effect/platform-node-shared@4.0.0-beta.86(effect@4.0.0-beta.85)':
+  '@effect/platform-node-shared@4.0.0-beta.91(effect@4.0.0-beta.85)':
     dependencies:
       '@types/ws': 8.18.1
       effect: 4.0.0-beta.85
@@ -1356,13 +1356,13 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.85(effect@4.0.0-beta.85)(ioredis@5.10.1)':
+  '@effect/platform-node@4.0.0-beta.91(effect@4.0.0-beta.85)(ioredis@5.10.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-beta.86(effect@4.0.0-beta.85)
+      '@effect/platform-node-shared': 4.0.0-beta.91(effect@4.0.0-beta.85)
       effect: 4.0.0-beta.85
       ioredis: 5.10.1
       mime: 4.1.0
-      undici: 8.4.1
+      undici: 8.5.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -2201,7 +2201,7 @@ snapshots:
 
   undici-types@8.3.0: {}
 
-  undici@8.4.1: {}
+  undici@8.5.0: {}
 
   uuid@13.0.2: {}
 
