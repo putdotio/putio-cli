@@ -48,10 +48,10 @@
     "verify": "vp check . && vp run smoke:pack && vp test && vp test run --coverage"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.91",
-    "@putdotio/sdk": "^9.3.0",
+    "@effect/platform-node": "4.0.0-beta.93",
+    "@putdotio/sdk": "^10.0.1",
     "cli-table3": "^0.6.5",
-    "effect": "4.0.0-beta.91",
+    "effect": "4.0.0-beta.93",
     "i18next": "^26.2.0"
   },
   "devDependencies": {
@@ -61,8 +61,8 @@
     "is-ci": "^4.1.0",
     "postject": "^1.0.0-alpha.6",
     "typescript": "^6.0.3",
-    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.1",
-    "vite-plus": "0.2.1"
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.2",
+    "vite-plus": "0.2.2"
   },
   "engines": {
     "node": ">=24.14.0"
