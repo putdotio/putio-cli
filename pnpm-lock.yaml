@@ -15,8 +15,8 @@ importers:
         specifier: 4.0.0-beta.91
         version: 4.0.0-beta.91(effect@4.0.0-beta.91)(ioredis@5.10.1)
       '@putdotio/sdk':
-        specifier: ^9.3.0
-        version: 9.3.0
+        specifier: ^10.0.1
+        version: 10.0.1
       cli-table3:
         specifier: ^0.6.5
         version: 0.6.5
@@ -590,9 +590,9 @@ packages:
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
-  '@putdotio/sdk@9.3.0':
-    resolution: {integrity: sha512-pIjrxPd448W9r9/N5wx2YUhTNfwgEQmfrvXGeexsxeD721eFlEIj1EkOaZ6KJApWscYX179DKQWs7bNPIuWYSQ==}
-    engines: {node: '>=24.14.0 <25'}
+  '@putdotio/sdk@10.0.1':
+    resolution: {integrity: sha512-cEiSA3XfjFnl5Nt9AHH4yWDKEHpBWXTbffpAp+q6IWoIxWRUB5l2T3R+2WJ2AAU7A8HpbdRHA5UoCkbLJEdL+g==}
+    engines: {node: '>=24.14.0'}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -853,9 +853,6 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  effect@4.0.0-beta.66:
-    resolution: {integrity: sha512-4arEr62cziFa8BBVDUwJCJJmaVepXf/kRg7KtC0h8+bufngscrHbwWFhr9c+HonwOF+31U3iD3xUJmw9KzX7Dw==}
-
   effect@4.0.0-beta.91:
     resolution: {integrity: sha512-FFlkWiy1QK4xuHd/nui9LKD/5qkpSHJdMcbsEY7jl9V27+txye6W+RAIlmWjuA2vvtUyZmzGKarVtdU0l1pdBQ==}
 
@@ -912,10 +909,6 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
-
-  ini@6.0.0:
-    resolution: {integrity: sha512-IBTdIkzZNOpqm7q3dRqJvMaldXjDHWkEDfrwGEQTs5eaQMWV+djAhR+wahyNNMAa+qpbDUhBMVt4ZKNwpPm7xQ==}
-    engines: {node: ^20.17.0 || >=22.9.0}
 
   ini@7.0.0:
     resolution: {integrity: sha512-ifK0CgjALofS5bkrcTy4RaQ9Vx2Knf/eLeIO+NaswQEpH1UblrtTSCIvN71qQDMq0PeQ/SSPojvEJp9vvvfr+w==}
@@ -1063,9 +1056,6 @@ packages:
   msgpackr-extract@3.0.4:
     resolution: {integrity: sha512-4kmO/MdyUIkLIvTPr8VHLil4AtoKIoniWPIEk5+CDy0xnWC84azhSFmuJ7PxZdsYtiP5kEeQsORAVIeMgxT+Hw==}
     hasBin: true
-
-  msgpackr@1.12.1:
-    resolution: {integrity: sha512-4EUH9tQHnMmEgzW/MdAP0KIfa1T9AF+htl0ffe2n5vb2EKn9y2co8ccpgWko6S52Jy1PQZKwRnx5/KkYjtd9MQ==}
 
   msgpackr@2.0.4:
     resolution: {integrity: sha512-o1C5KRmuRt+apqMr1HuGSqWStZoRBUpEsCsl15uM9VdAF1qHLtvMOU2En747EnTyEl6c4pzPewRMFF31s1CNbA==}
@@ -1232,10 +1222,6 @@ packages:
   undici@8.4.1:
     resolution: {integrity: sha512-RNHlB4fxZK0IrkhBsxhlbx7s8kFWwr7rzzOqj5nvZugw3ig3RsB7KW3zVlV0eu8POl+rx5d1hmL7rRg0z1owow==}
     engines: {node: '>=22.19.0'}
-
-  uuid@13.0.2:
-    resolution: {integrity: sha512-vzi9uRZ926x4XV73S/4qQaTwPXM2JBj6/6lI/byHH1jOpCzb0zDbfytgA9LcN/hzb2l7WQSQnxITOVx5un/wGw==}
-    hasBin: true
 
   uuid@14.0.1:
     resolution: {integrity: sha512-6ZxzVpzDXDa3bJWaHilVayA+BH/1zmxCJoVgvmqJnid/gPoKHxUrS/aC/T6LGQtNHT+XHG9fXPJB4d+IrU30Ew==}
@@ -1614,9 +1600,9 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
-  '@putdotio/sdk@9.3.0':
+  '@putdotio/sdk@10.0.1':
     dependencies:
-      effect: 4.0.0-beta.66
+      effect: 4.0.0-beta.91
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -1821,19 +1807,6 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  effect@4.0.0-beta.66:
-    dependencies:
-      '@standard-schema/spec': 1.1.0
-      fast-check: 4.8.0
-      find-my-way-ts: 0.1.6
-      ini: 6.0.0
-      kubernetes-types: 1.30.0
-      msgpackr: 1.12.1
-      multipasta: 0.2.7
-      toml: 4.1.1
-      uuid: 13.0.2
-      yaml: 2.9.0
-
   effect@4.0.0-beta.91:
     dependencies:
       '@standard-schema/spec': 1.1.0
@@ -1906,8 +1879,6 @@ snapshots:
   i18next@26.3.3(typescript@6.0.3):
     optionalDependencies:
       typescript: 6.0.3
-
-  ini@6.0.0: {}
 
   ini@7.0.0: {}
 
@@ -2036,10 +2007,6 @@ snapshots:
       '@msgpackr-extract/msgpackr-extract-linux-x64': 3.0.4
       '@msgpackr-extract/msgpackr-extract-win32-x64': 3.0.4
     optional: true
-
-  msgpackr@1.12.1:
-    optionalDependencies:
-      msgpackr-extract: 3.0.4
 
   msgpackr@2.0.4:
     optionalDependencies:
@@ -2202,8 +2169,6 @@ snapshots:
   undici-types@8.3.0: {}
 
   undici@8.4.1: {}
-
-  uuid@13.0.2: {}
 
   uuid@14.0.1: {}
 
