@@ -42,10 +42,11 @@
     "prepare": "node ./scripts/prepare-effect.mts",
     "prepack": "vp pack",
     "smoke:pack": "node ./scripts/smoke-packed-install.mts",
+    "test:skill-interfaces": "node --test scripts/validate-openai-manifests.test.ts && node scripts/validate-openai-manifests.ts",
     "test": "vp test",
     "prepublishOnly": "npm run build",
     "verify:sea": "node ./scripts/verify-sea.mjs",
-    "verify": "vp check . && vp run smoke:pack && vp test && vp test run --coverage"
+    "verify": "vp check . && vp run test:skill-interfaces && vp run smoke:pack && vp test && vp test run --coverage"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.93",
@@ -63,7 +64,8 @@
     "typescript": "^6.0.3",
     "vite": "catalog:",
     "vite-plus": "0.2.2",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "2.9.0"
   },
   "engines": {
     "node": ">=24.14.0"

@@ -39,7 +39,7 @@ export default defineConfig({
     "*.{js,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix",
   },
   test: {
-    exclude: [".repos/**"],
+    exclude: [".repos/**", "scripts/**/*.test.ts"],
     coverage: {
       ...coverageConfig,
       exclude: [
