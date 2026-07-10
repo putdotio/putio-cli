@@ -49,6 +49,6 @@ Before changing distribution wiring, validate the repo-local guardrails the work
 
 ```bash
 vp install
-vp run verify
-vp run smoke:pack
+pnpm exec vp run verify
+pnpm exec vp run smoke:pack
 ```

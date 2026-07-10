@@ -20,14 +20,14 @@ Development instructions for agents working on this repository.
 
 Primary:
 
-- `vp run verify`
+- `pnpm exec vp run verify`
 
 Focused:
 
-- `vp run check`
-- `vp run build`
-- `vp run test`
-- `vp run coverage`
+- `pnpm exec vp run check`
+- `pnpm exec vp run build`
+- `pnpm exec vp run test`
+- `pnpm exec vp run coverage`
 
 Runtime proofs:
 

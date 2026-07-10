@@ -36,15 +36,18 @@ vp run build
 Run the main repository gate before opening or updating a pull request:
 
 ```bash
-vp run verify
+pnpm exec vp run verify
 ```
+
+Use the repo-local Vite+ binary for test-bearing commands so the runner and
+`vite-plus/test` imports share one Vitest runtime.
 
 Run focused checks when they match your change:
 
 ```bash
-vp run smoke:pack
-vp run build:sea
-vp run verify:sea
+pnpm exec vp run smoke:pack
+pnpm exec vp run build:sea
+pnpm exec vp run verify:sea
 ```
 
 ## Release Publishing
