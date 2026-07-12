@@ -61,9 +61,6 @@ importers:
       vitest:
         specifier: 4.1.9
         version: 4.1.9(@types/node@26.1.0)(@vitest/browser-preview@4.1.9)(@vitest/coverage-v8@4.1.9(@vitest/browser@4.1.9)(vitest@4.1.9))(@voidzero-dev/vite-plus-core@0.2.2(@types/node@26.1.0)(esbuild@0.28.1)(typescript@6.0.3)(yaml@2.9.0))
-      yaml:
-        specifier: 2.9.0
-        version: 2.9.0
 
 packages:
 
