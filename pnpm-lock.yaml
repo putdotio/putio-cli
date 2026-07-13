@@ -20,7 +20,7 @@ importers:
     dependencies:
       '@effect/platform-node':
         specifier: 4.0.0-beta.93
-        version: 4.0.0-beta.93(effect@4.0.0-beta.93)(ioredis@5.10.1)
+        version: 4.0.0-beta.93(effect@4.0.0-beta.97)(ioredis@5.10.1)
       '@putdotio/sdk':
         specifier: ^10.0.1
         version: 10.0.1
@@ -28,8 +28,8 @@ importers:
         specifier: ^0.6.5
         version: 0.6.5
       effect:
-        specifier: 4.0.0-beta.93
-        version: 4.0.0-beta.93
+        specifier: 4.0.0-beta.97
+        version: 4.0.0-beta.97
       i18next:
         specifier: ^26.3.4
         version: 26.3.4(typescript@6.0.3)
@@ -860,8 +860,8 @@ packages:
   effect@4.0.0-beta.91:
     resolution: {integrity: sha512-FFlkWiy1QK4xuHd/nui9LKD/5qkpSHJdMcbsEY7jl9V27+txye6W+RAIlmWjuA2vvtUyZmzGKarVtdU0l1pdBQ==}
 
-  effect@4.0.0-beta.93:
-    resolution: {integrity: sha512-wNS5MKFa3C42uBfIDik2oJ78lhpoYz2hN4oBR0229BeeDCIrkg/FiOvoiPGdCVlWa7MEKxEL5I0f8AILVHSD9A==}
+  effect@4.0.0-beta.97:
+    resolution: {integrity: sha512-pK03HpQVxGZOWdwDAy/iwvV8u3KYcUf2mOWyWqaut2zau8V2u6ejWP7b4BELjyUIiZWW1fl/s/VJpgZUcTjThg==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -881,8 +881,8 @@ packages:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
 
-  fast-check@4.8.0:
-    resolution: {integrity: sha512-GOJ158CUMnN6cSahsv4+ExARvIDuzzinFjkp0E9WtiBa5zcVeLozVkWaE4IzFcc+Y48Wp1EDlUZsXRyAztQcSg==}
+  fast-check@4.9.0:
+    resolution: {integrity: sha512-7ms6T7SybUev/PQITciI0yLM2pOSFy5zpG8Ty7tQofcVaQUvrMXp6CBwqF6fThLCLOrfBtuHAtwq6Yu4XPCllg==}
     engines: {node: '>=12.17.0'}
 
   fdir@6.5.0:
@@ -1067,8 +1067,8 @@ packages:
   msgpackr@2.0.4:
     resolution: {integrity: sha512-o1C5KRmuRt+apqMr1HuGSqWStZoRBUpEsCsl15uM9VdAF1qHLtvMOU2En747EnTyEl6c4pzPewRMFF31s1CNbA==}
 
-  multipasta@0.2.7:
-    resolution: {integrity: sha512-KPA58d68KgGil15oDqXjkUBEBYc00XvbPj5/X+dyzeo/lWm9Nc25pQRlf1D+gv4OpK7NM0J1odrbu9JNNGvynA==}
+  multipasta@0.2.8:
+    resolution: {integrity: sha512-ZPWuMKyv0cSO29f7hozp+k6+crZbQijV8ipMvxNxRf2SwtYGTX1ZX89Kd20VV4H9Znonx+EQn+iy1wGQsJ+b+Q==}
 
   nanoid@3.3.12:
     resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
@@ -1140,8 +1140,8 @@ packages:
     resolution: {integrity: sha512-Qb1gy5OrP5+zDf2Bvnzdl3jsTf1qXVMazbvCoKhtKqVs4/YK4ozX4gKQJJVyNe+cajNPn0KoC0MC3FUmaHWEmQ==}
     engines: {node: ^10.13.0 || ^12.13.0 || ^14.15.0 || >=15.0.0}
 
-  pure-rand@8.4.0:
-    resolution: {integrity: sha512-IoM8YF/jY0hiugFo/wOWqfmarlE6J0wc6fDK1PhftMk7MGhVZl88sZimmqBBFomLOCSmcCCpsfj7wXASCpvK9A==}
+  pure-rand@8.4.2:
+    resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
 
   react-is@17.0.2:
     resolution: {integrity: sha512-w2GsyukL62IJnlaff/nRegPQR94C/XXamvMWmSHRJ4y7Ts/4ocGRmTHvOs8PSE6pB3dWOrD/nueuU5sduBsQ4w==}
@@ -1210,8 +1210,8 @@ packages:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
 
-  toml@4.1.1:
-    resolution: {integrity: sha512-EBJnVBr3dTXdA89WVFoAIPUqkBjxPMwRqsfuo1r240tKFHXv3zgca4+NJib/h6TyvGF7vOawz0jGuryJCdNHrw==}
+  toml@4.1.2:
+    resolution: {integrity: sha512-m0vXfHODcw3gk+KONAOlVQ5yNHc3yS3B1ybM3HS1vqDoS0RWTDDVBVVTYi8hH0k+2OM1vmo9fb1WX9EVqjqfHA==}
     engines: {node: '>=20'}
 
   totalist@3.0.1:
@@ -1340,19 +1340,19 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@effect/platform-node-shared@4.0.0-beta.93(effect@4.0.0-beta.93)':
+  '@effect/platform-node-shared@4.0.0-beta.93(effect@4.0.0-beta.97)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0-beta.93
+      effect: 4.0.0-beta.97
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.93(effect@4.0.0-beta.93)(ioredis@5.10.1)':
+  '@effect/platform-node@4.0.0-beta.93(effect@4.0.0-beta.97)(ioredis@5.10.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-beta.93(effect@4.0.0-beta.93)
-      effect: 4.0.0-beta.93
+      '@effect/platform-node-shared': 4.0.0-beta.93(effect@4.0.0-beta.97)
+      effect: 4.0.0-beta.97
       ioredis: 5.10.1
       mime: 4.1.0
       undici: 8.4.1
@@ -1817,26 +1817,26 @@ snapshots:
   effect@4.0.0-beta.91:
     dependencies:
       '@standard-schema/spec': 1.1.0
-      fast-check: 4.8.0
+      fast-check: 4.9.0
       find-my-way-ts: 0.1.6
       ini: 7.0.0
       kubernetes-types: 1.30.0
       msgpackr: 2.0.4
-      multipasta: 0.2.7
-      toml: 4.1.1
+      multipasta: 0.2.8
+      toml: 4.1.2
       uuid: 14.0.1
       yaml: 2.9.0
 
-  effect@4.0.0-beta.93:
+  effect@4.0.0-beta.97:
     dependencies:
       '@standard-schema/spec': 1.1.0
-      fast-check: 4.8.0
+      fast-check: 4.9.0
       find-my-way-ts: 0.1.6
       ini: 7.0.0
       kubernetes-types: 1.30.0
       msgpackr: 2.0.4
-      multipasta: 0.2.7
-      toml: 4.1.1
+      multipasta: 0.2.8
+      toml: 4.1.2
       uuid: 14.0.1
       yaml: 2.9.0
 
@@ -1879,9 +1879,9 @@ snapshots:
 
   expect-type@1.3.0: {}
 
-  fast-check@4.8.0:
+  fast-check@4.9.0:
     dependencies:
-      pure-rand: 8.4.0
+      pure-rand: 8.4.2
 
   fdir@6.5.0(picomatch@4.0.4):
     optionalDependencies:
@@ -2032,7 +2032,7 @@ snapshots:
     optionalDependencies:
       msgpackr-extract: 3.0.4
 
-  multipasta@0.2.7: {}
+  multipasta@0.2.8: {}
 
   nanoid@3.3.12: {}
 
@@ -2125,7 +2125,7 @@ snapshots:
       ansi-styles: 5.2.0
       react-is: 17.0.2
 
-  pure-rand@8.4.0: {}
+  pure-rand@8.4.2: {}
 
   react-is@17.0.2: {}
 
@@ -2180,7 +2180,7 @@ snapshots:
 
   tinyrainbow@3.1.0: {}
 
-  toml@4.1.1: {}
+  toml@4.1.2: {}
 
   totalist@3.0.1: {}
 
