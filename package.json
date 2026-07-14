@@ -60,7 +60,7 @@
     "esbuild": "^0.28.1",
     "is-ci": "^4.1.0",
     "postject": "^1.0.0-alpha.6",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vite": "catalog:",
     "vite-plus": "0.2.4",
     "vitest": "catalog:"
