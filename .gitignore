@@ -2,6 +2,7 @@ node_modules
 dist
 coverage
 .artifacts
-.repos/effect
+/.repos
+.claude/worktrees/
 *.log
 .DS_Store

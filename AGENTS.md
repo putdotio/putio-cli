@@ -34,6 +34,12 @@ Runtime proofs:
 - `./dist/bin.mjs describe`
 - `./dist/bin.mjs whoami --fields auth --output json`
 
+## Worktrees
+
+`.worktreeinclude` reuses `.repos`; Claude symlinks it to avoid another copy.
+Run `vp install`, `vp config`, then `pnpm exec vp run verify`. No Infisical
+setup is required.
+
 ## Development Guidance
 
 - Keep `README.md` user-facing. Put contributor workflow in `CONTRIBUTING.md`, architecture in `docs/*`, and consumer usage patterns in `skills/*`.
