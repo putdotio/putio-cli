@@ -141,42 +141,47 @@ type CliCommandEnvironment =
   | CliSdk
   | CliState;
 
-export function runCli(
+export const runCli: (
   args: ReadonlyArray<string>,
-): Effect.Effect<void, unknown, CliCommandEnvironment> {
+) => Effect.Effect<void, unknown, CliCommandEnvironment> = Effect.fn("putio.cli.run")(function* (
+  args: ReadonlyArray<string>,
+) {
   const run = Command.runWith(command, {
     version: packageJson.version,
   });
+  const runtime = yield* CliRuntime;
+  const outputMode = detectOutputModeFromArgv(args, runtime.isInteractiveTerminal);
+  const commandArgs = commandArgsFromArgv(args);
 
-  return Effect.flatMap(CliRuntime, (runtime) => {
-    const outputMode = detectOutputModeFromArgv(args, runtime.isInteractiveTerminal);
-    const commandArgs = commandArgsFromArgv(args);
-
-    if (!isStructuredOutputMode(outputMode)) {
-      return run(commandArgs);
-    }
-
-    return Console.consoleWith((currentConsole) => {
-      const entries: Array<BufferedConsoleEntry> = [];
-
-      return run(commandArgs).pipe(
-        Effect.provideService(Console.Console, makeBufferedConsole(entries)),
-        Effect.tap(() => replayBufferedConsole(currentConsole, entries)),
-        Effect.catchFilter(
-          (error) =>
-            CliError.isCliError(error) && error._tag === "ShowHelp"
-              ? Result.succeed(error)
-              : Result.fail(error),
-          (error) => {
-            if (error.errors.length === 0) {
-              return replayBufferedConsole(currentConsole, entries);
-            }
-
-            return Effect.fail(new Error(formatCliParserError(error)));
-          },
-          (error) => Effect.fail(error),
-        ),
-      );
-    });
+  yield* Effect.annotateCurrentSpan({
+    "cli.command": commandArgs[0] ?? "root",
+    "cli.output_mode": outputMode,
   });
-}
+
+  if (!isStructuredOutputMode(outputMode)) {
+    return yield* run(commandArgs);
+  }
+
+  return yield* Console.consoleWith((currentConsole) => {
+    const entries: Array<BufferedConsoleEntry> = [];
+
+    return run(commandArgs).pipe(
+      Effect.provideService(Console.Console, makeBufferedConsole(entries)),
+      Effect.tap(() => replayBufferedConsole(currentConsole, entries)),
+      Effect.catchFilter(
+        (error) =>
+          CliError.isCliError(error) && error._tag === "ShowHelp"
+            ? Result.succeed(error)
+            : Result.fail(error),
+        (error) => {
+          if (error.errors.length === 0) {
+            return replayBufferedConsole(currentConsole, entries);
+          }
+
+          return Effect.fail(new Error(formatCliParserError(error)));
+        },
+        (error) => Effect.fail(error),
+      ),
+    );
+  });
+});

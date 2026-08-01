@@ -1,5 +1,6 @@
-import { ConfigProvider, Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { assert, describe, it } from "@effect/vitest";
+import { ConfigProvider, Effect, Fiber } from "effect";
+import { TestClock } from "effect/testing";
 
 import { makeCliAppLayer } from "./app-layer.js";
 import { PUTIO_CLI_APP_ID } from "./constants.js";
@@ -29,21 +30,21 @@ const mockRuntime: CliRuntimeService = {
 };
 
 describe("resolveAuthFlowConfig", () => {
-  it("uses the built-in CLI app id and sensible defaults", async () => {
-    const result = await Effect.runPromise(
-      resolveAuthFlowConfig().pipe(
+  it.effect("uses the built-in CLI app id and sensible defaults", () =>
+    Effect.gen(function* () {
+      const result = yield* resolveAuthFlowConfig().pipe(
         Effect.provide(makeCliAppLayer(makeCliRuntime({ hostName: "cli-test-host" }))),
-      ),
-    );
+      );
 
-    expect(result.appId).toBe(PUTIO_CLI_APP_ID);
-    expect(result.clientName.length).toBeGreaterThan(0);
-    expect(result.webAppUrl).toBe("https://app.put.io");
-  });
+      assert.strictEqual(result.appId, PUTIO_CLI_APP_ID);
+      assert.isAbove(result.clientName.length, 0);
+      assert.strictEqual(result.webAppUrl, "https://app.put.io");
+    }),
+  );
 
-  it("uses env overrides for client name and web app url", async () => {
-    const result = await Effect.runPromise(
-      resolveAuthFlowConfig().pipe(
+  it.effect("uses env overrides for client name and web app url", () =>
+    Effect.gen(function* () {
+      const result = yield* resolveAuthFlowConfig().pipe(
         Effect.provideService(
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
@@ -52,102 +53,102 @@ describe("resolveAuthFlowConfig", () => {
           }),
         ),
         Effect.provide(makeCliAppLayer(makeCliRuntime({ hostName: "cli-test-host" }))),
-      ),
-    );
+      );
 
-    expect(result.appId).toBe(PUTIO_CLI_APP_ID);
-    expect(result.clientName).toBe("putio-cli-test");
-    expect(result.webAppUrl).toBe("https://app.put.io");
-  });
+      assert.strictEqual(result.appId, PUTIO_CLI_APP_ID);
+      assert.strictEqual(result.clientName, "putio-cli-test");
+      assert.strictEqual(result.webAppUrl, "https://app.put.io");
+    }),
+  );
 });
 
 describe("buildDeviceLinkUrl", () => {
   it("builds a put.io link URL with the device code", () => {
-    expect(buildDeviceLinkUrl("ABCD1234")).toBe("https://app.put.io/link?code=ABCD1234");
+    assert.strictEqual(buildDeviceLinkUrl("ABCD1234"), "https://app.put.io/link?code=ABCD1234");
   });
 });
 
 describe("openBrowser", () => {
-  it("delegates to the runtime service", async () => {
-    await expect(
-      Effect.runPromise(
-        openBrowser("https://app.put.io/link?code=ABCD1234").pipe(
-          Effect.provideService(CliRuntime, mockRuntime),
-        ),
-      ),
-    ).resolves.toBe(true);
-  });
+  it.effect("delegates to the runtime service", () =>
+    Effect.gen(function* () {
+      const opened = yield* openBrowser("https://app.put.io/link?code=ABCD1234").pipe(
+        Effect.provideService(CliRuntime, mockRuntime),
+      );
+
+      assert.isTrue(opened);
+    }),
+  );
 });
 
 describe("waitForDeviceToken", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
+  it.effect("returns the token once polling succeeds", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("returns the token once polling succeeds", async () => {
-    let attempts = 0;
-
-    const promise = Effect.runPromise(
-      waitForDeviceToken({
-        code: "ABCD1234",
-        pollIntervalMs: 1_000,
-        timeoutMs: 5_000,
-        checkCodeMatch: () => {
-          attempts += 1;
-          return Effect.succeed(attempts >= 2 ? "token-123" : null);
-        },
-      }),
-    );
-
-    await vi.advanceTimersByTimeAsync(1_000);
-
-    await expect(promise).resolves.toBe("token-123");
-    expect(attempts).toBe(2);
-  });
-
-  it("fails with a timeout error when authorization never completes", async () => {
-    const resultPromise = Effect.runPromise(
-      Effect.result(
+      const fiber = yield* Effect.forkChild(
         waitForDeviceToken({
           code: "ABCD1234",
           pollIntervalMs: 1_000,
-          timeoutMs: 2_000,
-          checkCodeMatch: () => Effect.succeed(null),
+          timeoutMs: 5_000,
+          checkCodeMatch: () => {
+            attempts += 1;
+            return Effect.succeed(attempts >= 2 ? "token-123" : null);
+          },
         }),
-      ),
-    );
-
-    await vi.advanceTimersByTimeAsync(3_000);
-
-    const result = await resultPromise;
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.message).toBe(
-        "Timed out waiting for device authorization to complete.",
       );
-    }
-  });
 
-  it("fails with a polling error when the backend check fails", async () => {
-    const result = await Effect.runPromise(
-      Effect.result(
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust(1_000);
+
+      assert.strictEqual(yield* Fiber.join(fiber), "token-123");
+      assert.strictEqual(attempts, 2);
+    }),
+  );
+
+  it.effect("fails with a timeout error when authorization never completes", () =>
+    Effect.gen(function* () {
+      const fiber = yield* Effect.forkChild(
+        Effect.result(
+          waitForDeviceToken({
+            code: "ABCD1234",
+            pollIntervalMs: 1_000,
+            timeoutMs: 2_000,
+            checkCodeMatch: () => Effect.succeed(null),
+          }),
+        ),
+      );
+
+      yield* Effect.yieldNow;
+      yield* TestClock.adjust(3_000);
+
+      const result = yield* Fiber.join(fiber);
+
+      assert.strictEqual(result._tag, "Failure");
+      if (result._tag === "Failure") {
+        assert.strictEqual(
+          result.failure.message,
+          "Timed out waiting for device authorization to complete.",
+        );
+      }
+    }),
+  );
+
+  it.effect("fails with a polling error when the backend check fails", () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.result(
         waitForDeviceToken({
           code: "ABCD1234",
           checkCodeMatch: () => Effect.fail(new Error("boom")),
         }),
-      ),
-    );
-
-    expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(result.failure.message).toBe(
-        "Unable to poll put.io for the device authorization result.",
       );
-    }
-  });
+
+      assert.strictEqual(result._tag, "Failure");
+      if (result._tag === "Failure") {
+        assert.strictEqual(
+          result.failure.message,
+          "Unable to poll put.io for the device authorization result.",
+        );
+      }
+    }),
+  );
 });

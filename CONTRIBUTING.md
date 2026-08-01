@@ -57,6 +57,8 @@ See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, an
 ## Development Notes
 
 - `verify` is the repository delivery gate.
+- `verify` enforces the production Effect runtime boundary, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
+- `vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
 - Prefer `vp install`, `vp test`, and `vp check` for day-to-day local loops.
 - Keep top-level user docs in `README.md` and contributor workflow here.
 - Put deeper implementation detail in `docs/` instead of growing the top-level docs.

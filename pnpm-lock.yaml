@@ -11,6 +11,7 @@ catalogs:
       version: 4.1.10
 
 overrides:
+  effect: 4.0.0-beta.102
   vite: npm:@voidzero-dev/vite-plus-core@0.2.6
   vitest: 4.1.10
 
@@ -19,8 +20,8 @@ importers:
   .:
     dependencies:
       '@effect/platform-node':
-        specifier: 4.0.0-beta.97
-        version: 4.0.0-beta.97(effect@4.0.0-beta.97)(ioredis@5.10.1)
+        specifier: 4.0.0-beta.102
+        version: 4.0.0-beta.102(effect@4.0.0-beta.102)(ioredis@5.10.1)
       '@putdotio/sdk':
         specifier: ^10.0.1
         version: 10.0.1
@@ -28,12 +29,15 @@ importers:
         specifier: ^0.6.5
         version: 0.6.5
       effect:
-        specifier: 4.0.0-beta.97
-        version: 4.0.0-beta.97
+        specifier: 4.0.0-beta.102
+        version: 4.0.0-beta.102
       i18next:
         specifier: ^26.3.4
         version: 26.3.6(typescript@7.0.2)
     devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.102
+        version: 4.0.0-beta.102(effect@4.0.0-beta.102)(vitest@4.1.10)
       '@types/node':
         specifier: ^26.1.0
         version: 26.1.1
@@ -100,18 +104,24 @@ packages:
     resolution: {integrity: sha512-ooWCrlZP11i8GImSjTHYHLkvFDP48nS4+204nGb1RiX/WXYHmJA2III9/e2DWVabCESdW7hBAEzHRqUn9OUVvQ==}
     engines: {node: '>=0.1.90'}
 
-  '@effect/platform-node-shared@4.0.0-beta.97':
-    resolution: {integrity: sha512-sAlygOlDLLERk7fC24f7Aa4G3wkEbGyyMEileHTHU2fThiPYSGMqNRK1LLnNr17m2+JR7BHbycwXkJkM18BAQw==}
+  '@effect/platform-node-shared@4.0.0-beta.102':
+    resolution: {integrity: sha512-gVd793I72MrkX4dXo7eYtRKfNj0RW4eMRfVEKEJI16h2+mBDCzQ+gqMrog2hSTHQnaIbvbYShNQ4TVGuRCYZeQ==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.97
+      effect: 4.0.0-beta.102
 
-  '@effect/platform-node@4.0.0-beta.97':
-    resolution: {integrity: sha512-Vd40VLh+Y08Bs37KWtbe9AgO2+t3RKZKGX9YC6ZKAcswu4tXR3CwSI7V2MN+GgS+ez/GLmqH1WrzDDlaIAxKPA==}
+  '@effect/platform-node@4.0.0-beta.102':
+    resolution: {integrity: sha512-wYVAU9jAePT+gouMr/EVz1CaW6yDLjPAgXYeEFLz7wugT5iZhFRag6mqajV/wwN3bzWP2fzZHokLuPmqD/rqeA==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.97
+      effect: 4.0.0-beta.102
       ioredis: ^5.7.0
+
+  '@effect/vitest@4.0.0-beta.102':
+    resolution: {integrity: sha512-4dipFAYG6imOzrY3zy3BgzCJkbb9xESyzUef0WSx8bsK0/SpITqbJpdwKeOyDWLZ+rimjua8IbTFMAde865pIQ==}
+    peerDependencies:
+      effect: 4.0.0-beta.102
+      vitest: 4.1.10
 
   '@esbuild/aix-ppc64@0.28.1':
     resolution: {integrity: sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ==}
@@ -1102,11 +1112,8 @@ packages:
   dom-accessibility-api@0.5.16:
     resolution: {integrity: sha512-X7BJ2yElsnOJ30pZF4uIIDfBEVgF4XEBxL9Bxhy6dnrm5hkzqmsWHGTiHqRiITNhMyFLyAiWndIJP7Z1NTteDg==}
 
-  effect@4.0.0-beta.91:
-    resolution: {integrity: sha512-FFlkWiy1QK4xuHd/nui9LKD/5qkpSHJdMcbsEY7jl9V27+txye6W+RAIlmWjuA2vvtUyZmzGKarVtdU0l1pdBQ==}
-
-  effect@4.0.0-beta.97:
-    resolution: {integrity: sha512-pK03HpQVxGZOWdwDAy/iwvV8u3KYcUf2mOWyWqaut2zau8V2u6ejWP7b4BELjyUIiZWW1fl/s/VJpgZUcTjThg==}
+  effect@4.0.0-beta.102:
+    resolution: {integrity: sha512-z8Y+Q76Hh/kjLFZrXu8tGn6e+tDsg45R+UHhxd190pXxD53OGwf/G/zDxXTkse4HJ5mobNZfitLfUCp4fMvu6w==}
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -1125,10 +1132,6 @@ packages:
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
-
-  fast-check@4.8.0:
-    resolution: {integrity: sha512-GOJ158CUMnN6cSahsv4+ExARvIDuzzinFjkp0E9WtiBa5zcVeLozVkWaE4IzFcc+Y48Wp1EDlUZsXRyAztQcSg==}
-    engines: {node: '>=12.17.0'}
 
   fast-check@4.9.0:
     resolution: {integrity: sha512-7ms6T7SybUev/PQITciI0yLM2pOSFy5zpG8Ty7tQofcVaQUvrMXp6CBwqF6fThLCLOrfBtuHAtwq6Yu4XPCllg==}
@@ -1316,9 +1319,6 @@ packages:
   msgpackr@2.0.4:
     resolution: {integrity: sha512-o1C5KRmuRt+apqMr1HuGSqWStZoRBUpEsCsl15uM9VdAF1qHLtvMOU2En747EnTyEl6c4pzPewRMFF31s1CNbA==}
 
-  multipasta@0.2.7:
-    resolution: {integrity: sha512-KPA58d68KgGil15oDqXjkUBEBYc00XvbPj5/X+dyzeo/lWm9Nc25pQRlf1D+gv4OpK7NM0J1odrbu9JNNGvynA==}
-
   multipasta@0.2.8:
     resolution: {integrity: sha512-ZPWuMKyv0cSO29f7hozp+k6+crZbQijV8ipMvxNxRf2SwtYGTX1ZX89Kd20VV4H9Znonx+EQn+iy1wGQsJ+b+Q==}
 
@@ -1462,10 +1462,6 @@ packages:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
 
-  toml@4.1.1:
-    resolution: {integrity: sha512-EBJnVBr3dTXdA89WVFoAIPUqkBjxPMwRqsfuo1r240tKFHXv3zgca4+NJib/h6TyvGF7vOawz0jGuryJCdNHrw==}
-    engines: {node: '>=20'}
-
   toml@4.1.2:
     resolution: {integrity: sha512-m0vXfHODcw3gk+KONAOlVQ5yNHc3yS3B1ybM3HS1vqDoS0RWTDDVBVVTYi8hH0k+2OM1vmo9fb1WX9EVqjqfHA==}
     engines: {node: '>=20'}
@@ -1602,25 +1598,30 @@ snapshots:
   '@colors/colors@1.5.0':
     optional: true
 
-  '@effect/platform-node-shared@4.0.0-beta.97(effect@4.0.0-beta.97)':
+  '@effect/platform-node-shared@4.0.0-beta.102(effect@4.0.0-beta.102)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0-beta.97
+      effect: 4.0.0-beta.102
       ws: 8.21.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.97(effect@4.0.0-beta.97)(ioredis@5.10.1)':
+  '@effect/platform-node@4.0.0-beta.102(effect@4.0.0-beta.102)(ioredis@5.10.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-beta.97(effect@4.0.0-beta.97)
-      effect: 4.0.0-beta.97
+      '@effect/platform-node-shared': 4.0.0-beta.102(effect@4.0.0-beta.102)
+      effect: 4.0.0-beta.102
       ioredis: 5.10.1
       mime: 4.1.0
       undici: 8.7.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@effect/vitest@4.0.0-beta.102(effect@4.0.0-beta.102)(vitest@4.1.10)':
+    dependencies:
+      effect: 4.0.0-beta.102
+      vitest: 4.1.10(@types/node@26.1.1)(@vitest/browser-preview@4.1.10)(@vitest/coverage-v8@4.1.10(@vitest/browser@4.1.10)(vitest@4.1.10))(@voidzero-dev/vite-plus-core@0.2.6(@types/node@26.1.1)(esbuild@0.28.1)(typescript@7.0.2)(yaml@2.9.0))
 
   '@esbuild/aix-ppc64@0.28.1':
     optional: true
@@ -1871,7 +1872,7 @@ snapshots:
 
   '@putdotio/sdk@10.0.1':
     dependencies:
-      effect: 4.0.0-beta.91
+      effect: 4.0.0-beta.102
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -2206,20 +2207,7 @@ snapshots:
 
   dom-accessibility-api@0.5.16: {}
 
-  effect@4.0.0-beta.91:
-    dependencies:
-      '@standard-schema/spec': 1.1.0
-      fast-check: 4.8.0
-      find-my-way-ts: 0.1.6
-      ini: 7.0.0
-      kubernetes-types: 1.30.0
-      msgpackr: 2.0.4
-      multipasta: 0.2.7
-      toml: 4.1.1
-      uuid: 14.0.1
-      yaml: 2.9.0
-
-  effect@4.0.0-beta.97:
+  effect@4.0.0-beta.102:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 4.9.0
@@ -2270,10 +2258,6 @@ snapshots:
       '@types/estree': 1.0.9
 
   expect-type@1.4.0: {}
-
-  fast-check@4.8.0:
-    dependencies:
-      pure-rand: 8.4.0
 
   fast-check@4.9.0:
     dependencies:
@@ -2428,8 +2412,6 @@ snapshots:
     optionalDependencies:
       msgpackr-extract: 3.0.4
 
-  multipasta@0.2.7: {}
-
   multipasta@0.2.8: {}
 
   nanoid@3.3.12: {}
@@ -2577,8 +2559,6 @@ snapshots:
   tinypool@2.1.0: {}
 
   tinyrainbow@3.1.0: {}
-
-  toml@4.1.1: {}
 
   toml@4.1.2: {}
 

@@ -1,4 +1,5 @@
 overrides:
+  effect: 4.0.0-beta.102
   vite: "catalog:"
   vitest: "catalog:"
 
@@ -8,9 +9,10 @@ allowBuilds:
   msgpackr-extract: true
 
 minimumReleaseAgeExclude:
-  - "@effect/platform-node-shared@4.0.0-beta.78"
-  - "@effect/platform-node@4.0.0-beta.78"
-  - effect@4.0.0-beta.78
+  - "@effect/platform-node-shared@4.0.0-beta.102"
+  - "@effect/platform-node@4.0.0-beta.102"
+  - "@effect/vitest@4.0.0-beta.102"
+  - effect@4.0.0-beta.102
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.6
   vitest: 4.1.10

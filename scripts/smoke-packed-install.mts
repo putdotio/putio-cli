@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -32,12 +32,14 @@ const root = process.cwd();
 const artifactsDir = join(root, ".artifacts");
 const installDir = mkdtempSync(join(tmpdir(), "putio-cli-install-"));
 const configPath = join(installDir, "putio-config.json");
+const commandTimeoutMs = 120_000;
 
 const run = (command: string, args: ReadonlyArray<string>, options: object = {}) =>
   execFileSync(command, args, {
     cwd: root,
     encoding: "utf8",
     stdio: "pipe",
+    timeout: commandTimeoutMs,
     ...options,
   });
 
@@ -56,6 +58,7 @@ const runPutioJson = <A,>(
         PUTIO_CLI_CONFIG_PATH: configPath,
       },
       stdio: "pipe",
+      timeout: commandTimeoutMs,
     }),
   ) as A;
 
@@ -63,6 +66,47 @@ const assert = (condition: boolean, message: string) => {
   if (!condition) {
     throw new Error(message);
   }
+};
+
+const readFailureMessage = (value: unknown) => {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("error" in value) ||
+    typeof value.error !== "object" ||
+    value.error === null ||
+    !("message" in value.error) ||
+    typeof value.error.message !== "string"
+  ) {
+    throw new Error("Expected the CLI failure to use the structured error contract.");
+  }
+
+  return value.error.message;
+};
+
+const runPutioFailure = (
+  binaryPath: string,
+  args: ReadonlyArray<string>,
+  configFile: string,
+  env: Record<string, string> = {},
+) => {
+  const result = spawnSync(binaryPath, args, {
+    cwd: installDir,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...env,
+      PUTIO_CLI_CONFIG_PATH: configFile,
+    },
+    stdio: "pipe",
+    timeout: commandTimeoutMs,
+  });
+
+  assert(result.error === undefined, `Expected the CLI process to start: ${result.error?.message}`);
+  assert(result.status === 1, `Expected CLI failure exit code 1, received ${result.status}.`);
+
+  const output = result.stdout.trim().length > 0 ? result.stdout : result.stderr;
+  return readFailureMessage(JSON.parse(output));
 };
 
 const smokeAuthProfiles = (binaryPath: string) => {
@@ -226,7 +270,12 @@ try {
     {
       cwd: installDir,
       encoding: "utf8",
+      env: {
+        ...process.env,
+        npm_config_cache: join(installDir, "npm-cache"),
+      },
       stdio: "pipe",
+      timeout: commandTimeoutMs,
     },
   );
 
@@ -235,6 +284,7 @@ try {
     cwd: installDir,
     encoding: "utf8",
     stdio: "pipe",
+    timeout: commandTimeoutMs,
   });
 
   JSON.parse(versionOutput);
@@ -243,10 +293,52 @@ try {
     cwd: installDir,
     encoding: "utf8",
     stdio: "pipe",
+    timeout: commandTimeoutMs,
   });
 
   JSON.parse(describeOutput);
   smokeAuthProfiles(binaryPath);
+
+  const missingAuthMessage = runPutioFailure(
+    binaryPath,
+    ["whoami", "--fields", "auth", "--output", "json"],
+    join(installDir, "missing-config.json"),
+  );
+  assert(
+    missingAuthMessage.includes("Set PUTIO_CLI_TOKEN or run `putio auth login`."),
+    "Expected missing authentication to include an actionable recovery step.",
+  );
+
+  const invalidConfigMessage = runPutioFailure(
+    binaryPath,
+    ["auth", "status", "--output", "json"],
+    join(installDir, "invalid-config.json"),
+    { PUTIO_CLI_API_BASE_URL: "not-a-url" },
+  );
+  assert(
+    invalidConfigMessage.includes("Expected a valid absolute URL"),
+    "Expected invalid configuration to identify the malformed URL.",
+  );
+
+  writeFileSync(
+    join(artifactsDir, "smoke-packed-install.json"),
+    `${JSON.stringify(
+      {
+        proofs: [
+          "packaged-install",
+          "version",
+          "describe",
+          "auth-profile-round-trip",
+          "missing-auth-failure",
+          "invalid-config-failure",
+        ],
+        status: "passed",
+        tarball,
+      },
+      null,
+      2,
+    )}\n`,
+  );
 } finally {
   rmSync(installDir, { force: true, recursive: true });
 }
