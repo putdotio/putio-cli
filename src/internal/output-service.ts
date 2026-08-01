@@ -316,7 +316,7 @@ export class CliOutput extends Context.Service<CliOutput, CliOutputService>()(
   "@putdotio/cli/CliOutput",
 ) {}
 
-export const makeCliOutput = (runtime: {
+const makeCliOutput = (runtime: {
   readonly isInteractiveTerminal: boolean;
   readonly writeStdout: (message: string) => Effect.Effect<void>;
 }): CliOutputService => ({

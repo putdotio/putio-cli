@@ -3,22 +3,14 @@ import * as SchemaAST from "effect/SchemaAST";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 
-export const OutputModeSchema = Schema.Literals(["json", "text", "ndjson"] as const);
-export type OutputMode = Schema.Schema.Type<typeof OutputModeSchema>;
+const OutputModeSchema = Schema.Literals(["json", "text", "ndjson"] as const);
 
-export const InternalRendererSchema = Schema.Literals(["json", "terminal", "ndjson"] as const);
-export type InternalRenderer = Schema.Schema.Type<typeof InternalRendererSchema>;
+const InternalRendererSchema = Schema.Literals(["json", "terminal", "ndjson"] as const);
 
-export const CommandKindSchema = Schema.Literals(["utility", "auth", "read", "write"] as const);
-export type CommandKind = Schema.Schema.Type<typeof CommandKindSchema>;
+const CommandKindSchema = Schema.Literals(["utility", "auth", "read", "write"] as const);
+type CommandKind = Schema.Schema.Type<typeof CommandKindSchema>;
 
-export const CommandOptionTypeSchema = Schema.Literals([
-  "string",
-  "integer",
-  "boolean",
-  "enum",
-] as const);
-export type CommandOptionType = Schema.Schema.Type<typeof CommandOptionTypeSchema>;
+const CommandOptionTypeSchema = Schema.Literals(["string", "integer", "boolean", "enum"] as const);
 
 const JsonPrimitiveKindSchema = Schema.Literals(["string", "integer", "boolean", "null"] as const);
 const JsonScalarSchema = Schema.Struct({
@@ -50,7 +42,7 @@ export type CommandJsonShape =
       readonly rules?: ReadonlyArray<string>;
     };
 
-export type JsonProperty = {
+type JsonProperty = {
   readonly name: string;
   readonly required: boolean;
   readonly schema: CommandJsonShape;
@@ -78,14 +70,14 @@ const JsonEnumSchema = Schema.Struct({
   values: Schema.Array(JsonEnumValueSchema),
 });
 
-export const CommandJsonShapeSchema: Schema.Codec<CommandJsonShape> = Schema.Union([
+const CommandJsonShapeSchema: Schema.Codec<CommandJsonShape> = Schema.Union([
   JsonScalarSchema,
   JsonEnumSchema,
   JsonObjectSchema,
   JsonArraySchema,
 ] as const);
 
-export const CommandOptionSchema = Schema.Struct({
+const CommandOptionSchema = Schema.Struct({
   choices: Schema.optional(Schema.Array(NonEmptyStringSchema)),
   defaultValue: Schema.optional(
     Schema.Union([NonEmptyStringSchema, Schema.Number, Schema.Boolean] as const),
@@ -99,7 +91,7 @@ export const CommandOptionSchema = Schema.Struct({
 
 export type CommandOption = Schema.Schema.Type<typeof CommandOptionSchema>;
 
-export const CommandArgumentSchema = Schema.Struct({
+const CommandArgumentSchema = Schema.Struct({
   choices: Schema.optional(Schema.Array(NonEmptyStringSchema)),
   description: Schema.optional(NonEmptyStringSchema),
   name: NonEmptyStringSchema,
@@ -135,16 +127,12 @@ export const CommandDescriptorSchema = Schema.Struct({
   purpose: NonEmptyStringSchema,
 });
 
-export type CommandDescriptor = Schema.Schema.Type<typeof CommandDescriptorSchema>;
-
 export const CliOutputContractSchema = Schema.Struct({
   defaultInteractive: Schema.Literal("text"),
   defaultNonInteractive: Schema.Literal("json"),
   internalRenderers: Schema.Array(InternalRendererSchema),
   supported: Schema.Array(OutputModeSchema),
 });
-
-export type CliOutputContract = Schema.Schema.Type<typeof CliOutputContractSchema>;
 
 export type CommandSpec = {
   readonly auth: { readonly required: boolean };
@@ -218,27 +206,21 @@ const validateCommandSpecs = (specs: ReadonlyArray<CommandSpec>) => {
 export const decodeCommandSpecs = (specs: ReadonlyArray<CommandSpec>) =>
   decodeCommandCatalog(validateCommandSpecs(specs));
 
-export const stringShape = (): CommandJsonShape => ({ kind: "string" });
-export const integerShape = (): CommandJsonShape => ({ kind: "integer" });
-export const booleanShape = (): CommandJsonShape => ({ kind: "boolean" });
-export const nullShape = (): CommandJsonShape => ({ kind: "null" });
-export const enumShape = (
-  values: ReadonlyArray<string | number | boolean | null>,
-): CommandJsonShape => ({
+const stringShape = (): CommandJsonShape => ({ kind: "string" });
+const integerShape = (): CommandJsonShape => ({ kind: "integer" });
+const booleanShape = (): CommandJsonShape => ({ kind: "boolean" });
+const nullShape = (): CommandJsonShape => ({ kind: "null" });
+const enumShape = (values: ReadonlyArray<string | number | boolean | null>): CommandJsonShape => ({
   kind: "enum",
   values: [...values],
 });
-export const arrayShape = (items: CommandJsonShape): CommandJsonShape => ({ kind: "array", items });
-export const property = (
-  name: string,
-  schema: CommandJsonShape,
-  required = true,
-): JsonProperty => ({
+const arrayShape = (items: CommandJsonShape): CommandJsonShape => ({ kind: "array", items });
+const property = (name: string, schema: CommandJsonShape, required = true): JsonProperty => ({
   name,
   required,
   schema,
 });
-export const objectShape = (
+const objectShape = (
   properties: ReadonlyArray<JsonProperty>,
   rules?: ReadonlyArray<string>,
 ): CommandJsonShape => ({

@@ -45,6 +45,7 @@ Use the repo-local Vite+ binary for test-bearing commands so the runner and
 Run focused checks when they match your change:
 
 ```bash
+pnpm exec vp run check:dead-code
 pnpm exec vp run smoke:pack
 pnpm exec vp run build:sea
 pnpm exec vp run verify:sea
@@ -57,7 +58,7 @@ See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, an
 ## Development Notes
 
 - `verify` is the repository delivery gate.
-- `verify` enforces the production Effect runtime boundary, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
+- `verify` enforces the production Effect runtime boundary and dead-code checks, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
 - `vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
 - Prefer `vp install`, `vp test`, and `vp check` for day-to-day local loops.
 - Keep top-level user docs in `README.md` and contributor workflow here.

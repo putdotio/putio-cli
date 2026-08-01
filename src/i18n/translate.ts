@@ -35,7 +35,7 @@ type TranslationParams<T extends string> = [ExtractPlaceholders<T>] extends [nev
   ? undefined
   : Record<ExtractPlaceholders<T>, Primitive>;
 
-export type StringsCatalog = typeof en;
+type StringsCatalog = typeof en;
 export type StringKey = LeafPaths<StringsCatalog>;
 export type SupportedLocale = "en";
 
@@ -62,7 +62,7 @@ void instance.init({
   resources,
 });
 
-export const defaultLocale: SupportedLocale = "en";
+const defaultLocale: SupportedLocale = "en";
 
 export const createTranslator = (locale: SupportedLocale = defaultLocale) => {
   return <K extends StringKey>(key: K, params?: StringParams<K>) =>

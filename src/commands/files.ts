@@ -91,22 +91,22 @@ const NonBlankStringSchema = Schema.String.check(
 
 const NonEmptyIdsSchema = Schema.Array(Schema.Number).check(Schema.isNonEmpty());
 
-export const FilesMkdirInputSchema = Schema.Struct({
+const FilesMkdirInputSchema = Schema.Struct({
   name: NonBlankStringSchema,
   parent_id: Schema.optional(Schema.Number),
 });
 
-export const FilesRenameInputSchema = Schema.Struct({
+const FilesRenameInputSchema = Schema.Struct({
   file_id: Schema.Number,
   name: NonBlankStringSchema,
 });
 
-export const FilesDeleteInputSchema = Schema.Struct({
+const FilesDeleteInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
   skip_trash: Schema.optional(Schema.Boolean),
 });
 
-export const FilesMoveInputSchema = Schema.Struct({
+const FilesMoveInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
   parent_id: Schema.Number,
 });

@@ -394,7 +394,7 @@ export const parseRepeatedIntegers = (
   return Option.some(parsed);
 };
 
-export const parseRepeatedIntegerOption = (name: string) =>
+const parseRepeatedIntegerOption = (name: string) =>
   Flag.string(name).pipe(
     Flag.atLeast(0),
     Flag.filterMap(parseRepeatedIntegers, () => `Expected \`--${name}\` values to be integers.`),

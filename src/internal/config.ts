@@ -36,16 +36,16 @@ const PutioCliAuthFlowConfigSchema = Schema.Struct({
 
 type PutioCliAuthFlowConfig = Schema.Schema.Type<typeof PutioCliAuthFlowConfigSchema>;
 
-export const CliRuntimeConfigSchema = Schema.Struct({
+const CliRuntimeConfigSchema = Schema.Struct({
   apiBaseUrl: UrlStringSchema,
   configPath: NonEmptyStringSchema,
   profile: Schema.optional(NonEmptyStringSchema),
   token: Schema.optional(NonEmptyStringSchema),
 });
 
-export type CliRuntimeConfig = Schema.Schema.Type<typeof CliRuntimeConfigSchema>;
+type CliRuntimeConfig = Schema.Schema.Type<typeof CliRuntimeConfigSchema>;
 
-export class CliConfigError extends Data.TaggedError("CliConfigError")<{
+class CliConfigError extends Data.TaggedError("CliConfigError")<{
   readonly message: string;
 }> {}
 

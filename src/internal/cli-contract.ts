@@ -12,13 +12,10 @@ import {
   CommandDescriptorSchema,
   decodeCommandSpecs,
   outputFlag,
-  type CliOutputContract,
-  type CommandDescriptor,
   type CommandSpec,
 } from "./command-specs.js";
 
 export { CliOutputContractSchema, CommandDescriptorSchema };
-export type { CliOutputContract, CommandDescriptor };
 
 const describeCommandSpec = {
   auth: { required: false },

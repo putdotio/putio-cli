@@ -1,1 +1,1 @@
-export { createTranslator, defaultLocale, translate } from "./translate.js";
+export { createTranslator, translate } from "./translate.js";

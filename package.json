@@ -38,6 +38,7 @@
     "build:sea": "node ./scripts/build-sea.mts",
     "check": "vp check .",
     "check:architecture": "node ./scripts/check-architecture.mts",
+    "check:dead-code": "knip",
     "coverage": "vp test run --coverage",
     "dev": "vp pack --watch",
     "prepare": "node ./scripts/prepare-effect.mts",
@@ -46,7 +47,7 @@
     "test": "vp test",
     "prepublishOnly": "npm run build",
     "verify:sea": "node ./scripts/verify-sea.mjs",
-    "verify": "node ./scripts/check-architecture.mts && vp check . && vp run smoke:pack && vp test && vp test run --coverage"
+    "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run smoke:pack && vp test && vp test run --coverage"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-beta.102",
@@ -60,7 +61,7 @@
     "@types/node": "^26.1.0",
     "@vitest/coverage-v8": "catalog:",
     "esbuild": "^0.28.1",
-    "is-ci": "^4.1.0",
+    "knip": "6.31.0",
     "postject": "^1.0.0-alpha.6",
     "typescript": "^7.0.2",
     "vite": "catalog:",

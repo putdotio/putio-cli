@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 import { Context, Effect, Layer } from "effect";
 
-export type CliSpinner = {
+type CliSpinner = {
   readonly stop: Effect.Effect<void>;
 };
 
