@@ -1,1 +1,1 @@
-vp staged
+pnpm exec vp staged

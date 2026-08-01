@@ -1,1 +1,1 @@
-vp run verify
+pnpm exec vp run verify
