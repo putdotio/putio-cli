@@ -37,8 +37,7 @@ Runtime proofs:
 ## Worktrees
 
 `.worktreeinclude` reuses `.repos`; Claude symlinks it to avoid another copy.
-Run `vp install`, `vp config`, then `pnpm exec vp run verify`. No Infisical
-setup is required.
+Run `vp install`, `vp config`, then `pnpm exec vp run verify`.
 
 ## Development Guidance
 
