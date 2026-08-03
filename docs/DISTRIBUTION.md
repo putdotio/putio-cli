@@ -26,7 +26,7 @@ Environment entries:
 - refs: release branch/tag policy constrains what can publish
 - deployment records: disabled with `deployment: false` because this is package publishing, not an app deploy
 
-Release GitHub writes use `putio-release-bot` for version sync commits, `v*` tags, GitHub Releases, binary asset uploads, and Homebrew tap formula commits. The app installation grants Contents read and write access to `putio-cli` and `homebrew-tap`; the Homebrew job mints an installation token scoped to those two repositories.
+Release GitHub writes use `putio-releaser` for version sync commits, `v*` tags, GitHub Releases, binary asset uploads, and Homebrew tap formula commits. The app installation grants Contents read and write access to `putio-cli` and `homebrew-tap`; the Homebrew job mints an installation token scoped to those two repositories.
 
 The npm package uses Trusted Publishing from GitHub Actions. On npm, configure owner `putdotio`, repository `putio-cli`, workflow `ci.yml`, and Environment named `release` for the package.
 
