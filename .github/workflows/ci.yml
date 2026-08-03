@@ -290,6 +290,19 @@ jobs:
             homebrew-tap
           permission-contents: write
 
+      - name: Resolve Homebrew release bot user ID
+        id: homebrew-release-bot-user
+        env:
+          BOT_LOGIN: ${{ steps.homebrew-release-bot.outputs.app-slug }}[bot]
+          GH_TOKEN: ${{ steps.homebrew-release-bot.outputs.token }}
+        run: |
+          bot_user_id="$(gh api "/users/$BOT_LOGIN" --jq .id)"
+          if [[ ! "$bot_user_id" =~ ^[0-9]+$ ]]; then
+            echo "Expected a numeric GitHub App user ID" >&2
+            exit 1
+          fi
+          echo "user-id=$bot_user_id" >> "$GITHUB_OUTPUT"
+
       - name: Release to Homebrew tap
         uses: Justintime50/homebrew-releaser@a62d7a359683bfc047cdb2431f53ee58241464d1 # v3
         with:
@@ -297,7 +310,7 @@ jobs:
           homebrew_tap: homebrew-tap
           github_token: ${{ steps.homebrew-release-bot.outputs.token }}
           commit_owner: ${{ steps.homebrew-release-bot.outputs.app-slug }}[bot]
-          commit_email: ${{ steps.homebrew-release-bot.outputs.app-slug }}[bot]@users.noreply.github.com
+          commit_email: ${{ steps.homebrew-release-bot-user.outputs.user-id }}+${{ steps.homebrew-release-bot.outputs.app-slug }}[bot]@users.noreply.github.com
           branch: main
           formula_folder: Formula
           install: 'bin.install "putio"'
