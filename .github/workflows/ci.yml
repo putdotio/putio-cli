@@ -292,9 +292,17 @@ jobs:
 
       - name: Resolve Homebrew release bot user ID
         id: homebrew-release-bot-user
-        run: echo "user-id=$(gh api "/users/${{ steps.homebrew-release-bot.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ steps.homebrew-release-bot.outputs.token }}
+          APP_SLUG: ${{ steps.homebrew-release-bot.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          user_id="$(gh api "/users/${APP_SLUG}[bot]" --jq .id)"
+          if [[ ! "$user_id" =~ ^[0-9]+$ ]]; then
+            echo "failed to resolve numeric bot user id for ${APP_SLUG}[bot]" >&2
+            exit 1
+          fi
+          echo "user-id=${user_id}" >> "$GITHUB_OUTPUT"
 
       - name: Release to Homebrew tap
         uses: Justintime50/homebrew-releaser@a62d7a359683bfc047cdb2431f53ee58241464d1 # v3
