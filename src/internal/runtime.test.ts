@@ -80,13 +80,14 @@ describe("makeCliRuntime", () => {
   });
 
   it("returns false when the opener emits an asynchronous spawn error", async () => {
+    const unref = vi.fn();
     spawnMock.mockImplementation(() => {
       const child = new EventEmitter() as EventEmitter & {
         pid: undefined;
         unref: ReturnType<typeof vi.fn>;
       };
       child.pid = undefined;
-      child.unref = vi.fn();
+      child.unref = unref;
       queueMicrotask(() => child.emit("error", new Error("missing opener")));
       return child;
     });
@@ -96,9 +97,10 @@ describe("makeCliRuntime", () => {
     await expect(Effect.runPromise(runtime.openExternal("https://app.put.io"))).resolves.toBe(
       false,
     );
+    expect(unref).not.toHaveBeenCalled();
   });
 
-  it("aborts opener startup and removes listeners when interrupted", async () => {
+  it("aborts opener startup without leaving AbortError unhandled", async () => {
     const child = new EventEmitter() as EventEmitter & {
       unref: ReturnType<typeof vi.fn>;
     };
@@ -106,6 +108,11 @@ describe("makeCliRuntime", () => {
     let spawnSignal: AbortSignal | undefined;
     spawnMock.mockImplementation((_file, _args, options: { signal: AbortSignal }) => {
       spawnSignal = options.signal;
+      options.signal.addEventListener(
+        "abort",
+        () => queueMicrotask(() => child.emit("error", new Error("aborted"))),
+        { once: true },
+      );
       return child;
     });
 
@@ -113,10 +120,13 @@ describe("makeCliRuntime", () => {
     const fiber = Effect.runFork(runtime.openExternal("https://app.put.io"));
 
     await Effect.runPromise(Fiber.interrupt(fiber));
+    await Promise.resolve();
 
     expect(spawnSignal?.aborted).toBe(true);
     expect(child.listenerCount("error")).toBe(0);
     expect(child.listenerCount("spawn")).toBe(0);
+    expect(child.listenerCount("close")).toBe(0);
+    expect(child.unref).not.toHaveBeenCalled();
   });
 
   it("starts and stops a spinner and clears the terminal line", async () => {

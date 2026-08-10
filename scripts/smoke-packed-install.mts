@@ -34,8 +34,7 @@ type TransfersList = {
   readonly transfers: ReadonlyArray<unknown>;
 };
 
-type NpmDependencyTree = {
-  readonly dependencies?: Record<string, NpmDependencyTree>;
+type NpmPackageInventoryEntry = {
   readonly version?: string;
 };
 
@@ -139,24 +138,16 @@ const startMockApi = () =>
 
       const port = Number(stdout.slice(0, newline));
       clearTimeout(timer);
-      assert(Number.isInteger(port) && port > 0, "Expected the API server to report a port.");
+
+      if (!Number.isInteger(port) || port <= 0) {
+        child.kill();
+        reject(new Error(`Expected the API server to report a valid port. ${stderr}`.trim()));
+        return;
+      }
+
       resolve({ baseUrl: `http://127.0.0.1:${port}`, child });
     });
   });
-
-const collectEffectVersions = (tree: NpmDependencyTree) => {
-  const versions = new Set<string>();
-
-  const visit = (node: NpmDependencyTree) => {
-    for (const [name, dependency] of Object.entries(node.dependencies ?? {})) {
-      if (name === "effect" && dependency.version) versions.add(dependency.version);
-      visit(dependency);
-    }
-  };
-
-  visit(tree);
-  return versions;
-};
 
 const readFailureMessage = (value: unknown) => {
   if (
@@ -391,20 +382,20 @@ try {
   JSON.parse(describeOutput);
   smokeAuthProfiles(binaryPath);
 
-  const dependencyTree = JSON.parse(
-    execFileSync("npm", ["ls", "effect", "--all", "--json"], {
+  const effectInventory = JSON.parse(
+    execFileSync("npm", ["query", '[name="effect"]', "--json"], {
       cwd: installDir,
       encoding: "utf8",
       stdio: "pipe",
       timeout: commandTimeoutMs,
     }),
-  ) as NpmDependencyTree;
-  const effectVersions = collectEffectVersions(dependencyTree);
+  ) as ReadonlyArray<NpmPackageInventoryEntry>;
+  const effectVersions = effectInventory.flatMap((entry) =>
+    entry.version === undefined ? [] : [entry.version],
+  );
   assert(
-    effectVersions.size === 1 && effectVersions.has("4.0.0-beta.107"),
-    `Expected the package to install one Effect 4.0.0-beta.107 runtime, received ${[
-      ...effectVersions,
-    ].join(", ")}.`,
+    effectVersions.length === 1 && effectVersions[0] === "4.0.0-beta.107",
+    `Expected the package to install one Effect 4.0.0-beta.107 runtime, received ${effectVersions.join(", ")}.`,
   );
 
   const mockApi = await startMockApi();

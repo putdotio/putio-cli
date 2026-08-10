@@ -50,19 +50,25 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
 
     const onError = () => {
       child.removeListener("spawn", onSpawn);
+      child.removeListener("close", onClose);
       resume(Effect.succeed(false));
+    };
+    const onClose = () => {
+      child.removeListener("error", onError);
+      child.removeListener("spawn", onSpawn);
     };
     const onSpawn = () => {
       child.removeListener("error", onError);
+      child.removeListener("close", onClose);
       child.unref();
       resume(Effect.succeed(true));
     };
 
+    child.once("close", onClose);
     child.once("error", onError);
     child.once("spawn", onSpawn);
 
     return Effect.sync(() => {
-      child.removeListener("error", onError);
       child.removeListener("spawn", onSpawn);
     });
   });
