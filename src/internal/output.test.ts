@@ -35,28 +35,6 @@ describe("sanitizeTerminalValue", () => {
     });
   });
 
-  it("redacts snake-case and camel-case credential keys used by sdk payloads", () => {
-    expect(
-      sanitizeStructuredValue({
-        accesstoken: "compact-access-token",
-        authtoken: "compact-auth-token",
-        clientSecret: "client-secret",
-        download_token: "download-token",
-        oauthToken: "oauth-token",
-        push_token: "push-token",
-        refreshtoken: "compact-refresh-token",
-      }),
-    ).toEqual({
-      accesstoken: "[REDACTED]",
-      authtoken: "[REDACTED]",
-      clientSecret: "[REDACTED]",
-      download_token: "[REDACTED]",
-      oauthToken: "[REDACTED]",
-      push_token: "[REDACTED]",
-      refreshtoken: "[REDACTED]",
-    });
-  });
-
   it("preserves non-plain objects for renderers", () => {
     const date = new Date("2026-01-01T00:00:00.000Z");
 
@@ -141,6 +119,28 @@ describe("renderNdjson", () => {
 });
 
 describe("sanitizeStructuredValue", () => {
+  it("redacts snake-case and camel-case credential keys used by sdk payloads", () => {
+    expect(
+      sanitizeStructuredValue({
+        accesstoken: "compact-access-token",
+        authtoken: "compact-auth-token",
+        clientSecret: "client-secret",
+        download_token: "download-token",
+        oauthToken: "oauth-token",
+        push_token: "push-token",
+        refreshtoken: "compact-refresh-token",
+      }),
+    ).toEqual({
+      accesstoken: "[REDACTED]",
+      authtoken: "[REDACTED]",
+      clientSecret: "[REDACTED]",
+      download_token: "[REDACTED]",
+      oauthToken: "[REDACTED]",
+      push_token: "[REDACTED]",
+      refreshtoken: "[REDACTED]",
+    });
+  });
+
   it("preserves schema sentinel values for sensitive-looking keys", () => {
     expect(sanitizeStructuredValue({ persistedConfigShape: { auth_token: "string" } })).toEqual({
       persistedConfigShape: { auth_token: "string" },

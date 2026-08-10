@@ -104,6 +104,10 @@ export const listSdkOperations = (client: unknown): SdkOperationCatalog => {
       const operation = operationPath.join(".");
 
       if (typeof descriptor.value === "function") {
+        if (operationPath.length < 2) {
+          continue;
+        }
+
         const reason = getUnsupportedReason(operation);
         if (reason === undefined) {
           operations.push(operation);

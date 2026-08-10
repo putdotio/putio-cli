@@ -23,7 +23,7 @@ describe("sdk operations", () => {
       },
     });
 
-    expect(listSdkOperations({ files })).toEqual({
+    expect(listSdkOperations({ files, helper: () => Effect.void })).toEqual({
       operations: ["files.get"],
       unsupported: [],
     });
