@@ -186,6 +186,8 @@ describe("cli argv parsing", () => {
     }>;
     const mkdir = commands.find((entry) => entry.command === "files mkdir");
     const deleteFiles = commands.find((entry) => entry.command === "files delete");
+    const authApprove = commands.find((entry) => entry.command === "auth approve");
+    const startFromSet = commands.find((entry) => entry.command === "files start-from set");
 
     expect(mkdir?.input.json?.properties).toEqual(
       expect.arrayContaining([
@@ -197,6 +199,15 @@ describe("cli argv parsing", () => {
       expect.arrayContaining([
         expect.objectContaining({ name: "ids", required: true }),
         expect.objectContaining({ name: "skip_trash", required: false }),
+      ]),
+    );
+    expect(authApprove?.input.json?.properties).toEqual([
+      expect.objectContaining({ name: "code", required: true }),
+    ]);
+    expect(startFromSet?.input.json?.properties).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "file_id", required: true }),
+        expect.objectContaining({ name: "time", required: true }),
       ]),
     );
   });

@@ -128,6 +128,15 @@ const createCommandPathMocks = () => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
+  const linkDeviceMock = vi.fn(() =>
+    Effect.succeed({
+      description: "Living room TV",
+      has_icon: false,
+      id: 77,
+      name: "put.io TV",
+      website: "https://put.io",
+    }),
+  );
   const continueTransfersMock = vi.fn((_cursor?: string) => Effect.succeed(emptyTransferListPage));
   const listTransfersMock = vi.fn(() => Effect.succeed(defaultTransferListPage));
   const addTransfersMock = vi.fn(() =>
@@ -175,6 +184,9 @@ const createCommandPathMocks = () => {
   const continueSearchFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
   const listFilesMock = vi.fn(() => Effect.succeed(defaultFileListPage));
   const searchFilesMock = vi.fn(() => Effect.succeed(defaultSearchFilesPage));
+  const getStartFromMock = vi.fn(() => Effect.succeed(90));
+  const setStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
+  const resetStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
   const getAccountInfoMock = vi.fn(() => Effect.succeed(defaultAccountInfo()));
   const listEventsMock = vi.fn(() => Effect.succeed(defaultEventsResponse()));
   const createDownloadLinksMock = vi.fn(() => Effect.succeed({ id: 55 }));
@@ -261,6 +273,7 @@ const createCommandPathMocks = () => {
     auth: {
       checkCodeMatch: checkCodeMatchMock,
       getCode: getCodeMock,
+      linkDevice: linkDeviceMock,
     },
     downloadLinks: {
       create: createDownloadLinksMock,
@@ -274,10 +287,13 @@ const createCommandPathMocks = () => {
       continueSearch: continueSearchFilesMock,
       createFolder: createFolderMock,
       delete: deleteFilesMock,
+      getStartFrom: getStartFromMock,
       list: listFilesMock,
       move: moveFilesMock,
       rename: renameFileMock,
+      resetStartFrom: resetStartFromMock,
       search: searchFilesMock,
+      setStartFrom: setStartFromMock,
     },
     transfers: {
       addMany: addTransfersMock,
@@ -308,15 +324,18 @@ const createCommandPathMocks = () => {
     getAuthStatusMock,
     checkCodeMatchMock,
     getCodeMock,
+    getStartFromMock,
     getTransferMock,
     listEventsMock,
     listFilesMock,
     listProfilesMock,
     listTransfersMock,
+    linkDeviceMock,
     moveFilesMock,
     openBrowserMock,
     provideSdkMock,
     renameFileMock,
+    resetStartFromMock,
     reannounceTransferMock,
     removeProfileMock,
     resolveAuthFlowConfigMock,
@@ -324,6 +343,7 @@ const createCommandPathMocks = () => {
     retryTransferMock,
     savePersistedStateMock,
     searchFilesMock,
+    setStartFromMock,
     useProfileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
@@ -351,6 +371,15 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
   mocks.provideSdkMock.mockImplementation((_config, program) => program);
   mocks.getCodeMock.mockImplementation(() => Effect.succeed({ code: "PUTIO1" }));
   mocks.checkCodeMatchMock.mockImplementation(() => Effect.succeed("token-123"));
+  mocks.linkDeviceMock.mockImplementation(() =>
+    Effect.succeed({
+      description: "Living room TV",
+      has_icon: false,
+      id: 77,
+      name: "put.io TV",
+      website: "https://put.io",
+    }),
+  );
   mocks.continueTransfersMock.mockImplementation(() =>
     Effect.succeed({
       cursor: null,
@@ -407,6 +436,9 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
       ],
     }),
   );
+  mocks.getStartFromMock.mockImplementation(() => Effect.succeed(90));
+  mocks.setStartFromMock.mockImplementation(() => Effect.succeed({ status: "OK" }));
+  mocks.resetStartFromMock.mockImplementation(() => Effect.succeed({ status: "OK" }));
   mocks.getAccountInfoMock.mockImplementation(() => Effect.succeed(defaultAccountInfo()));
   mocks.listEventsMock.mockImplementation(() => Effect.succeed(defaultEventsResponse()));
   mocks.createDownloadLinksMock.mockImplementation(() => Effect.succeed({ id: 55 }));

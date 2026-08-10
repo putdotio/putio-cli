@@ -1,6 +1,6 @@
 import { Argument, Command } from "effect/unstable/cli";
 import * as Terminal from "effect/Terminal";
-import { Cause, Console, Effect, Fiber, Option, Queue } from "effect";
+import { Cause, Console, Effect, Fiber, Option, Queue, Schema } from "effect";
 
 import { translate } from "../i18n/index.js";
 import {
@@ -17,12 +17,24 @@ import {
   defineBooleanOption,
   defineIntegerOption,
   defineTextOption,
+  dryRunOption,
   getOption,
+  jsonOption,
   outputOption,
+  resolveMutationInput,
   validateResourceIdentifier,
+  withAuthedSdk,
+  writeDryRunPlan,
   CliCommandInputError,
 } from "../internal/command.js";
-import { outputFlag, stringArgument, type CommandSpec } from "../internal/command-specs.js";
+import {
+  dryRunFlag,
+  jsonFlag,
+  jsonShapeFromSchema,
+  outputFlag,
+  stringArgument,
+  type CommandSpec,
+} from "../internal/command-specs.js";
 import type { CliConfig } from "../internal/config.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -58,9 +70,20 @@ const timeoutSecondsOption = timeoutSecondsConfig.option;
 const previewCodeOption = previewCodeConfig.option;
 const profileOption = profileConfig.option;
 const profileArgument = Argument.string("profile");
+const approveCodeArgument = Argument.string("code").pipe(Argument.optional);
 const profileCommandArgument = stringArgument("profile", {
   description: AUTH_PROFILE_NAME_DESCRIPTION,
   required: true,
+});
+
+const NonBlankStringSchema = Schema.String.check(
+  Schema.makeFilter((value) =>
+    value.trim().length > 0 ? undefined : "Expected a non-empty string",
+  ),
+);
+
+const AuthApproveInputSchema = Schema.Struct({
+  code: NonBlankStringSchema,
 });
 
 type AuthCommandEnvironment =
@@ -318,6 +341,45 @@ const authPreview = Command.make(
     }),
 );
 
+const authApprove = Command.make(
+  "approve",
+  {
+    code: approveCodeArgument,
+    dryRun: dryRunOption,
+    json: jsonOption,
+    output: outputOption,
+  },
+  ({ code, dryRun, json, output }) =>
+    Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => {
+          const value = getOption(code);
+
+          if (value === undefined) {
+            throw new CliCommandInputError({
+              message: "Provide a device code or `--json` for `auth approve`.",
+            });
+          }
+
+          return { code: value };
+        },
+        json,
+        schema: AuthApproveInputSchema,
+      });
+      const approvedCode = validateResourceIdentifier("`auth approve` code", input.code);
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("auth approve", { code: approvedCode }, getOption(output));
+      }
+
+      const result = yield* withAuthedSdk(({ sdk }) => sdk.auth.linkDevice(approvedCode));
+
+      yield* writeOutput(result, getOption(output), (value) =>
+        translate("cli.auth.approve.approved", { id: value.id, name: value.name }),
+      );
+    }),
+);
+
 const authProfilesList = Command.make("list", { output: outputOption }, ({ output }) =>
   Effect.gen(function* () {
     const result = yield* listProfiles();
@@ -375,10 +437,39 @@ const authProfiles = Command.make("profiles", {}, () => Effect.void).pipe(
 
 export const makeAuthCommand = (): AuthCommand =>
   Command.make("auth", {}, () => Console.log(translate("cli.root.chooseAuthSubcommand"))).pipe(
-    Command.withSubcommands([authStatus, authLogin, authLogout, authPreview, authProfiles]),
+    Command.withSubcommands([
+      authStatus,
+      authLogin,
+      authLogout,
+      authPreview,
+      authApprove,
+      authProfiles,
+    ]),
   );
 
 export const authCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "auth approve",
+    input: {
+      arguments: [
+        stringArgument("code", {
+          description: "Short code displayed by the device requesting authorization.",
+          required: false,
+        }),
+      ],
+      flags: [dryRunFlag(), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(AuthApproveInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.authApprove"),
+  },
   {
     auth: { required: false },
     capabilities: {

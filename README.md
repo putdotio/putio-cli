@@ -131,10 +131,25 @@ putio auth profiles list --output json
 putio auth profiles remove devs-fe-auto
 ```
 
+Approve a code displayed by another device:
+
+```bash
+putio auth approve PUTIO1 --dry-run --output json
+putio auth approve PUTIO1 --output json
+```
+
 Read a small JSON result:
 
 ```bash
 putio files list --per-page 5 --fields files,total --output json
+```
+
+Read or update a saved watch position:
+
+```bash
+putio files start-from get 42 --output json
+putio files start-from set 42 95 --dry-run --output json
+putio files start-from reset 42 --dry-run --output json
 ```
 
 Stream larger reads:

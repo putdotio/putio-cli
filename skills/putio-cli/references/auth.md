@@ -25,10 +25,17 @@ For interactive login:
 putio auth login
 ```
 
-For put.io device approval or previewing a device link without logging in:
+Preview a device-link URL without requesting or approving a real code:
 
 ```bash
 putio auth preview --code PUTIO1 --output json
+```
+
+Approve a code displayed by another device with the authenticated account:
+
+```bash
+putio auth approve PUTIO1 --dry-run --output json
+putio auth approve PUTIO1 --output json
 ```
 
 List or remove named profiles:
