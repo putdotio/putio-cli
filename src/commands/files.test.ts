@@ -5,6 +5,7 @@ import { renderFilesTerminal } from "../internal/terminal/files-terminal.js";
 import {
   renderFileCreatedTerminal,
   renderFileRenamedTerminal,
+  renderFileUploadedTerminal,
   renderFilesDeletedTerminal,
   renderFilesMovedTerminal,
 } from "./files.js";
@@ -54,6 +55,21 @@ describe("file mutation renderers", () => {
         name: "Projects 2026",
       }),
     ).toBe('renamed file 42 to "Projects 2026"');
+  });
+
+  it("renders direct and queued upload feedback", () => {
+    expect(
+      renderFileUploadedTerminal({
+        file: { id: 88, name: "movie.mp4" },
+        type: "file",
+      }),
+    ).toBe('uploaded file "movie.mp4" (id 88)');
+    expect(
+      renderFileUploadedTerminal({
+        transfer: { id: 89, name: "archive.zip" },
+        type: "transfer",
+      }),
+    ).toBe('queued upload transfer "archive.zip" (id 89)');
   });
 
   it("renders delete feedback", () => {

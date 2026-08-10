@@ -137,6 +137,13 @@ Read a small JSON result:
 putio files list --per-page 5 --fields files,total --output json
 ```
 
+Upload a local file:
+
+```bash
+putio files upload --path ./movie.mp4 --parent-id 42 --dry-run --output json
+putio files upload --path ./movie.mp4 --parent-id 42 --output json
+```
+
 Stream larger reads:
 
 ```bash

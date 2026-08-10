@@ -24,6 +24,7 @@ Input safety notes:
 - resource identifiers reject query fragments and traversal-like segments
 - field selectors reject nested paths and malformed tokens
 - name-like inputs reject control characters and traversal-like segments
+- local upload paths reject control characters and must resolve to readable regular files
 
 Output safety notes:
 

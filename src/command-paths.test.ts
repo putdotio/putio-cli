@@ -1,3 +1,7 @@
+import { chmod, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Effect } from "effect";
 
@@ -132,6 +136,12 @@ const mocks = vi.hoisted(() => {
   const continueSearchFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
   const listFilesMock = vi.fn(() => Effect.succeed(defaultFileListPage));
   const searchFilesMock = vi.fn(() => Effect.succeed(defaultSearchFilesPage));
+  const uploadFileMock = vi.fn(() =>
+    Effect.succeed({
+      file: { id: 88, name: "movie.mp4" },
+      type: "file" as const,
+    }),
+  );
   const getAccountInfoMock = vi.fn(() =>
     Effect.succeed({
       account_status: "ACTIVE",
@@ -281,6 +291,7 @@ const mocks = vi.hoisted(() => {
       move: moveFilesMock,
       rename: renameFileMock,
       search: searchFilesMock,
+      upload: uploadFileMock,
     },
     transfers: {
       addMany: addTransfersMock,
@@ -328,6 +339,7 @@ const mocks = vi.hoisted(() => {
     savePersistedStateMock,
     searchFilesMock,
     useProfileMock,
+    uploadFileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
     withTerminalLoaderMock,
@@ -943,6 +955,130 @@ describe("cli command paths", () => {
       "json",
       expect.any(Function),
     );
+  });
+
+  it("uploads a readable local file with the mocked sdk", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
+    const path = join(directory, "movie.mp4");
+    await writeFile(path, "video fixture");
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--path",
+        path,
+        "--parent-id",
+        "42",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.uploadFileMock).toHaveBeenCalledWith({
+      file: expect.any(Blob),
+      fileName: "movie.mp4",
+      parentId: 42,
+    });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        file: { id: 88, name: "movie.mp4" },
+        type: "file",
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("previews a local file upload from raw json without hitting the sdk", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
+    const path = join(directory, "movie.mp4");
+    await writeFile(path, "video fixture");
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--json",
+        JSON.stringify({ file_name: "fixture.mp4", parent_id: 42, path }),
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "files upload",
+        dryRun: true,
+        request: {
+          file_name: "fixture.mp4",
+          parent_id: 42,
+          path,
+          size: 13,
+        },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("rejects directory paths before file upload", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
+
+    await expect(
+      runCliInTest(["putio", "files", "upload", "--path", directory, "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: "Expected the upload path to point to a regular file.",
+    });
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unreadable files before previewing an upload", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
+    const path = join(directory, "private.mp4");
+    await writeFile(path, "video fixture", { mode: 0o000 });
+
+    try {
+      await expect(
+        runCliInTest(["putio", "files", "upload", "--path", path, "--dry-run", "--output", "json"]),
+      ).rejects.toMatchObject({
+        message:
+          "Unable to read the local upload file. Verify that the path exists and is readable.",
+      });
+    } finally {
+      await chmod(path, 0o600);
+    }
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blank upload filename before hitting the sdk", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
+    const path = join(directory, "movie.mp4");
+    await writeFile(path, "video fixture");
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--path",
+        path,
+        "--file-name",
+        "   ",
+        "--output",
+        "json",
+      ]),
+    ).rejects.toMatchObject({
+      message: "Expected `files upload --file-name` to be a non-empty string.",
+    });
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
   });
 
   it("executes files delete with repeated ids", async () => {
