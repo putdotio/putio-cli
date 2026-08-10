@@ -36,8 +36,9 @@ Runtime proofs:
 
 ## Worktrees
 
-`.worktreeinclude` reuses `.repos`; Claude symlinks it to avoid another copy.
-Run `vp install`, `vp config`, then `pnpm exec vp run verify`.
+Run `pnpm exec vp install`, `pnpm exec vp config`, then
+`pnpm exec vp run verify`. Effect guidance and inspectable source come from the
+installed package under `node_modules/effect`.
 
 ## Development Guidance
 

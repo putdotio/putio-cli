@@ -41,7 +41,6 @@
     "check:dead-code": "knip",
     "coverage": "vp test run --coverage",
     "dev": "vp pack --watch",
-    "prepare": "node ./scripts/prepare-effect.mts",
     "prepack": "vp pack",
     "smoke:pack": "node ./scripts/smoke-packed-install.mts",
     "test": "vp test",

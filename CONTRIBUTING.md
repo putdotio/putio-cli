@@ -7,13 +7,13 @@ Thanks for contributing to `putio-cli`.
 Use the Node version required by [`package.json`](./package.json), then install dependencies:
 
 ```bash
-vp install
+pnpm exec vp install
 ```
 
 Then install the stock VitePlus hook wiring for this clone:
 
 ```bash
-vp config
+pnpm exec vp config
 ```
 
 ## Run Locally
@@ -21,13 +21,13 @@ vp config
 Start the local build watcher:
 
 ```bash
-vp run dev
+pnpm exec vp run dev
 ```
 
 Build the CLI once and try the shipped entrypoint:
 
 ```bash
-vp run build
+pnpm exec vp run build
 ./dist/bin.mjs describe
 ```
 
@@ -59,8 +59,8 @@ See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, an
 
 - `verify` is the repository delivery gate.
 - `verify` enforces the production Effect runtime boundary and dead-code checks, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
-- `vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
-- Prefer `vp install`, `vp test`, and `vp check` for day-to-day local loops.
+- `pnpm exec vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
+- Prefer `pnpm exec vp install`, `pnpm exec vp test`, and `pnpm exec vp check` for day-to-day local loops.
 - Keep the exact Effect versions, the Effect override, and the pnpm SDK compatibility patch aligned. The patch updates the SDK's schema-backed error constructor for the installed Effect runtime.
 - Keep top-level user docs in `README.md` and contributor workflow here.
 - Put deeper implementation detail in `docs/` instead of growing the top-level docs.
