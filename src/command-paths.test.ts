@@ -652,7 +652,7 @@ describe("cli command paths", () => {
         "auth",
         "approve",
         "--json",
-        '{"code":"HELLO1"}',
+        '{"code":"  HELLO1  "}',
         "--dry-run",
         "--output",
         "json",

@@ -366,7 +366,7 @@ const authApprove = Command.make(
         json,
         schema: AuthApproveInputSchema,
       });
-      const approvedCode = validateResourceIdentifier("`auth approve` code", input.code);
+      const approvedCode = validateResourceIdentifier("`auth approve` code", input.code.trim());
 
       if (dryRun) {
         return yield* writeDryRunPlan("auth approve", { code: approvedCode }, getOption(output));
