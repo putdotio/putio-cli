@@ -7,6 +7,7 @@ import { brandCommand, versionCommand } from "./commands/brand.js";
 import { downloadLinksCommand } from "./commands/download-links.js";
 import { eventsCommand } from "./commands/events.js";
 import { filesCommand, searchCommand } from "./commands/files.js";
+import { sdkCommand } from "./commands/sdk.js";
 import { translate } from "./i18n/index.js";
 import type { CliConfig } from "./internal/config.js";
 import { transfersCommand } from "./commands/transfers.js";
@@ -41,6 +42,7 @@ const command = Command.make("putio", {}, () => Console.log(translate("cli.root.
     eventsCommand,
     filesCommand,
     searchCommand,
+    sdkCommand,
     transfersCommand,
   ]),
 );

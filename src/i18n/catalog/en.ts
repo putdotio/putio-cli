@@ -257,6 +257,8 @@ export const en = {
       filesRename: "Rename a file by id.",
       filesSearch: "Search files by query and optional file type.",
       search: "Top-level alias for file search.",
+      sdkCall: "Invoke a JSON-compatible function from the pinned put.io TypeScript SDK.",
+      sdkList: "List JSON-callable functions exposed by the pinned put.io TypeScript SDK.",
       transfersAdd: "Add one or more transfers from URLs or magnet links.",
       transfersCancel: "Cancel one or more transfers.",
       transfersClean: "Clean all transfers or a selected set of transfer ids.",
@@ -270,6 +272,12 @@ export const en = {
     root: {
       chooseAuthSubcommand: "Choose `status`, `login`, `logout`, or `preview`.",
       help: "Use `putio describe` or `putio --help`.",
+    },
+    sdk: {
+      chooseSubcommand: "Choose `list` or `call`.",
+      command: {
+        calling: "Calling SDK operation {{operation}}...",
+      },
     },
     transfers: {
       command: {

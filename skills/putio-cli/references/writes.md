@@ -17,6 +17,8 @@ Examples:
 putio download-links create --json '{"ids":[1,2]}' --output json
 putio files mkdir --json '{"name":"Projects","parent_id":9}' --output json
 putio transfers add --json '[{"url":"https://example.com/file.torrent"}]' --output json
+putio sdk call --json '{"operation":"files.get","args":[42]}' --dry-run --output json
+putio sdk call --json '{"operation":"files.get","args":[42]}' --execute --output json
 ```
 
 Rules:
@@ -24,3 +26,4 @@ Rules:
 - Prefer `--json` over translating through many bespoke flags.
 - Prefer `--dry-run` before side effects.
 - Re-check schema-required keys in `describe` instead of guessing names.
+- Treat every `sdk call` operation as potentially mutating and inspect its dry-run before `--execute`.

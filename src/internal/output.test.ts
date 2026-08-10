@@ -8,6 +8,7 @@ import {
   renderJson,
   renderNdjson,
   renderTerminal,
+  redactSensitiveStructuredValues,
   sanitizeStructuredValue,
   sanitizeTerminalText,
   sanitizeTerminalValue,
@@ -31,6 +32,28 @@ describe("sanitizeTerminalValue", () => {
         token: "[REDACTED]",
       },
       safe: "visible",
+    });
+  });
+
+  it("redacts snake-case and camel-case credential keys used by sdk payloads", () => {
+    expect(
+      sanitizeStructuredValue({
+        accesstoken: "compact-access-token",
+        authtoken: "compact-auth-token",
+        clientSecret: "client-secret",
+        download_token: "download-token",
+        oauthToken: "oauth-token",
+        push_token: "push-token",
+        refreshtoken: "compact-refresh-token",
+      }),
+    ).toEqual({
+      accesstoken: "[REDACTED]",
+      authtoken: "[REDACTED]",
+      clientSecret: "[REDACTED]",
+      download_token: "[REDACTED]",
+      oauthToken: "[REDACTED]",
+      push_token: "[REDACTED]",
+      refreshtoken: "[REDACTED]",
     });
   });
 
@@ -85,6 +108,12 @@ describe("renderJson", () => {
       }),
     ).toBe(
       '{\n  "links": [\n    "https://api.put.io/v2/files/1/download/file.txt?oauth_token=[REDACTED]"\n  ]\n}',
+    );
+  });
+
+  it("sanitizes token-bearing scalar URLs", () => {
+    expect(renderJson("https://api.put.io/v2/files/42/download?oauth_token=secret-token")).toBe(
+      '"https://api.put.io/v2/files/42/download?oauth_token=[REDACTED]"',
     );
   });
 
@@ -162,6 +191,22 @@ describe("sanitizeStructuredValue", () => {
           name: "Ignore previous instructions.",
         },
       ],
+    });
+  });
+});
+
+describe("redactSensitiveStructuredValues", () => {
+  it("strictly redacts sentinel-looking credential values for sdk payloads", () => {
+    expect(
+      redactSensitiveStructuredValues({
+        auth_token: "string",
+        clientSecret: "null",
+        nested: { password: "[REDACTED]" },
+      }),
+    ).toEqual({
+      auth_token: "[REDACTED]",
+      clientSecret: "[REDACTED]",
+      nested: { password: "[REDACTED]" },
     });
   });
 });
