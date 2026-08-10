@@ -1,4 +1,5 @@
-import { Effect } from "effect";
+import { Effect, Fiber } from "effect";
+import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { spawnMock } = vi.hoisted(() => ({
@@ -27,7 +28,16 @@ describe("makeCliRuntime", () => {
   });
 
   it("opens URLs with the right command for each platform", async () => {
-    spawnMock.mockReturnValue({ unref: vi.fn() });
+    spawnMock.mockImplementation(() => {
+      const child = new EventEmitter() as EventEmitter & {
+        pid: number;
+        unref: ReturnType<typeof vi.fn>;
+      };
+      child.pid = 123;
+      child.unref = vi.fn();
+      queueMicrotask(() => child.emit("spawn"));
+      return child;
+    });
 
     const darwin = makeCliRuntime({ platform: "darwin" });
     const linux = makeCliRuntime({ platform: "linux" });
@@ -41,19 +51,19 @@ describe("makeCliRuntime", () => {
       1,
       "open",
       ["https://app.put.io"],
-      expect.objectContaining({ detached: true, stdio: "ignore" }),
+      expect.objectContaining({ detached: true, signal: expect.any(AbortSignal), stdio: "ignore" }),
     );
     expect(spawnMock).toHaveBeenNthCalledWith(
       2,
       "xdg-open",
       ["https://app.put.io"],
-      expect.objectContaining({ detached: true, stdio: "ignore" }),
+      expect.objectContaining({ detached: true, signal: expect.any(AbortSignal), stdio: "ignore" }),
     );
     expect(spawnMock).toHaveBeenNthCalledWith(
       3,
       "cmd",
       ["/c", "start", "", "https://app.put.io"],
-      expect.objectContaining({ detached: true, stdio: "ignore" }),
+      expect.objectContaining({ detached: true, signal: expect.any(AbortSignal), stdio: "ignore" }),
     );
   });
 
@@ -67,6 +77,46 @@ describe("makeCliRuntime", () => {
     await expect(Effect.runPromise(runtime.openExternal("https://app.put.io"))).resolves.toBe(
       false,
     );
+  });
+
+  it("returns false when the opener emits an asynchronous spawn error", async () => {
+    spawnMock.mockImplementation(() => {
+      const child = new EventEmitter() as EventEmitter & {
+        pid: undefined;
+        unref: ReturnType<typeof vi.fn>;
+      };
+      child.pid = undefined;
+      child.unref = vi.fn();
+      queueMicrotask(() => child.emit("error", new Error("missing opener")));
+      return child;
+    });
+
+    const runtime = makeCliRuntime({ platform: "linux" });
+
+    await expect(Effect.runPromise(runtime.openExternal("https://app.put.io"))).resolves.toBe(
+      false,
+    );
+  });
+
+  it("aborts opener startup and removes listeners when interrupted", async () => {
+    const child = new EventEmitter() as EventEmitter & {
+      unref: ReturnType<typeof vi.fn>;
+    };
+    child.unref = vi.fn();
+    let spawnSignal: AbortSignal | undefined;
+    spawnMock.mockImplementation((_file, _args, options: { signal: AbortSignal }) => {
+      spawnSignal = options.signal;
+      return child;
+    });
+
+    const runtime = makeCliRuntime({ platform: "linux" });
+    const fiber = Effect.runFork(runtime.openExternal("https://app.put.io"));
+
+    await Effect.runPromise(Fiber.interrupt(fiber));
+
+    expect(spawnSignal?.aborted).toBe(true);
+    expect(child.listenerCount("error")).toBe(0);
+    expect(child.listenerCount("spawn")).toBe(0);
   });
 
   it("starts and stops a spinner and clears the terminal line", async () => {

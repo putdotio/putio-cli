@@ -1,7 +1,8 @@
 import type { MatchConditionLocalizer } from "@putdotio/sdk/utilities";
+import { Predicate } from "effect";
 
 export const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+  Predicate.isObjectOrArray(value);
 
 export const parseRetryAfterSeconds = (value: unknown): number | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) {

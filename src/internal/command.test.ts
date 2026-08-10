@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { Effect, Option, Schema } from "effect";
 
 import {
+  CliCommandInputError,
   collectAllCursorPages,
   decodeJsonOption,
   parseRepeatedIntegers,
@@ -336,6 +337,49 @@ describe("collectAllCursorPages", () => {
     if (exit._tag === "Failure") {
       expect(String(exit.cause)).toContain("pagination returned a repeated cursor");
     }
+  });
+
+  it("surfaces pagination validation through the typed error channel", async () => {
+    const failure = await Effect.runPromise(
+      Effect.flip(
+        collectAllCursorPages({
+          command: "files list",
+          continueWithCursor: () =>
+            Effect.succeed({
+              cursor: "cursor-1",
+              files: [{ id: 2 }],
+            }),
+          initial: {
+            cursor: "cursor-1",
+            files: [{ id: 1 }],
+          },
+          itemKey: "files",
+          pageAll: true,
+        }),
+      ),
+    );
+
+    expect(failure).toBeInstanceOf(CliCommandInputError);
+  });
+
+  it("preserves continuation failures for their owning error boundary", async () => {
+    const upstreamError = new Error("upstream unavailable");
+    const failure = await Effect.runPromise(
+      Effect.flip(
+        collectAllCursorPages({
+          command: "files list",
+          continueWithCursor: () => Effect.fail(upstreamError),
+          initial: {
+            cursor: "cursor-1",
+            files: [{ id: 1 }],
+          },
+          itemKey: "files",
+          pageAll: true,
+        }),
+      ),
+    );
+
+    expect(failure).toBe(upstreamError);
   });
 });
 

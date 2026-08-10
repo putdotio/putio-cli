@@ -49,6 +49,16 @@ Run `vp install`, `vp config`, then `pnpm exec vp run verify`.
 - When the public CLI surface or agent-facing setup flow changes, update [`README.md`](README.md) and [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md) together so the copy-paste prompt and consumer guidance stay aligned.
 - Keep docs free of volatile metrics.
 
+## Learning more about the Effect
+
+This repository uses the Effect Typescript library.
+
+Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
+**completely**, and follow the links in the file when required.
+
+If you need to learn more about particular Effect apis and concepts that the
+guide doesn't cover, search through the source code in `node_modules/effect/src`.
+
 ## Testing
 
 - Prefer in-process tests unless the process boundary is the behavior under test.

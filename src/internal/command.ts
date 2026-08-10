@@ -429,6 +429,12 @@ const mapInputError = (error: unknown, fallbackMessage: string) =>
         message: fallbackMessage,
       });
 
+const tryCommandInput = <A>(try_: () => A, fallbackMessage: string) =>
+  Effect.try({
+    try: try_,
+    catch: (error) => mapInputError(error, fallbackMessage),
+  });
+
 export const decodeJsonOption = <A>(schema: Schema.Codec<A>, raw: string) =>
   Effect.try({
     try: () => JSON.parse(raw) as unknown,
@@ -543,39 +549,64 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
       return input.initial;
     }
 
-    const collectedItems = [...readPageItems(input.initial, input.itemKey, input.command)];
+    const collectedItems = [
+      ...(yield* tryCommandInput(
+        () => readPageItems(input.initial, input.itemKey, input.command),
+        `Unable to validate the first page for \`${input.command}\`.`,
+      )),
+    ];
     const seenCursors = new Set<string>();
     let cursor = readCursor(input.initial);
     let pageCount = 1;
 
-    assertCursorPageBudget({
-      command: input.command,
-      itemCount: collectedItems.length,
-      pageCount,
-    });
+    yield* tryCommandInput(
+      () =>
+        assertCursorPageBudget({
+          command: input.command,
+          itemCount: collectedItems.length,
+          pageCount,
+        }),
+      `Unable to validate pagination for \`${input.command}\`.`,
+    );
 
     while (cursor !== null) {
-      assertCursorNotSeen({
-        command: input.command,
-        cursor,
-        seenCursors,
-      });
+      const currentCursor = cursor;
+      yield* tryCommandInput(
+        () =>
+          assertCursorNotSeen({
+            command: input.command,
+            cursor: currentCursor,
+            seenCursors,
+          }),
+        `Unable to validate pagination for \`${input.command}\`.`,
+      );
 
-      const nextPage = yield* input.continueWithCursor(cursor);
+      const nextPage = yield* input.continueWithCursor(currentCursor);
       const nextCursor = readCursor(nextPage);
-      assertCursorNotRepeated({
-        command: input.command,
-        cursor: nextCursor,
-        seenCursors,
-      });
-      const pageItems = readPageItems(nextPage, input.itemKey, input.command);
+      yield* tryCommandInput(
+        () =>
+          assertCursorNotRepeated({
+            command: input.command,
+            cursor: nextCursor,
+            seenCursors,
+          }),
+        `Unable to validate pagination for \`${input.command}\`.`,
+      );
+      const pageItems = yield* tryCommandInput(
+        () => readPageItems(nextPage, input.itemKey, input.command),
+        `Unable to validate a page for \`${input.command}\`.`,
+      );
       pageCount += 1;
       collectedItems.push(...pageItems);
-      assertCursorPageBudget({
-        command: input.command,
-        itemCount: collectedItems.length,
-        pageCount,
-      });
+      yield* tryCommandInput(
+        () =>
+          assertCursorPageBudget({
+            command: input.command,
+            itemCount: collectedItems.length,
+            pageCount,
+          }),
+        `Unable to validate pagination for \`${input.command}\`.`,
+      );
       cursor = nextCursor;
     }
 
@@ -584,11 +615,7 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
       [input.itemKey]: collectedItems,
       ...(Object.prototype.hasOwnProperty.call(input.initial, "cursor") ? { cursor: null } : {}),
     } as A;
-  }).pipe(
-    Effect.mapError((error) =>
-      mapInputError(error, `Unable to collect all pages for \`${input.command}\`.`),
-    ),
-  );
+  });
 
 export const writeReadOutput = <A extends Record<string, unknown>>(input: {
   readonly command: string;
@@ -650,12 +677,20 @@ export const writeReadPages = <A extends Record<string, unknown>, E, R>(input: {
 
     while (true) {
       if (input.itemKey) {
-        streamedItemCount += readPageItems(current, input.itemKey, input.command).length;
-        assertCursorPageBudget({
-          command: input.command,
-          itemCount: streamedItemCount,
-          pageCount,
-        });
+        const itemKey = input.itemKey;
+        streamedItemCount += (yield* tryCommandInput(
+          () => readPageItems(current, itemKey, input.command),
+          `Unable to validate a page for \`${input.command}\`.`,
+        )).length;
+        yield* tryCommandInput(
+          () =>
+            assertCursorPageBudget({
+              command: input.command,
+              itemCount: streamedItemCount,
+              pageCount,
+            }),
+          `Unable to validate pagination for \`${input.command}\`.`,
+        );
       }
 
       const selectedValue = yield* selectTopLevelFields({
@@ -676,18 +711,26 @@ export const writeReadPages = <A extends Record<string, unknown>, E, R>(input: {
         return;
       }
 
-      assertCursorNotSeen({
-        command: input.command,
-        cursor,
-        seenCursors,
-      });
+      yield* tryCommandInput(
+        () =>
+          assertCursorNotSeen({
+            command: input.command,
+            cursor,
+            seenCursors,
+          }),
+        `Unable to validate pagination for \`${input.command}\`.`,
+      );
 
       const nextPage = yield* input.continueWithCursor(cursor);
-      assertCursorNotRepeated({
-        command: input.command,
-        cursor: readCursor(nextPage),
-        seenCursors,
-      });
+      yield* tryCommandInput(
+        () =>
+          assertCursorNotRepeated({
+            command: input.command,
+            cursor: readCursor(nextPage),
+            seenCursors,
+          }),
+        `Unable to validate pagination for \`${input.command}\`.`,
+      );
       current = nextPage;
       pageCount += 1;
     }
