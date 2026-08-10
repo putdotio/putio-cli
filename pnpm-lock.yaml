@@ -25,9 +25,6 @@ importers:
       '@effect/platform-node':
         specifier: 4.0.0-beta.107
         version: 4.0.0-beta.107(effect@4.0.0-beta.107)(ioredis@5.10.1)
-      '@putdotio/sdk':
-        specifier: 10.0.1
-        version: 10.0.1(patch_hash=debbe0ac2733ce35364e5706d8dc5da32973ba300e49c0364ebf8f24d0138c1b)
       cli-table3:
         specifier: ^0.6.5
         version: 0.6.5
@@ -41,6 +38,9 @@ importers:
       '@effect/vitest':
         specifier: 4.0.0-beta.107
         version: 4.0.0-beta.107(effect@4.0.0-beta.107)(vitest@4.1.10)
+      '@putdotio/sdk':
+        specifier: 10.0.1
+        version: 10.0.1(patch_hash=debbe0ac2733ce35364e5706d8dc5da32973ba300e49c0364ebf8f24d0138c1b)
       '@types/node':
         specifier: ^26.1.0
         version: 26.1.2

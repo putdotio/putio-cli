@@ -1,4 +1,4 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -28,11 +28,51 @@ type RemoveResult = {
   readonly removed: boolean;
 };
 
+type TransfersList = {
+  readonly cursor: string | null;
+  readonly total: number;
+  readonly transfers: ReadonlyArray<unknown>;
+};
+
+type NpmDependencyTree = {
+  readonly dependencies?: Record<string, NpmDependencyTree>;
+  readonly version?: string;
+};
+
 const root = process.cwd();
 const artifactsDir = join(root, ".artifacts");
 const installDir = mkdtempSync(join(tmpdir(), "putio-cli-install-"));
 const configPath = join(installDir, "putio-config.json");
 const commandTimeoutMs = 120_000;
+
+const mockApiSource = `
+import { createServer } from "node:http";
+
+const server = createServer((request, response) => {
+  const isExpectedRequest =
+    request.method === "GET" &&
+    request.url?.startsWith("/v2/transfers/list?") === true &&
+    request.headers.authorization === "Token packed-smoke-token";
+
+  response.statusCode = isExpectedRequest ? 200 : 400;
+  response.setHeader("content-type", "application/json");
+  response.end(
+    JSON.stringify(
+      isExpectedRequest
+        ? { cursor: null, status: "OK", total: 0, transfers: [] }
+        : { error_message: "Unexpected packed-install request", error_type: "BAD_REQUEST" },
+    ),
+  );
+});
+
+server.listen(0, "127.0.0.1", () => {
+  const address = server.address();
+  if (typeof address !== "object" || address === null) process.exit(1);
+  process.stdout.write(String(address.port) + "\\n");
+});
+
+process.on("SIGTERM", () => server.close(() => process.exit(0)));
+`;
 
 const run = (command: string, args: ReadonlyArray<string>, options: object = {}) =>
   execFileSync(command, args, {
@@ -66,6 +106,56 @@ const assert = (condition: boolean, message: string) => {
   if (!condition) {
     throw new Error(message);
   }
+};
+
+const startMockApi = () =>
+  new Promise<{ readonly baseUrl: string; readonly child: ChildProcess }>((resolve, reject) => {
+    const child = spawn(process.execPath, ["--input-type=module", "--eval", mockApiSource], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    let stdout = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Timed out starting the packed-install API server. ${stderr}`.trim()));
+    }, 10_000);
+
+    child.stderr?.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.once("exit", (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Packed-install API server exited with code ${code}. ${stderr}`.trim()));
+    });
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk);
+      const newline = stdout.indexOf("\n");
+
+      if (newline < 0) return;
+
+      const port = Number(stdout.slice(0, newline));
+      clearTimeout(timer);
+      assert(Number.isInteger(port) && port > 0, "Expected the API server to report a port.");
+      resolve({ baseUrl: `http://127.0.0.1:${port}`, child });
+    });
+  });
+
+const collectEffectVersions = (tree: NpmDependencyTree) => {
+  const versions = new Set<string>();
+
+  const visit = (node: NpmDependencyTree) => {
+    for (const [name, dependency] of Object.entries(node.dependencies ?? {})) {
+      if (name === "effect" && dependency.version) versions.add(dependency.version);
+      visit(dependency);
+    }
+  };
+
+  visit(tree);
+  return versions;
 };
 
 const readFailureMessage = (value: unknown) => {
@@ -254,6 +344,8 @@ const smokeAuthProfiles = (binaryPath: string) => {
   );
 };
 
+let mockApiProcess: ChildProcess | undefined;
+
 try {
   rmSync(artifactsDir, { force: true, recursive: true });
   run("pnpm", ["pack", "--pack-destination", artifactsDir]);
@@ -299,6 +391,36 @@ try {
   JSON.parse(describeOutput);
   smokeAuthProfiles(binaryPath);
 
+  const dependencyTree = JSON.parse(
+    execFileSync("npm", ["ls", "effect", "--all", "--json"], {
+      cwd: installDir,
+      encoding: "utf8",
+      stdio: "pipe",
+      timeout: commandTimeoutMs,
+    }),
+  ) as NpmDependencyTree;
+  const effectVersions = collectEffectVersions(dependencyTree);
+  assert(
+    effectVersions.size === 1 && effectVersions.has("4.0.0-beta.107"),
+    `Expected the package to install one Effect 4.0.0-beta.107 runtime, received ${[
+      ...effectVersions,
+    ].join(", ")}.`,
+  );
+
+  const mockApi = await startMockApi();
+  mockApiProcess = mockApi.child;
+  const transfers = runPutioJson<TransfersList>(
+    binaryPath,
+    ["transfers", "list", "--output", "json"],
+    {
+      PUTIO_CLI_API_BASE_URL: mockApi.baseUrl,
+      PUTIO_CLI_TOKEN: "packed-smoke-token",
+    },
+  );
+  assert(transfers.transfers.length === 0, "Expected the SDK-backed transfer list to be empty.");
+  assert(transfers.cursor === null, "Expected the SDK-backed transfer list cursor to be null.");
+  assert(transfers.total === 0, "Expected the SDK-backed transfer list total to be zero.");
+
   const missingAuthMessage = runPutioFailure(
     binaryPath,
     ["whoami", "--fields", "auth", "--output", "json"],
@@ -328,6 +450,8 @@ try {
           "packaged-install",
           "version",
           "describe",
+          "single-effect-runtime",
+          "authenticated-sdk-request",
           "auth-profile-round-trip",
           "missing-auth-failure",
           "invalid-config-failure",
@@ -340,5 +464,6 @@ try {
     )}\n`,
   );
 } finally {
+  mockApiProcess?.kill();
   rmSync(installDir, { force: true, recursive: true });
 }

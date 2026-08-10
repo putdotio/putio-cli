@@ -61,7 +61,7 @@ See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, an
 - `verify` enforces the production Effect runtime boundary and dead-code checks, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
 - `pnpm exec vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
 - Prefer `pnpm exec vp install`, `pnpm exec vp test`, and `pnpm exec vp check` for day-to-day local loops.
-- Keep the exact Effect versions, the Effect override, and the pnpm SDK compatibility patch aligned. The patch updates the SDK's schema-backed error constructor for the installed Effect runtime.
+- Keep the exact Effect versions, the Effect override, and the pnpm SDK compatibility patch aligned. The build bundles the patched SDK so installed CLIs and the SDK share one Effect runtime.
 - Keep top-level user docs in `README.md` and contributor workflow here.
 - Put deeper implementation detail in `docs/` instead of growing the top-level docs.
 - Keep `AGENTS.md` as repo-development guidance and `skills/*` as consumer-facing agent guidance.
