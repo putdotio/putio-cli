@@ -9,7 +9,7 @@ const unreadableUploadFile = () =>
     message: "Unable to read the local upload file. Verify that the path exists and is readable.",
   });
 
-export const prepareLocalUpload = (inputPath: string) =>
+export const inspectLocalUpload = (inputPath: string) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -30,15 +30,15 @@ export const prepareLocalUpload = (inputPath: string) =>
       .access(resolvedPath, { readable: true })
       .pipe(Effect.mapError(unreadableUploadFile));
 
-    const file = yield* Effect.tryPromise({
-      try: () => openAsBlob(resolvedPath),
-      catch: unreadableUploadFile,
-    });
-
     return {
-      file,
       fileName: path.basename(resolvedPath),
       path: resolvedPath,
-      size: file.size,
+      size: Number(info.size),
     };
+  });
+
+export const openLocalUploadBlob = (path: string) =>
+  Effect.tryPromise({
+    try: () => openAsBlob(path),
+    catch: unreadableUploadFile,
   });

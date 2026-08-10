@@ -32,7 +32,7 @@ import {
   type CommandSpec,
 } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
-import { prepareLocalUpload } from "../internal/local-upload.js";
+import { inspectLocalUpload, openLocalUploadBlob } from "../internal/local-upload.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderFilesTerminal } from "../internal/terminal/files-terminal.js";
@@ -355,9 +355,12 @@ const filesUpload = Command.make(
           file_name:
             value.file_name === undefined
               ? undefined
-              : requiredNonEmptyText(
-                  value.file_name,
-                  "Expected `files upload --file-name` to be a non-empty string.",
+              : validateNameLikeInput(
+                  "`files upload --file-name`",
+                  requiredNonEmptyText(
+                    value.file_name,
+                    "Expected `files upload --file-name` to be a non-empty string.",
+                  ),
                 ),
           parent_id: optionalNonNegativeInteger(
             value.parent_id,
@@ -366,7 +369,7 @@ const filesUpload = Command.make(
           path: validateLocalPathInput("`files upload --path`", value.path),
         })),
       );
-      const prepared = yield* prepareLocalUpload(input.path);
+      const prepared = yield* inspectLocalUpload(input.path);
       const resolvedFileName = validateNameLikeInput(
         "`files upload --file-name`",
         input.file_name ?? prepared.fileName,
@@ -382,6 +385,7 @@ const filesUpload = Command.make(
         return yield* writeDryRunPlan("files upload", plan, getOption(output));
       }
 
+      const file = yield* openLocalUploadBlob(prepared.path);
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.uploading", { name: resolvedFileName }),
@@ -389,7 +393,7 @@ const filesUpload = Command.make(
         },
         withAuthedSdk(({ sdk }) =>
           sdk.files.upload({
-            file: prepared.file,
+            file,
             fileName: resolvedFileName,
             parentId: input.parent_id,
           }),
