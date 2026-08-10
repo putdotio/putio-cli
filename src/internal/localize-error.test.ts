@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";
+import { isPlainRecord } from "./localizers/helpers.js";
 
 const operationError = (
   domain: string,
@@ -37,6 +38,13 @@ const operationError = (
         value: status,
       } as const),
   status,
+});
+
+describe("isPlainRecord", () => {
+  it("accepts records and rejects arrays", () => {
+    expect(isPlainRecord({ error: "boom" })).toBe(true);
+    expect(isPlainRecord(["boom"])).toBe(false);
+  });
 });
 
 describe("localizeCliError", () => {

@@ -34,18 +34,44 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
         ? { file: "cmd", args: ["/c", "start", "", url] }
         : { file: "xdg-open", args: [url] };
 
-  try {
-    const child = spawn(command.file, command.args, {
-      detached: true,
-      stdio: "ignore",
+  return Effect.callback<boolean>((resume, signal) => {
+    let child: ReturnType<typeof spawn>;
+
+    try {
+      child = spawn(command.file, command.args, {
+        detached: true,
+        signal,
+        stdio: "ignore",
+      });
+    } catch {
+      resume(Effect.succeed(false));
+      return;
+    }
+
+    const onError = () => {
+      child.removeListener("spawn", onSpawn);
+      child.removeListener("close", onClose);
+      resume(Effect.succeed(false));
+    };
+    const onClose = () => {
+      child.removeListener("error", onError);
+      child.removeListener("spawn", onSpawn);
+    };
+    const onSpawn = () => {
+      child.removeListener("error", onError);
+      child.removeListener("close", onClose);
+      child.unref();
+      resume(Effect.succeed(true));
+    };
+
+    child.once("close", onClose);
+    child.once("error", onError);
+    child.once("spawn", onSpawn);
+
+    return Effect.sync(() => {
+      child.removeListener("spawn", onSpawn);
     });
-
-    child.unref();
-
-    return true;
-  } catch {
-    return false;
-  }
+  });
 };
 
 export const makeCliRuntime = (
@@ -92,7 +118,7 @@ export const makeCliRuntime = (
 
         process.stderr.write(message);
       }),
-    openExternal: (url) => Effect.sync(() => openExternalWithPlatform(platform, url)),
+    openExternal: (url) => openExternalWithPlatform(platform, url),
     startSpinner: (message) =>
       Effect.sync(() => {
         let frameIndex = 0;

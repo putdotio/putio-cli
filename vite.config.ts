@@ -24,6 +24,10 @@ const coverageConfig: CoverageConfig = {
 export default defineConfig({
   pack: {
     clean: true,
+    deps: {
+      alwaysBundle: ["@putdotio/sdk"],
+      onlyBundle: ["@putdotio/sdk"],
+    },
     dts: false,
     entry: {
       index: "src/index.ts",
@@ -39,7 +43,7 @@ export default defineConfig({
     "*.{js,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix",
   },
   test: {
-    exclude: ["node_modules/**", ".repos/**", "scripts/**/*.test.ts"],
+    exclude: ["node_modules/**", "scripts/**/*.test.ts"],
     coverage: {
       ...coverageConfig,
       exclude: [

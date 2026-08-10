@@ -1,5 +1,5 @@
 import { LocalizedError } from "@putdotio/sdk/utilities";
-import { Console, Context, Effect, Layer } from "effect";
+import { Console, Context, Effect, Layer, Predicate } from "effect";
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";
 import { CliRuntime } from "./runtime.js";
@@ -81,7 +81,7 @@ const TERMINAL_CONTROL_PATTERN = new RegExp(
 );
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (!Predicate.isObject(value)) {
     return false;
   }
 

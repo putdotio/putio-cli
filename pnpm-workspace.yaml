@@ -1,5 +1,5 @@
 overrides:
-  effect: 4.0.0-beta.102
+  effect: 4.0.0-beta.107
   vite: "catalog:"
   vitest: "catalog:"
 
@@ -9,10 +9,10 @@ allowBuilds:
   msgpackr-extract: true
 
 minimumReleaseAgeExclude:
-  - "@effect/platform-node-shared@4.0.0-beta.102"
-  - "@effect/platform-node@4.0.0-beta.102"
-  - "@effect/vitest@4.0.0-beta.102"
-  - effect@4.0.0-beta.102
+  - "@effect/platform-node-shared@4.0.0-beta.107"
+  - "@effect/platform-node@4.0.0-beta.107"
+  - "@effect/vitest@4.0.0-beta.107"
+  - effect@4.0.0-beta.107
   - knip@6.31.0
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.6
@@ -25,3 +25,5 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+patchedDependencies:
+  "@putdotio/sdk@10.0.1": patches/@putdotio__sdk@10.0.1.patch

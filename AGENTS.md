@@ -36,8 +36,9 @@ Runtime proofs:
 
 ## Worktrees
 
-`.worktreeinclude` reuses `.repos`; Claude symlinks it to avoid another copy.
-Run `vp install`, `vp config`, then `pnpm exec vp run verify`.
+Run `pnpm exec vp install`, `pnpm exec vp config`, then
+`pnpm exec vp run verify`. Effect guidance and inspectable source come from the
+installed package under `node_modules/effect`.
 
 ## Development Guidance
 
@@ -48,6 +49,16 @@ Run `vp install`, `vp config`, then `pnpm exec vp run verify`.
 - Update docs when flags, command behavior, or architecture boundaries change.
 - When the public CLI surface or agent-facing setup flow changes, update [`README.md`](README.md) and [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md) together so the copy-paste prompt and consumer guidance stay aligned.
 - Keep docs free of volatile metrics.
+
+## Learning more about the Effect
+
+This repository uses the Effect TypeScript library.
+
+Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
+**completely**, and follow the links in the file when required.
+
+If you need to learn more about particular Effect APIs and concepts that the
+guide doesn't cover, search through the source code in `node_modules/effect/src`.
 
 ## Testing
 

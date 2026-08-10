@@ -43,12 +43,16 @@ The npm package includes `dist`, `README.md`, `docs`, `skills`, `AGENTS.md`,
 library is part of the public package contract so consuming repos and agents can
 install the same guidance that maintainers use from git.
 
+The build bundles the pinned, compatibility-patched put.io SDK into `dist`.
+Effect remains a package dependency so the CLI and its bundled SDK execute on
+the same installed Effect runtime.
+
 ## Local Checks
 
 Before changing distribution wiring, validate the repo-local guardrails the workflow depends on:
 
 ```bash
-vp install
+pnpm exec vp install
 pnpm exec vp run verify
 pnpm exec vp run smoke:pack
 ```
