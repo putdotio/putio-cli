@@ -288,6 +288,14 @@ export const validateNameLikeInput = (label: string, value: string) =>
     value,
   });
 
+export const validateLocalPathInput = (label: string, value: string) =>
+  validateSafeString({
+    allowPathTraversal: true,
+    allowQueryOrFragment: true,
+    label,
+    value,
+  });
+
 const parseRequestedFields = (raw: string) => {
   const parts = raw.split(",").map((part) => part.trim());
 

@@ -66,6 +66,7 @@ describe("describeCli", () => {
       "files list",
       "files search",
       "files mkdir",
+      "files upload",
       "files rename",
       "files move",
       "files delete",

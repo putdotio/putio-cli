@@ -7,6 +7,7 @@ Dry-run first:
 ```bash
 putio transfers cancel --json '{"ids":[12,18]}' --dry-run --output json
 putio files rename --json '{"file_id":42,"name":"Projects 2027"}' --dry-run --output json
+putio files upload --json '{"path":"./movie.mp4","parent_id":42}' --dry-run --output json
 putio files start-from set --json '{"file_id":42,"time":95}' --dry-run --output json
 putio auth approve --json '{"code":"PUTIO1"}' --dry-run --output json
 ```
@@ -18,6 +19,7 @@ Examples:
 ```bash
 putio download-links create --json '{"ids":[1,2]}' --output json
 putio files mkdir --json '{"name":"Projects","parent_id":9}' --output json
+putio files upload --json '{"path":"./movie.mp4","parent_id":42}' --output json
 putio files start-from reset --json '{"file_id":42}' --output json
 putio transfers add --json '[{"url":"https://example.com/file.torrent"}]' --output json
 ```
@@ -27,3 +29,4 @@ Rules:
 - Prefer `--json` over translating through many bespoke flags.
 - Prefer `--dry-run` before side effects.
 - Re-check schema-required keys in `describe` instead of guessing names.
+- `files upload` validates that `path` resolves to a readable regular file before dry-run or execution.

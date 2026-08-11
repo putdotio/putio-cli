@@ -223,6 +223,7 @@ export const en = {
         moving: "Moving {{count}} file(s) to parent {{parentId}}...",
         renaming: 'Renaming file {{id}} to "{{name}}"...',
         searching: 'Searching files for "{{query}}"...',
+        uploading: 'Uploading "{{name}}"...',
       },
       terminal: {
         created: 'created folder "{{name}}" (id {{id}}, parent {{parentId}})',
@@ -241,6 +242,8 @@ export const en = {
         summary: "Showing {{count}} file(s){{totalSuffix}}.",
         summaryInParent: "Showing {{count}} file(s) in {{name}}{{totalSuffix}}.",
         totalSuffix: " ({{total}} total)",
+        uploadedFile: 'uploaded file "{{name}}" (id {{id}})',
+        uploadedTransfer: 'queued upload transfer "{{name}}" (id {{id}})',
       },
     },
     metadata: {
@@ -264,6 +267,7 @@ export const en = {
       filesMove: "Move one or more files to a parent directory.",
       filesRename: "Rename a file by id.",
       filesSearch: "Search files by query and optional file type.",
+      filesUpload: "Upload a readable local file into put.io.",
       filesStartFromGet: "Read the saved watch position for a file.",
       filesStartFromReset: "Reset the saved watch position for a file.",
       filesStartFromSet: "Set the saved watch position for a file.",

@@ -16,6 +16,7 @@ import {
   pageAllOption,
   resolveMutationInput,
   resolveReadOutputControls,
+  validateLocalPathInput,
   validateNameLikeInput,
   withAuthedSdk,
   writeDryRunPlan,
@@ -33,6 +34,7 @@ import {
   type CommandSpec,
 } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
+import { inspectLocalUpload, openLocalUploadBlob } from "../internal/local-upload.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderFilesTerminal } from "../internal/terminal/files-terminal.js";
@@ -72,6 +74,8 @@ const fileSortChoices = [
 const sortByConfig = defineChoiceOption("sort-by", fileSortChoices, { optional: true });
 const optionalFileIdConfig = defineIntegerOption("id", { optional: true });
 const optionalFileNameConfig = defineTextOption("name", { optional: true });
+const uploadPathConfig = defineTextOption("path", { optional: true });
+const uploadFileNameConfig = defineTextOption("file-name", { optional: true });
 
 const parentIdOption = parentIdConfig.option;
 const perPageOption = perPageConfig.option;
@@ -84,6 +88,8 @@ const fileTypeOption = fileTypeConfig.option;
 const sortByOption = sortByConfig.option;
 const optionalFileIdOption = optionalFileIdConfig.option;
 const optionalFileNameOption = optionalFileNameConfig.option;
+const uploadPathOption = uploadPathConfig.option;
+const uploadFileNameOption = uploadFileNameConfig.option;
 const startFromFileIdArgument = Argument.integer("file-id");
 const optionalStartFromFileIdArgument = startFromFileIdArgument.pipe(Argument.optional);
 const optionalStartFromTimeArgument = Argument.integer("seconds").pipe(Argument.optional);
@@ -116,6 +122,12 @@ const FilesDeleteInputSchema = Schema.Struct({
 const FilesMoveInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
   parent_id: Schema.Number,
+});
+
+const FilesUploadInputSchema = Schema.Struct({
+  file_name: Schema.optional(NonBlankStringSchema),
+  parent_id: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
+  path: NonBlankStringSchema,
 });
 
 const FilesStartFromSetInputSchema = Schema.Struct({
@@ -151,6 +163,14 @@ const requiredIds = (value: ReadonlyArray<number>, message: string) => {
   return value;
 };
 
+const optionalNonNegativeInteger = (value: number | undefined, message: string) => {
+  if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
 const requiredPositiveInteger = (value: number | undefined, message: string) => {
   if (value === undefined || !Number.isInteger(value) || value <= 0) {
     throw new CliCommandInputError({ message });
@@ -166,6 +186,24 @@ const requiredNonNegativeInteger = (value: number | undefined, message: string) 
 
   return value;
 };
+
+export const renderFileUploadedTerminal = (
+  value:
+    | { readonly type: "file"; readonly file: { readonly id: number; readonly name: string } }
+    | {
+        readonly type: "transfer";
+        readonly transfer: { readonly id: number; readonly name: string };
+      },
+) =>
+  value.type === "file"
+    ? translate("cli.files.terminal.uploadedFile", {
+        id: value.file.id,
+        name: value.file.name,
+      })
+    : translate("cli.files.terminal.uploadedTransfer", {
+        id: value.transfer.id,
+        name: value.transfer.name,
+      });
 
 export const renderFileCreatedTerminal = (value: {
   readonly id: number;
@@ -317,6 +355,84 @@ const filesMkdir = Command.make(
       );
 
       yield* writeOutput(result, getOption(output), renderFileCreatedTerminal);
+    }),
+);
+
+const filesUpload = Command.make(
+  "upload",
+  {
+    dryRun: dryRunOption,
+    fileName: uploadFileNameOption,
+    json: jsonOption,
+    output: outputOption,
+    parentId: parentIdOption,
+    path: uploadPathOption,
+  },
+  ({ dryRun, fileName, json, output, parentId, path }) =>
+    Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          file_name: getOption(fileName),
+          parent_id: getOption(parentId),
+          path: requiredNonEmptyText(
+            getOption(path),
+            "Provide `--path` or `--json` for `files upload`.",
+          ),
+        }),
+        json,
+        schema: FilesUploadInputSchema,
+      }).pipe(
+        Effect.map((value) => ({
+          ...value,
+          file_name:
+            value.file_name === undefined
+              ? undefined
+              : validateNameLikeInput(
+                  "`files upload --file-name`",
+                  requiredNonEmptyText(
+                    value.file_name,
+                    "Expected `files upload --file-name` to be a non-empty string.",
+                  ),
+                ),
+          parent_id: optionalNonNegativeInteger(
+            value.parent_id,
+            "Expected `files upload --parent-id` to be a non-negative integer.",
+          ),
+          path: validateLocalPathInput("`files upload --path`", value.path),
+        })),
+      );
+      const prepared = yield* inspectLocalUpload(input.path);
+      const resolvedFileName = validateNameLikeInput(
+        "`files upload --file-name`",
+        input.file_name ?? prepared.fileName,
+      );
+      const plan = {
+        file_name: resolvedFileName,
+        parent_id: input.parent_id,
+        path: input.path,
+        size: prepared.size,
+      };
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files upload", plan, getOption(output));
+      }
+
+      const file = yield* openLocalUploadBlob(prepared.path);
+      const result = yield* withTerminalLoader(
+        {
+          message: translate("cli.files.command.uploading", { name: resolvedFileName }),
+          output: getOption(output),
+        },
+        withAuthedSdk(({ sdk }) =>
+          sdk.files.upload({
+            file,
+            fileName: resolvedFileName,
+            parentId: input.parent_id,
+          }),
+        ),
+      );
+
+      yield* writeOutput(result, getOption(output), renderFileUploadedTerminal);
     }),
 );
 
@@ -652,6 +768,7 @@ export const filesCommand = Command.make("files", {}, () => Effect.void).pipe(
     filesList,
     filesSearchCommand,
     filesMkdir,
+    filesUpload,
     filesRename,
     filesMove,
     filesDelete,
@@ -783,6 +900,32 @@ export const filesCommandSpecs = [
     },
     kind: "write",
     purpose: translate("cli.metadata.filesMkdir"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files upload",
+    input: {
+      flags: [
+        dryRunFlag(),
+        uploadFileNameConfig.flag,
+        jsonFlag(),
+        outputFlag(),
+        parentIdConfig.flag,
+        uploadPathConfig.flag,
+      ],
+      json: jsonShapeFromSchema(FilesUploadInputSchema, [
+        "`path` must resolve to a readable regular file.",
+        "`file_name` rejects control characters and path traversal segments like `../` or `%2e`.",
+      ]),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesUpload"),
   },
   {
     auth: { required: true },

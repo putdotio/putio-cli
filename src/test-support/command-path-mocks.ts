@@ -184,6 +184,12 @@ const createCommandPathMocks = () => {
   const continueSearchFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
   const listFilesMock = vi.fn(() => Effect.succeed(defaultFileListPage));
   const searchFilesMock = vi.fn(() => Effect.succeed(defaultSearchFilesPage));
+  const uploadFileMock = vi.fn(() =>
+    Effect.succeed({
+      file: { id: 88, name: "movie.mp4" },
+      type: "file" as const,
+    }),
+  );
   const getStartFromMock = vi.fn(() => Effect.succeed(90));
   const setStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
   const resetStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
@@ -293,6 +299,7 @@ const createCommandPathMocks = () => {
       rename: renameFileMock,
       resetStartFrom: resetStartFromMock,
       search: searchFilesMock,
+      upload: uploadFileMock,
       setStartFrom: setStartFromMock,
     },
     transfers: {
@@ -345,6 +352,7 @@ const createCommandPathMocks = () => {
     searchFilesMock,
     setStartFromMock,
     useProfileMock,
+    uploadFileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
     withTerminalLoaderMock,
@@ -434,6 +442,12 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
           size: 42,
         },
       ],
+    }),
+  );
+  mocks.uploadFileMock.mockImplementation(() =>
+    Effect.succeed({
+      file: { id: 88, name: "movie.mp4" },
+      type: "file" as const,
     }),
   );
   mocks.getStartFromMock.mockImplementation(() => Effect.succeed(90));
