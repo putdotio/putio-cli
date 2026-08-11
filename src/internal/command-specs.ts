@@ -12,7 +12,13 @@ type CommandKind = Schema.Schema.Type<typeof CommandKindSchema>;
 
 const CommandOptionTypeSchema = Schema.Literals(["string", "integer", "boolean", "enum"] as const);
 
-const JsonPrimitiveKindSchema = Schema.Literals(["string", "integer", "boolean", "null"] as const);
+const JsonPrimitiveKindSchema = Schema.Literals([
+  "string",
+  "integer",
+  "boolean",
+  "null",
+  "json",
+] as const);
 const JsonScalarSchema = Schema.Struct({
   kind: JsonPrimitiveKindSchema,
 });
@@ -26,7 +32,7 @@ const JsonEnumValueSchema = Schema.Union([
 
 export type CommandJsonShape =
   | {
-      readonly kind: "string" | "integer" | "boolean" | "null";
+      readonly kind: "string" | "integer" | "boolean" | "null" | "json";
     }
   | {
       readonly kind: "enum";

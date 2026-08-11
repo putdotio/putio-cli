@@ -71,6 +71,8 @@ describe("describeCli", () => {
       "files move",
       "files delete",
       "search",
+      "sdk list",
+      "sdk call",
       "transfers list",
       "transfers add",
       "transfers cancel",

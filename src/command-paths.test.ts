@@ -1356,6 +1356,165 @@ describe("cli command paths", () => {
     );
   });
 
+  it("invokes a JSON-compatible sdk operation with explicit execution", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "sdk",
+        "call",
+        "--operation",
+        "files.list",
+        "--args",
+        '[0,{"per_page":10}]',
+        "--execute",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.listFilesMock).toHaveBeenCalledWith(0, { per_page: 10 });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        operation: "files.list",
+        result: expect.objectContaining({ total: 1 }),
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("previews a raw-json sdk operation without authentication or invocation", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "sdk",
+        "call",
+        "--json",
+        '{"operation":"files.list","args":[0]}',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
+    expect(mocks.listFilesMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "sdk call",
+        dryRun: true,
+        request: {
+          args: [0],
+          operation: "files.list",
+        },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("requires explicit sdk call execution consent", async () => {
+    await expect(
+      runCliInTest(["putio", "sdk", "call", "--operation", "files.list", "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: "Choose exactly one of `sdk call --dry-run` or `sdk call --execute`.",
+    });
+
+    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects secret-bearing sdk operations before dry-run output", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "sdk",
+        "call",
+        "--operation",
+        "auth.validateToken",
+        "--args",
+        '["secret-token"]',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).rejects.toMatchObject({
+      message:
+        "SDK operation `auth.validateToken` is not JSON-callable: authentication operations can expose credentials or approval codes.",
+    });
+
+    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
+    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
+  });
+
+  it("strictly redacts sentinel-looking sdk secrets in dry-run plans", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "sdk",
+        "call",
+        "--operation",
+        "files.list",
+        "--args",
+        '[0,{"password":"null"}]',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "sdk call",
+        dryRun: true,
+        request: {
+          args: [0, { password: "[REDACTED]" }],
+          operation: "files.list",
+        },
+      },
+      "json",
+      expect.any(Function),
+    );
+    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
+  });
+
+  it("strictly redacts sentinel-looking sdk secrets in execution results", async () => {
+    mocks.listFilesMock.mockImplementationOnce(() =>
+      Effect.succeed({
+        download_token: "null",
+        files: [],
+        total: 0,
+      }),
+    );
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "sdk",
+        "call",
+        "--operation",
+        "files.list",
+        "--args",
+        "[0]",
+        "--execute",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        operation: "files.list",
+        result: {
+          download_token: "[REDACTED]",
+          files: [],
+          total: 0,
+        },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
   it("selects top-level file list fields for json output", async () => {
     await expect(
       runCliInTest(["putio", "files", "list", "--fields", "files,total", "--output", "json"]),

@@ -186,6 +186,7 @@ describe("cli argv parsing", () => {
     }>;
     const mkdir = commands.find((entry) => entry.command === "files mkdir");
     const deleteFiles = commands.find((entry) => entry.command === "files delete");
+    const sdkCall = commands.find((entry) => entry.command === "sdk call");
     const upload = commands.find((entry) => entry.command === "files upload");
     const authApprove = commands.find((entry) => entry.command === "auth approve");
     const startFromSet = commands.find((entry) => entry.command === "files start-from set");
@@ -200,6 +201,12 @@ describe("cli argv parsing", () => {
       expect.arrayContaining([
         expect.objectContaining({ name: "ids", required: true }),
         expect.objectContaining({ name: "skip_trash", required: false }),
+      ]),
+    );
+    expect(sdkCall?.input.json?.properties).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "args", required: false }),
+        expect.objectContaining({ name: "operation", required: true }),
       ]),
     );
     expect(upload?.input.json?.properties).toEqual(

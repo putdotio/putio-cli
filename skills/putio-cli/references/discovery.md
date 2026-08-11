@@ -24,6 +24,14 @@ Structured output defaults:
 
 Use `automation` to confirm concrete support such as dry-run on writes, raw JSON input, field selection, streaming reads, redaction, and untrusted-text annotations. Treat missing features as a real contract gap instead of assuming they exist.
 
+When the required API operation has no dedicated command, inspect the pinned TypeScript SDK surface:
+
+```bash
+putio sdk list --output json
+```
+
+Only operation paths in `operations` are eligible for `sdk call`. Entries in `unsupported` need runtime values, produce binary data, or use positional or scalar credentials that cannot be safely redacted. Supported keyed credential fields and token-bearing URLs are redacted in plans and results.
+
 Versioning rules:
 
 - The skill library follows the CLI contract exposed by `putio describe --output json`.

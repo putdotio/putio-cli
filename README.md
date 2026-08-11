@@ -165,6 +165,20 @@ Stream larger reads:
 putio transfers list --page-all --output ndjson
 ```
 
+Call a JSON-compatible TypeScript SDK operation that does not have a dedicated command:
+
+```bash
+putio sdk list --output json
+putio sdk call --operation files.get --args '[42]' --dry-run --output json
+putio sdk call --json '{"operation":"files.get","args":[42]}' --execute --output json
+```
+
+`sdk call` treats every operation as potentially mutating. It requires exactly one of `--dry-run`
+or `--execute`, resolves auth through the normal profile selection, and only traverses own SDK
+properties. `sdk list` marks operations requiring runtime objects or binary output—and operations
+whose positional or scalar credentials cannot be safely redacted—as unsupported. Supported keyed
+credential fields and token-bearing URLs are redacted in plans and results.
+
 ## Tips
 
 - Use `--output json` when you want a stable machine-readable contract for scripts, agents, and automation.

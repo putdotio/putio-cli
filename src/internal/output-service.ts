@@ -59,7 +59,7 @@ export const detectOutputModeFromArgv = (
 };
 
 const SENSITIVE_KEY_PATTERN =
-  /^(auth_?token|token|access_?token|refresh_?token|authorization|password|secret|cookie)$/i;
+  /^(authorization|auth_?token|access_?token|refresh_?token|(?:.*_)?(?:token|password|secret|cookie))$/u;
 
 const REDACTED_VALUE = "[REDACTED]";
 const SAFE_SENSITIVE_SENTINEL_VALUES = new Set([
@@ -87,6 +87,11 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 
   const prototype = Object.getPrototypeOf(value);
   return prototype === Object.prototype || prototype === null;
+};
+
+const isSensitiveKey = (key: string) => {
+  const normalized = key.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").toLowerCase();
+  return SENSITIVE_KEY_PATTERN.test(normalized);
 };
 
 const redactSensitiveText = (value: string) =>
@@ -126,7 +131,7 @@ export const sanitizeTerminalValue = (value: unknown): unknown => {
     return Object.fromEntries(
       Object.entries(value).map(([key, nestedValue]) => [
         key,
-        SENSITIVE_KEY_PATTERN.test(key) && typeof nestedValue === "string"
+        isSensitiveKey(key) && typeof nestedValue === "string"
           ? SAFE_SENSITIVE_SENTINEL_VALUES.has(nestedValue)
             ? nestedValue
             : REDACTED_VALUE
@@ -178,7 +183,7 @@ const sanitizeStructuredValueInternal = (
 
   if (isPlainObject(value)) {
     const entries = Object.entries(value).map(([key, nestedValue]) => {
-      if (SENSITIVE_KEY_PATTERN.test(key) && typeof nestedValue === "string") {
+      if (isSensitiveKey(key) && typeof nestedValue === "string") {
         return {
           key,
           result: {
@@ -232,6 +237,23 @@ const sanitizeStructuredValueInternal = (
 
 export const sanitizeStructuredValue = (value: unknown): unknown =>
   sanitizeStructuredValueInternal(value, []).value;
+
+export const redactSensitiveStructuredValues = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(redactSensitiveStructuredValues);
+  }
+
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        isSensitiveKey(key) ? REDACTED_VALUE : redactSensitiveStructuredValues(nestedValue),
+      ]),
+    );
+  }
+
+  return value;
+};
 
 export const renderJson = (value: unknown) =>
   JSON.stringify(sanitizeStructuredValue(value), null, 2);
