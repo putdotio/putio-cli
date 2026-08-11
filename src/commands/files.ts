@@ -1,4 +1,4 @@
-import { Command } from "effect/unstable/cli";
+import { Argument, Command } from "effect/unstable/cli";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -19,11 +19,13 @@ import {
   validateNameLikeInput,
   withAuthedSdk,
   writeDryRunPlan,
+  writeReadOutput,
   writeReadPages,
 } from "../internal/command.js";
 import {
   dryRunFlag,
   fieldsFlag,
+  integerArgument,
   jsonFlag,
   jsonShapeFromSchema,
   outputFlag,
@@ -82,6 +84,9 @@ const fileTypeOption = fileTypeConfig.option;
 const sortByOption = sortByConfig.option;
 const optionalFileIdOption = optionalFileIdConfig.option;
 const optionalFileNameOption = optionalFileNameConfig.option;
+const startFromFileIdArgument = Argument.integer("file-id");
+const optionalStartFromFileIdArgument = startFromFileIdArgument.pipe(Argument.optional);
+const optionalStartFromTimeArgument = Argument.integer("seconds").pipe(Argument.optional);
 
 const NonBlankStringSchema = Schema.String.check(
   Schema.makeFilter((value) =>
@@ -90,6 +95,8 @@ const NonBlankStringSchema = Schema.String.check(
 );
 
 const NonEmptyIdsSchema = Schema.Array(Schema.Number).check(Schema.isNonEmpty());
+const PositiveIntegerSchema = Schema.Int.check(Schema.isGreaterThan(0));
+const NonNegativeIntegerSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
 const FilesMkdirInputSchema = Schema.Struct({
   name: NonBlankStringSchema,
@@ -111,6 +118,15 @@ const FilesMoveInputSchema = Schema.Struct({
   parent_id: Schema.Number,
 });
 
+const FilesStartFromSetInputSchema = Schema.Struct({
+  file_id: PositiveIntegerSchema,
+  time: NonNegativeIntegerSchema,
+});
+
+const FilesStartFromResetInputSchema = Schema.Struct({
+  file_id: PositiveIntegerSchema,
+});
+
 const requiredValue = <A>(value: A | undefined, message: string) => {
   if (value === undefined) {
     throw new CliCommandInputError({ message });
@@ -129,6 +145,22 @@ const requiredNonEmptyText = (value: string | undefined, message: string) => {
 
 const requiredIds = (value: ReadonlyArray<number>, message: string) => {
   if (value.length === 0) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+const requiredPositiveInteger = (value: number | undefined, message: string) => {
+  if (value === undefined || !Number.isInteger(value) || value <= 0) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+const requiredNonNegativeInteger = (value: number | undefined, message: string) => {
+  if (value === undefined || !Number.isInteger(value) || value < 0) {
     throw new CliCommandInputError({ message });
   }
 
@@ -478,6 +510,141 @@ const filesSearchCommand = Command.make(
     }),
 );
 
+const filesStartFromGet = Command.make(
+  "get",
+  {
+    fields: fieldsOption,
+    fileId: startFromFileIdArgument,
+    output: outputOption,
+  },
+  ({ fields, fileId, output }) =>
+    Effect.gen(function* () {
+      const validatedFileId = requiredPositiveInteger(
+        fileId,
+        "Expected `files start-from get` file-id to be a positive integer.",
+      );
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+      });
+      const startFrom = yield* withTerminalLoader(
+        {
+          message: translate("cli.files.command.loadingStartFrom", { fileId: validatedFileId }),
+          output: controls.output,
+        },
+        withAuthedSdk(({ sdk }) => sdk.files.getStartFrom(validatedFileId)),
+      );
+      const result = {
+        file_id: validatedFileId,
+        start_from: startFrom,
+      };
+
+      yield* writeReadOutput({
+        command: "files start-from get",
+        output: controls.output,
+        outputMode: controls.outputMode,
+        renderTerminalValue: (value) =>
+          translate("cli.files.terminal.startFrom", {
+            fileId: value.file_id,
+            seconds: value.start_from,
+          }),
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
+    }),
+);
+
+const filesStartFromSet = Command.make(
+  "set",
+  {
+    dryRun: dryRunOption,
+    fileId: optionalStartFromFileIdArgument,
+    json: jsonOption,
+    output: outputOption,
+    seconds: optionalStartFromTimeArgument,
+  },
+  ({ dryRun, fileId, json, output, seconds }) =>
+    Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          file_id: requiredPositiveInteger(
+            getOption(fileId),
+            "Provide a positive file-id or `--json` for `files start-from set`.",
+          ),
+          time: requiredNonNegativeInteger(
+            getOption(seconds),
+            "Provide non-negative seconds or `--json` for `files start-from set`.",
+          ),
+        }),
+        json,
+        schema: FilesStartFromSetInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files start-from set", input, getOption(output));
+      }
+
+      const result = yield* withAuthedSdk(({ sdk }) => sdk.files.setStartFrom(input));
+
+      yield* writeOutput(
+        {
+          file_id: input.file_id,
+          start_from: input.time,
+          ...result,
+        },
+        getOption(output),
+        () =>
+          translate("cli.files.terminal.startFromSet", {
+            fileId: input.file_id,
+            seconds: input.time,
+          }),
+      );
+    }),
+);
+
+const filesStartFromReset = Command.make(
+  "reset",
+  {
+    dryRun: dryRunOption,
+    fileId: optionalStartFromFileIdArgument,
+    json: jsonOption,
+    output: outputOption,
+  },
+  ({ dryRun, fileId, json, output }) =>
+    Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          file_id: requiredPositiveInteger(
+            getOption(fileId),
+            "Provide a positive file-id or `--json` for `files start-from reset`.",
+          ),
+        }),
+        json,
+        schema: FilesStartFromResetInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files start-from reset", input, getOption(output));
+      }
+
+      const result = yield* withAuthedSdk(({ sdk }) => sdk.files.resetStartFrom(input.file_id));
+
+      yield* writeOutput(
+        {
+          file_id: input.file_id,
+          start_from: 0,
+          ...result,
+        },
+        getOption(output),
+        () => translate("cli.files.terminal.startFromReset", { fileId: input.file_id }),
+      );
+    }),
+);
+
+const filesStartFrom = Command.make("start-from", {}, () => Effect.void).pipe(
+  Command.withSubcommands([filesStartFromGet, filesStartFromSet, filesStartFromReset]),
+);
+
 export const searchCommand = filesSearchCommand;
 
 export const filesCommand = Command.make("files", {}, () => Effect.void).pipe(
@@ -488,10 +655,64 @@ export const filesCommand = Command.make("files", {}, () => Effect.void).pipe(
     filesRename,
     filesMove,
     filesDelete,
+    filesStartFrom,
   ]),
 );
 
 export const filesCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "files start-from get",
+    input: {
+      arguments: [integerArgument("file-id")],
+      flags: [fieldsFlag(), outputFlag()],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.filesStartFromGet"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files start-from set",
+    input: {
+      arguments: [
+        integerArgument("file-id", { required: false }),
+        integerArgument("seconds", { required: false }),
+      ],
+      flags: [dryRunFlag(), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(FilesStartFromSetInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesStartFromSet"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files start-from reset",
+    input: {
+      arguments: [integerArgument("file-id", { required: false })],
+      flags: [dryRunFlag(), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(FilesStartFromResetInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesStartFromReset"),
+  },
   {
     auth: { required: true },
     capabilities: {

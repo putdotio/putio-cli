@@ -85,6 +85,15 @@ const mocks = vi.hoisted(() => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
+  const linkDeviceMock = vi.fn(() =>
+    Effect.succeed({
+      description: "Living room TV",
+      has_icon: false,
+      id: 77,
+      name: "put.io TV",
+      website: "https://put.io",
+    }),
+  );
   const continueTransfersMock = vi.fn((_cursor?: string) => Effect.succeed(emptyTransferListPage));
   const listTransfersMock = vi.fn(() => Effect.succeed(defaultTransferListPage));
   const addTransfersMock = vi.fn(() =>
@@ -132,6 +141,9 @@ const mocks = vi.hoisted(() => {
   const continueSearchFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
   const listFilesMock = vi.fn(() => Effect.succeed(defaultFileListPage));
   const searchFilesMock = vi.fn(() => Effect.succeed(defaultSearchFilesPage));
+  const getStartFromMock = vi.fn(() => Effect.succeed(90));
+  const setStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
+  const resetStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
   const getAccountInfoMock = vi.fn(() =>
     Effect.succeed({
       account_status: "ACTIVE",
@@ -264,6 +276,7 @@ const mocks = vi.hoisted(() => {
     auth: {
       checkCodeMatch: checkCodeMatchMock,
       getCode: getCodeMock,
+      linkDevice: linkDeviceMock,
     },
     downloadLinks: {
       create: createDownloadLinksMock,
@@ -277,10 +290,13 @@ const mocks = vi.hoisted(() => {
       continueSearch: continueSearchFilesMock,
       createFolder: createFolderMock,
       delete: deleteFilesMock,
+      getStartFrom: getStartFromMock,
       list: listFilesMock,
       move: moveFilesMock,
       rename: renameFileMock,
+      resetStartFrom: resetStartFromMock,
       search: searchFilesMock,
+      setStartFrom: setStartFromMock,
     },
     transfers: {
       addMany: addTransfersMock,
@@ -311,15 +327,18 @@ const mocks = vi.hoisted(() => {
     getAuthStatusMock,
     checkCodeMatchMock,
     getCodeMock,
+    getStartFromMock,
     getTransferMock,
     listEventsMock,
     listFilesMock,
     listProfilesMock,
     listTransfersMock,
+    linkDeviceMock,
     moveFilesMock,
     openBrowserMock,
     provideSdkMock,
     renameFileMock,
+    resetStartFromMock,
     reannounceTransferMock,
     removeProfileMock,
     resolveAuthFlowConfigMock,
@@ -327,6 +346,7 @@ const mocks = vi.hoisted(() => {
     retryTransferMock,
     savePersistedStateMock,
     searchFilesMock,
+    setStartFromMock,
     useProfileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
@@ -612,6 +632,45 @@ describe("cli command paths", () => {
     ).toContain("HELLO1");
   });
 
+  it("approves a device code with the authenticated account", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "approve", "HELLO1", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.linkDeviceMock).toHaveBeenCalledWith("HELLO1");
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 77, name: "put.io TV" }),
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("previews device approval from raw json without hitting the sdk", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "auth",
+        "approve",
+        "--json",
+        '{"code":"  HELLO1  "}',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.linkDeviceMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "auth approve",
+        dryRun: true,
+        request: { code: "HELLO1" },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
   it("executes auth logout", async () => {
     await expect(
       runCliInTest(["putio", "auth", "logout", "--output", "json"]),
@@ -697,6 +756,16 @@ describe("cli command paths", () => {
     });
 
     expect(mocks.writeOutputMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects device approval codes with query fragments", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "approve", "PUTIO1?debug=1", "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: "`auth approve` code cannot include `?` or `#` fragments.",
+    });
+
+    expect(mocks.linkDeviceMock).not.toHaveBeenCalled();
   });
 
   it("executes whoami", async () => {
@@ -939,6 +1008,91 @@ describe("cli command paths", () => {
         id: 42,
         name: "Projects",
         parent_id: 9,
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("reads a file watch position", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "start-from",
+        "get",
+        "42",
+        "--fields",
+        "start_from",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.getStartFromMock).toHaveBeenCalledWith(42);
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      { start_from: 90 },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("sets a file watch position", async () => {
+    await expect(
+      runCliInTest(["putio", "files", "start-from", "set", "42", "95", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.setStartFromMock).toHaveBeenCalledWith({ file_id: 42, time: 95 });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      { file_id: 42, start_from: 95, status: "OK" },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("resets a file watch position from raw json", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "start-from",
+        "reset",
+        "--json",
+        '{"file_id":42}',
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.resetStartFromMock).toHaveBeenCalledWith(42);
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      { file_id: 42, start_from: 0, status: "OK" },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("previews a watch-position update without hitting the sdk", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "start-from",
+        "set",
+        "--json",
+        '{"file_id":42,"time":95}',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.setStartFromMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "files start-from set",
+        dryRun: true,
+        request: { file_id: 42, time: 95 },
       },
       "json",
       expect.any(Function),
