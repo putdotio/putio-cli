@@ -1,8 +1,28 @@
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { Effect } from "effect";
 
 import { resetCommandPathMocks } from "./test-support/command-path-mocks.js";
 import { runCliInTest } from "./test-support/run-cli.js";
+
+const uploadFixtureDirectories = new Set<string>();
+
+const makeUploadFixtureDirectory = async () => {
+  const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
+  uploadFixtureDirectories.add(directory);
+  return directory;
+};
+
+afterEach(async () => {
+  const directories = [...uploadFixtureDirectories];
+  uploadFixtureDirectories.clear();
+  await Promise.all(
+    directories.map((directory) => rm(directory, { force: true, recursive: true })),
+  );
+});
 
 const mocks = vi.hoisted(() => {
   type FileListItem = {
@@ -85,6 +105,15 @@ const mocks = vi.hoisted(() => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
+  const linkDeviceMock = vi.fn(() =>
+    Effect.succeed({
+      description: "Living room TV",
+      has_icon: false,
+      id: 77,
+      name: "put.io TV",
+      website: "https://put.io",
+    }),
+  );
   const continueTransfersMock = vi.fn((_cursor?: string) => Effect.succeed(emptyTransferListPage));
   const listTransfersMock = vi.fn(() => Effect.succeed(defaultTransferListPage));
   const addTransfersMock = vi.fn(() =>
@@ -132,6 +161,15 @@ const mocks = vi.hoisted(() => {
   const continueSearchFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
   const listFilesMock = vi.fn(() => Effect.succeed(defaultFileListPage));
   const searchFilesMock = vi.fn(() => Effect.succeed(defaultSearchFilesPage));
+  const uploadFileMock = vi.fn(() =>
+    Effect.succeed({
+      file: { id: 88, name: "movie.mp4" },
+      type: "file" as const,
+    }),
+  );
+  const getStartFromMock = vi.fn(() => Effect.succeed(90));
+  const setStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
+  const resetStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
   const getAccountInfoMock = vi.fn(() =>
     Effect.succeed({
       account_status: "ACTIVE",
@@ -264,6 +302,7 @@ const mocks = vi.hoisted(() => {
     auth: {
       checkCodeMatch: checkCodeMatchMock,
       getCode: getCodeMock,
+      linkDevice: linkDeviceMock,
     },
     downloadLinks: {
       create: createDownloadLinksMock,
@@ -277,10 +316,14 @@ const mocks = vi.hoisted(() => {
       continueSearch: continueSearchFilesMock,
       createFolder: createFolderMock,
       delete: deleteFilesMock,
+      getStartFrom: getStartFromMock,
       list: listFilesMock,
       move: moveFilesMock,
       rename: renameFileMock,
+      resetStartFrom: resetStartFromMock,
       search: searchFilesMock,
+      upload: uploadFileMock,
+      setStartFrom: setStartFromMock,
     },
     transfers: {
       addMany: addTransfersMock,
@@ -311,15 +354,18 @@ const mocks = vi.hoisted(() => {
     getAuthStatusMock,
     checkCodeMatchMock,
     getCodeMock,
+    getStartFromMock,
     getTransferMock,
     listEventsMock,
     listFilesMock,
     listProfilesMock,
     listTransfersMock,
+    linkDeviceMock,
     moveFilesMock,
     openBrowserMock,
     provideSdkMock,
     renameFileMock,
+    resetStartFromMock,
     reannounceTransferMock,
     removeProfileMock,
     resolveAuthFlowConfigMock,
@@ -327,7 +373,9 @@ const mocks = vi.hoisted(() => {
     retryTransferMock,
     savePersistedStateMock,
     searchFilesMock,
+    setStartFromMock,
     useProfileMock,
+    uploadFileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
     withTerminalLoaderMock,
@@ -612,6 +660,45 @@ describe("cli command paths", () => {
     ).toContain("HELLO1");
   });
 
+  it("approves a device code with the authenticated account", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "approve", "HELLO1", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.linkDeviceMock).toHaveBeenCalledWith("HELLO1");
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 77, name: "put.io TV" }),
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("previews device approval from raw json without hitting the sdk", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "auth",
+        "approve",
+        "--json",
+        '{"code":"  HELLO1  "}',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.linkDeviceMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "auth approve",
+        dryRun: true,
+        request: { code: "HELLO1" },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
   it("executes auth logout", async () => {
     await expect(
       runCliInTest(["putio", "auth", "logout", "--output", "json"]),
@@ -697,6 +784,16 @@ describe("cli command paths", () => {
     });
 
     expect(mocks.writeOutputMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects device approval codes with query fragments", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "approve", "PUTIO1?debug=1", "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: "`auth approve` code cannot include `?` or `#` fragments.",
+    });
+
+    expect(mocks.linkDeviceMock).not.toHaveBeenCalled();
   });
 
   it("executes whoami", async () => {
@@ -943,6 +1040,262 @@ describe("cli command paths", () => {
       "json",
       expect.any(Function),
     );
+  });
+
+  it("reads a file watch position", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "start-from",
+        "get",
+        "42",
+        "--fields",
+        "start_from",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.getStartFromMock).toHaveBeenCalledWith(42);
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      { start_from: 90 },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("sets a file watch position", async () => {
+    await expect(
+      runCliInTest(["putio", "files", "start-from", "set", "42", "95", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.setStartFromMock).toHaveBeenCalledWith({ file_id: 42, time: 95 });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      { file_id: 42, start_from: 95, status: "OK" },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("resets a file watch position from raw json", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "start-from",
+        "reset",
+        "--json",
+        '{"file_id":42}',
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.resetStartFromMock).toHaveBeenCalledWith(42);
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      { file_id: 42, start_from: 0, status: "OK" },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("previews a watch-position update without hitting the sdk", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "start-from",
+        "set",
+        "--json",
+        '{"file_id":42,"time":95}',
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.setStartFromMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "files start-from set",
+        dryRun: true,
+        request: { file_id: 42, time: 95 },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("uploads a readable local file with the mocked sdk", async () => {
+    const directory = await makeUploadFixtureDirectory();
+    const path = join(directory, "movie.mp4");
+    await writeFile(path, "video fixture");
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--path",
+        path,
+        "--parent-id",
+        "42",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.uploadFileMock).toHaveBeenCalledWith({
+      file: expect.any(Blob),
+      fileName: "movie.mp4",
+      parentId: 42,
+    });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        file: { id: 88, name: "movie.mp4" },
+        type: "file",
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("previews a local file upload from raw json without hitting the sdk", async () => {
+    const directory = await makeUploadFixtureDirectory();
+    const path = join(directory, "movie.mp4");
+    await writeFile(path, "video fixture");
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--json",
+        JSON.stringify({ file_name: "fixture.mp4", parent_id: 42, path }),
+        "--dry-run",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      {
+        command: "files upload",
+        dryRun: true,
+        request: {
+          file_name: "fixture.mp4",
+          parent_id: 42,
+          path,
+          size: 13,
+        },
+      },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("rejects directory paths before file upload", async () => {
+    const directory = await makeUploadFixtureDirectory();
+
+    await expect(
+      runCliInTest(["putio", "files", "upload", "--path", directory, "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: "Expected the upload path to point to a regular file.",
+    });
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+  });
+
+  it.skipIf(typeof process.getuid === "function" && process.getuid() === 0)(
+    "rejects unreadable files before previewing an upload",
+    async () => {
+      const directory = await makeUploadFixtureDirectory();
+      const path = join(directory, "private.mp4");
+      await writeFile(path, "video fixture", { mode: 0o000 });
+
+      await expect(
+        runCliInTest(["putio", "files", "upload", "--path", path, "--dry-run", "--output", "json"]),
+      ).rejects.toMatchObject({
+        message:
+          "Unable to read the local upload file. Verify that the path exists and is readable.",
+      });
+
+      expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a blank upload filename before hitting the sdk", async () => {
+    const directory = await makeUploadFixtureDirectory();
+    const path = join(directory, "movie.mp4");
+    await writeFile(path, "video fixture");
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--path",
+        path,
+        "--file-name",
+        "   ",
+        "--output",
+        "json",
+      ]),
+    ).rejects.toMatchObject({
+      message: "Expected `files upload --file-name` to be a non-empty string.",
+    });
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid upload options before filesystem work", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--path",
+        "/missing/upload-fixture",
+        "--file-name",
+        "../movie.mp4",
+        "--output",
+        "json",
+      ]),
+    ).rejects.toMatchObject({
+      message:
+        "`files upload --file-name` cannot contain path traversal segments like `../` or `%2e`.",
+    });
+
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "upload",
+        "--json",
+        '{"path":"/missing/upload-fixture","parent_id":-1}',
+        "--output",
+        "json",
+      ]),
+    ).rejects.toMatchObject({
+      message: "Expected `--json` to match the command input schema.",
+    });
+
+    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+  });
+
+  it("propagates sdk upload failures", async () => {
+    const directory = await makeUploadFixtureDirectory();
+    const path = join(directory, "private.mp4");
+    await writeFile(path, "video fixture");
+    mocks.uploadFileMock.mockImplementationOnce(() => Effect.fail(new Error("upload failed")));
+
+    await expect(
+      runCliInTest(["putio", "files", "upload", "--path", path, "--output", "json"]),
+    ).rejects.toThrow("upload failed");
+
+    expect(mocks.uploadFileMock).toHaveBeenCalledOnce();
   });
 
   it("executes files delete with repeated ids", async () => {

@@ -25,6 +25,7 @@ Input safety notes:
 - field selectors reject nested paths and malformed tokens
 - name-like inputs reject control characters and traversal-like segments
 - generic SDK operation paths resolve only listed enumerable own data properties, reject prototype traversal and accessors, accept positional JSON values only, exclude unsafe positional or scalar credentials, and redact supported keyed secrets and token-bearing URLs
+- local upload paths reject control characters and must resolve to readable regular files
 
 Output safety notes:
 

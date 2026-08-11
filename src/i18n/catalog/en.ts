@@ -41,6 +41,9 @@ export const en = {
   },
   cli: {
     auth: {
+      approve: {
+        approved: 'approved device link for "{{name}}" (app id {{id}})',
+      },
       login: {
         activationCode: "activation code",
         autoOpened: "opened automatically in your browser",
@@ -216,9 +219,11 @@ export const en = {
         creatingFolder: 'Creating folder "{{name}}"...',
         deleting: "Deleting {{count}} file(s)...",
         loading: "Loading files...",
+        loadingStartFrom: "Loading watch position for file {{fileId}}...",
         moving: "Moving {{count}} file(s) to parent {{parentId}}...",
         renaming: 'Renaming file {{id}} to "{{name}}"...',
         searching: 'Searching files for "{{query}}"...',
+        uploading: 'Uploading "{{name}}"...',
       },
       terminal: {
         created: 'created folder "{{name}}" (id {{id}}, parent {{parentId}})',
@@ -231,12 +236,18 @@ export const en = {
         renamed: 'renamed file {{fileId}} to "{{name}}"',
         skipTrashEnabled: "skip trash: yes",
         skipped: "skipped: {{count}}",
+        startFrom: "file {{fileId}} starts from {{seconds}} second(s)",
+        startFromReset: "reset watch position for file {{fileId}}",
+        startFromSet: "set watch position for file {{fileId}} to {{seconds}} second(s)",
         summary: "Showing {{count}} file(s){{totalSuffix}}.",
         summaryInParent: "Showing {{count}} file(s) in {{name}}{{totalSuffix}}.",
         totalSuffix: " ({{total}} total)",
+        uploadedFile: 'uploaded file "{{name}}" (id {{id}})',
+        uploadedTransfer: 'queued upload transfer "{{name}}" (id {{id}})',
       },
     },
     metadata: {
+      authApprove: "Approve a pending device-link code with the authenticated account.",
       authLogin:
         "Authorize the CLI through the put.io device-link flow and persist the resulting token.",
       authLogout: "Remove the persisted CLI auth state.",
@@ -256,6 +267,10 @@ export const en = {
       filesMove: "Move one or more files to a parent directory.",
       filesRename: "Rename a file by id.",
       filesSearch: "Search files by query and optional file type.",
+      filesUpload: "Upload a readable local file into put.io.",
+      filesStartFromGet: "Read the saved watch position for a file.",
+      filesStartFromReset: "Reset the saved watch position for a file.",
+      filesStartFromSet: "Set the saved watch position for a file.",
       search: "Top-level alias for file search.",
       sdkCall: "Invoke a JSON-compatible function from the pinned put.io TypeScript SDK.",
       sdkList: "List JSON-callable functions exposed by the pinned put.io TypeScript SDK.",
@@ -270,7 +285,7 @@ export const en = {
       whoami: "Read broad account information through the put.io SDK.",
     },
     root: {
-      chooseAuthSubcommand: "Choose `status`, `login`, `logout`, or `preview`.",
+      chooseAuthSubcommand: "Choose `status`, `login`, `logout`, `preview`, or `approve`.",
       help: "Use `putio describe` or `putio --help`.",
     },
     sdk: {

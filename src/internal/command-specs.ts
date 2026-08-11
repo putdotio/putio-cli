@@ -350,6 +350,19 @@ export const stringArgument = (
   type: "string",
 });
 
+export const integerArgument = (
+  name: string,
+  options: {
+    readonly description?: string;
+    readonly required?: boolean;
+  } = {},
+): CommandArgument => ({
+  description: options.description,
+  name,
+  required: options.required ?? true,
+  type: "integer",
+});
+
 export const repeatedStringFlag = (
   name: string,
   options: {

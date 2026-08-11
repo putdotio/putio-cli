@@ -1,4 +1,4 @@
-import { Command } from "effect/unstable/cli";
+import { Argument, Command } from "effect/unstable/cli";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -16,14 +16,17 @@ import {
   pageAllOption,
   resolveMutationInput,
   resolveReadOutputControls,
+  validateLocalPathInput,
   validateNameLikeInput,
   withAuthedSdk,
   writeDryRunPlan,
+  writeReadOutput,
   writeReadPages,
 } from "../internal/command.js";
 import {
   dryRunFlag,
   fieldsFlag,
+  integerArgument,
   jsonFlag,
   jsonShapeFromSchema,
   outputFlag,
@@ -31,6 +34,7 @@ import {
   type CommandSpec,
 } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
+import { inspectLocalUpload, openLocalUploadBlob } from "../internal/local-upload.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderFilesTerminal } from "../internal/terminal/files-terminal.js";
@@ -70,6 +74,8 @@ const fileSortChoices = [
 const sortByConfig = defineChoiceOption("sort-by", fileSortChoices, { optional: true });
 const optionalFileIdConfig = defineIntegerOption("id", { optional: true });
 const optionalFileNameConfig = defineTextOption("name", { optional: true });
+const uploadPathConfig = defineTextOption("path", { optional: true });
+const uploadFileNameConfig = defineTextOption("file-name", { optional: true });
 
 const parentIdOption = parentIdConfig.option;
 const perPageOption = perPageConfig.option;
@@ -82,6 +88,11 @@ const fileTypeOption = fileTypeConfig.option;
 const sortByOption = sortByConfig.option;
 const optionalFileIdOption = optionalFileIdConfig.option;
 const optionalFileNameOption = optionalFileNameConfig.option;
+const uploadPathOption = uploadPathConfig.option;
+const uploadFileNameOption = uploadFileNameConfig.option;
+const startFromFileIdArgument = Argument.integer("file-id");
+const optionalStartFromFileIdArgument = startFromFileIdArgument.pipe(Argument.optional);
+const optionalStartFromTimeArgument = Argument.integer("seconds").pipe(Argument.optional);
 
 const NonBlankStringSchema = Schema.String.check(
   Schema.makeFilter((value) =>
@@ -90,6 +101,8 @@ const NonBlankStringSchema = Schema.String.check(
 );
 
 const NonEmptyIdsSchema = Schema.Array(Schema.Number).check(Schema.isNonEmpty());
+const PositiveIntegerSchema = Schema.Int.check(Schema.isGreaterThan(0));
+const NonNegativeIntegerSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
 const FilesMkdirInputSchema = Schema.Struct({
   name: NonBlankStringSchema,
@@ -109,6 +122,21 @@ const FilesDeleteInputSchema = Schema.Struct({
 const FilesMoveInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
   parent_id: Schema.Number,
+});
+
+const FilesUploadInputSchema = Schema.Struct({
+  file_name: Schema.optional(NonBlankStringSchema),
+  parent_id: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
+  path: NonBlankStringSchema,
+});
+
+const FilesStartFromSetInputSchema = Schema.Struct({
+  file_id: PositiveIntegerSchema,
+  time: NonNegativeIntegerSchema,
+});
+
+const FilesStartFromResetInputSchema = Schema.Struct({
+  file_id: PositiveIntegerSchema,
 });
 
 const requiredValue = <A>(value: A | undefined, message: string) => {
@@ -134,6 +162,48 @@ const requiredIds = (value: ReadonlyArray<number>, message: string) => {
 
   return value;
 };
+
+const optionalNonNegativeInteger = (value: number | undefined, message: string) => {
+  if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+const requiredPositiveInteger = (value: number | undefined, message: string) => {
+  if (value === undefined || !Number.isInteger(value) || value <= 0) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+const requiredNonNegativeInteger = (value: number | undefined, message: string) => {
+  if (value === undefined || !Number.isInteger(value) || value < 0) {
+    throw new CliCommandInputError({ message });
+  }
+
+  return value;
+};
+
+export const renderFileUploadedTerminal = (
+  value:
+    | { readonly type: "file"; readonly file: { readonly id: number; readonly name: string } }
+    | {
+        readonly type: "transfer";
+        readonly transfer: { readonly id: number; readonly name: string };
+      },
+) =>
+  value.type === "file"
+    ? translate("cli.files.terminal.uploadedFile", {
+        id: value.file.id,
+        name: value.file.name,
+      })
+    : translate("cli.files.terminal.uploadedTransfer", {
+        id: value.transfer.id,
+        name: value.transfer.name,
+      });
 
 export const renderFileCreatedTerminal = (value: {
   readonly id: number;
@@ -285,6 +355,84 @@ const filesMkdir = Command.make(
       );
 
       yield* writeOutput(result, getOption(output), renderFileCreatedTerminal);
+    }),
+);
+
+const filesUpload = Command.make(
+  "upload",
+  {
+    dryRun: dryRunOption,
+    fileName: uploadFileNameOption,
+    json: jsonOption,
+    output: outputOption,
+    parentId: parentIdOption,
+    path: uploadPathOption,
+  },
+  ({ dryRun, fileName, json, output, parentId, path }) =>
+    Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          file_name: getOption(fileName),
+          parent_id: getOption(parentId),
+          path: requiredNonEmptyText(
+            getOption(path),
+            "Provide `--path` or `--json` for `files upload`.",
+          ),
+        }),
+        json,
+        schema: FilesUploadInputSchema,
+      }).pipe(
+        Effect.map((value) => ({
+          ...value,
+          file_name:
+            value.file_name === undefined
+              ? undefined
+              : validateNameLikeInput(
+                  "`files upload --file-name`",
+                  requiredNonEmptyText(
+                    value.file_name,
+                    "Expected `files upload --file-name` to be a non-empty string.",
+                  ),
+                ),
+          parent_id: optionalNonNegativeInteger(
+            value.parent_id,
+            "Expected `files upload --parent-id` to be a non-negative integer.",
+          ),
+          path: validateLocalPathInput("`files upload --path`", value.path),
+        })),
+      );
+      const prepared = yield* inspectLocalUpload(input.path);
+      const resolvedFileName = validateNameLikeInput(
+        "`files upload --file-name`",
+        input.file_name ?? prepared.fileName,
+      );
+      const plan = {
+        file_name: resolvedFileName,
+        parent_id: input.parent_id,
+        path: input.path,
+        size: prepared.size,
+      };
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files upload", plan, getOption(output));
+      }
+
+      const file = yield* openLocalUploadBlob(prepared.path);
+      const result = yield* withTerminalLoader(
+        {
+          message: translate("cli.files.command.uploading", { name: resolvedFileName }),
+          output: getOption(output),
+        },
+        withAuthedSdk(({ sdk }) =>
+          sdk.files.upload({
+            file,
+            fileName: resolvedFileName,
+            parentId: input.parent_id,
+          }),
+        ),
+      );
+
+      yield* writeOutput(result, getOption(output), renderFileUploadedTerminal);
     }),
 );
 
@@ -478,6 +626,141 @@ const filesSearchCommand = Command.make(
     }),
 );
 
+const filesStartFromGet = Command.make(
+  "get",
+  {
+    fields: fieldsOption,
+    fileId: startFromFileIdArgument,
+    output: outputOption,
+  },
+  ({ fields, fileId, output }) =>
+    Effect.gen(function* () {
+      const validatedFileId = requiredPositiveInteger(
+        fileId,
+        "Expected `files start-from get` file-id to be a positive integer.",
+      );
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+      });
+      const startFrom = yield* withTerminalLoader(
+        {
+          message: translate("cli.files.command.loadingStartFrom", { fileId: validatedFileId }),
+          output: controls.output,
+        },
+        withAuthedSdk(({ sdk }) => sdk.files.getStartFrom(validatedFileId)),
+      );
+      const result = {
+        file_id: validatedFileId,
+        start_from: startFrom,
+      };
+
+      yield* writeReadOutput({
+        command: "files start-from get",
+        output: controls.output,
+        outputMode: controls.outputMode,
+        renderTerminalValue: (value) =>
+          translate("cli.files.terminal.startFrom", {
+            fileId: value.file_id,
+            seconds: value.start_from,
+          }),
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
+    }),
+);
+
+const filesStartFromSet = Command.make(
+  "set",
+  {
+    dryRun: dryRunOption,
+    fileId: optionalStartFromFileIdArgument,
+    json: jsonOption,
+    output: outputOption,
+    seconds: optionalStartFromTimeArgument,
+  },
+  ({ dryRun, fileId, json, output, seconds }) =>
+    Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          file_id: requiredPositiveInteger(
+            getOption(fileId),
+            "Provide a positive file-id or `--json` for `files start-from set`.",
+          ),
+          time: requiredNonNegativeInteger(
+            getOption(seconds),
+            "Provide non-negative seconds or `--json` for `files start-from set`.",
+          ),
+        }),
+        json,
+        schema: FilesStartFromSetInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files start-from set", input, getOption(output));
+      }
+
+      const result = yield* withAuthedSdk(({ sdk }) => sdk.files.setStartFrom(input));
+
+      yield* writeOutput(
+        {
+          file_id: input.file_id,
+          start_from: input.time,
+          ...result,
+        },
+        getOption(output),
+        () =>
+          translate("cli.files.terminal.startFromSet", {
+            fileId: input.file_id,
+            seconds: input.time,
+          }),
+      );
+    }),
+);
+
+const filesStartFromReset = Command.make(
+  "reset",
+  {
+    dryRun: dryRunOption,
+    fileId: optionalStartFromFileIdArgument,
+    json: jsonOption,
+    output: outputOption,
+  },
+  ({ dryRun, fileId, json, output }) =>
+    Effect.gen(function* () {
+      const input = yield* resolveMutationInput({
+        buildFromFlags: () => ({
+          file_id: requiredPositiveInteger(
+            getOption(fileId),
+            "Provide a positive file-id or `--json` for `files start-from reset`.",
+          ),
+        }),
+        json,
+        schema: FilesStartFromResetInputSchema,
+      });
+
+      if (dryRun) {
+        return yield* writeDryRunPlan("files start-from reset", input, getOption(output));
+      }
+
+      const result = yield* withAuthedSdk(({ sdk }) => sdk.files.resetStartFrom(input.file_id));
+
+      yield* writeOutput(
+        {
+          file_id: input.file_id,
+          start_from: 0,
+          ...result,
+        },
+        getOption(output),
+        () => translate("cli.files.terminal.startFromReset", { fileId: input.file_id }),
+      );
+    }),
+);
+
+const filesStartFrom = Command.make("start-from", {}, () => Effect.void).pipe(
+  Command.withSubcommands([filesStartFromGet, filesStartFromSet, filesStartFromReset]),
+);
+
 export const searchCommand = filesSearchCommand;
 
 export const filesCommand = Command.make("files", {}, () => Effect.void).pipe(
@@ -485,13 +768,68 @@ export const filesCommand = Command.make("files", {}, () => Effect.void).pipe(
     filesList,
     filesSearchCommand,
     filesMkdir,
+    filesUpload,
     filesRename,
     filesMove,
     filesDelete,
+    filesStartFrom,
   ]),
 );
 
 export const filesCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "files start-from get",
+    input: {
+      arguments: [integerArgument("file-id")],
+      flags: [fieldsFlag(), outputFlag()],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.filesStartFromGet"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files start-from set",
+    input: {
+      arguments: [
+        integerArgument("file-id", { required: false }),
+        integerArgument("seconds", { required: false }),
+      ],
+      flags: [dryRunFlag(), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(FilesStartFromSetInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesStartFromSet"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files start-from reset",
+    input: {
+      arguments: [integerArgument("file-id", { required: false })],
+      flags: [dryRunFlag(), jsonFlag(), outputFlag()],
+      json: jsonShapeFromSchema(FilesStartFromResetInputSchema),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesStartFromReset"),
+  },
   {
     auth: { required: true },
     capabilities: {
@@ -562,6 +900,32 @@ export const filesCommandSpecs = [
     },
     kind: "write",
     purpose: translate("cli.metadata.filesMkdir"),
+  },
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: true,
+      fieldSelection: false,
+      rawJsonInput: true,
+      streaming: false,
+    },
+    command: "files upload",
+    input: {
+      flags: [
+        dryRunFlag(),
+        uploadFileNameConfig.flag,
+        jsonFlag(),
+        outputFlag(),
+        parentIdConfig.flag,
+        uploadPathConfig.flag,
+      ],
+      json: jsonShapeFromSchema(FilesUploadInputSchema, [
+        "`path` must resolve to a readable regular file.",
+        "`file_name` rejects control characters and path traversal segments like `../` or `%2e`.",
+      ]),
+    },
+    kind: "write",
+    purpose: translate("cli.metadata.filesUpload"),
   },
   {
     auth: { required: true },

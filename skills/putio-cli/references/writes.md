@@ -7,6 +7,9 @@ Dry-run first:
 ```bash
 putio transfers cancel --json '{"ids":[12,18]}' --dry-run --output json
 putio files rename --json '{"file_id":42,"name":"Projects 2027"}' --dry-run --output json
+putio files upload --json '{"path":"./movie.mp4","parent_id":42}' --dry-run --output json
+putio files start-from set --json '{"file_id":42,"time":95}' --dry-run --output json
+putio auth approve --json '{"code":"PUTIO1"}' --dry-run --output json
 ```
 
 Execute for real only after the dry-run request shape looks correct.
@@ -16,6 +19,8 @@ Examples:
 ```bash
 putio download-links create --json '{"ids":[1,2]}' --output json
 putio files mkdir --json '{"name":"Projects","parent_id":9}' --output json
+putio files upload --json '{"path":"./movie.mp4","parent_id":42}' --output json
+putio files start-from reset --json '{"file_id":42}' --output json
 putio transfers add --json '[{"url":"https://example.com/file.torrent"}]' --output json
 putio sdk call --json '{"operation":"files.get","args":[42]}' --dry-run --output json
 putio sdk call --json '{"operation":"files.get","args":[42]}' --execute --output json
@@ -27,3 +32,4 @@ Rules:
 - Prefer `--dry-run` before side effects.
 - Re-check schema-required keys in `describe` instead of guessing names.
 - Treat every `sdk call` operation as potentially mutating and inspect its dry-run before `--execute`.
+- `files upload` validates that `path` resolves to a readable regular file before dry-run or execution.
