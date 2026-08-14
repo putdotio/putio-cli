@@ -42,20 +42,19 @@ The release-bot remote is configured only after dependencies are installed and t
 
 ## Recover
 
-Rerun the failed `main` workflow. If the original workflow definition itself
-needs repair, dispatch `CI` from current `main` with the exact existing draft
-tag. The release job validates that tag against `main` and retries exact Release
-visibility before choosing a state:
+After a partial release failure, dispatch `CI` from current `main` with the
+exact existing tag. The release job validates that tag against `main` and reads
+its exact GitHub Release state:
 
 - a draft rebuilds and replaces its binary assets, verifies all six names, and
   publishes once
 - a published Release skips asset mutation, verifies the complete manifest,
   and reruns the idempotent Homebrew reconciliation
-- a push with no associated release remains a no-op
+- a push with no new semantic-release output remains a no-op
 
-An expected Release that stays invisible fails closed with the final lookup
-error. Use the manual `Backfill Release Assets` workflow only for an older
-published release created before draft-first publication.
+An unavailable expected Release fails closed. Use the manual `Backfill Release
+Assets` workflow only for an older published release created before draft-first
+publication.
 
 ## Package Contents
 
