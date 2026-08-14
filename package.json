@@ -49,13 +49,13 @@
     "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run smoke:pack && vp test && vp test run --coverage"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-beta.107",
+    "@effect/platform-node": "4.0.0-rc.109",
     "cli-table3": "^0.6.5",
-    "effect": "4.0.0-beta.107",
+    "effect": "4.0.0-rc.109",
     "i18next": "^26.3.4"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-beta.107",
+    "@effect/vitest": "4.0.0-rc.109",
     "@putdotio/sdk": "10.0.1",
     "@types/node": "^26.1.0",
     "@vitest/coverage-v8": "catalog:",

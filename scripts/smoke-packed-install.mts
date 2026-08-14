@@ -394,8 +394,8 @@ try {
     entry.version === undefined ? [] : [entry.version],
   );
   assert(
-    effectVersions.length === 1 && effectVersions[0] === "4.0.0-beta.107",
-    `Expected the package to install one Effect 4.0.0-beta.107 runtime, received ${effectVersions.join(", ")}.`,
+    effectVersions.length === 1 && effectVersions[0] === "4.0.0-rc.109",
+    `Expected the package to install one Effect 4.0.0-rc.109 runtime, received ${effectVersions.join(", ")}.`,
   );
 
   const mockApi = await startMockApi();
