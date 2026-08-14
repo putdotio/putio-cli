@@ -12,7 +12,11 @@ GitHub Actions owns npm publishing, GitHub Releases, release assets, and Homebre
 4. `vp run build`
 5. `semantic-release`
 
-Binary asset jobs build from the published release tag after semantic-release creates it.
+semantic-release publishes npm, writes the version tag, and creates a draft
+GitHub Release. Binary jobs build from that exact tag and upload all six archive
+and checksum assets while the Release is mutable. A final job verifies the exact
+asset manifest before publishing, then reconciles the Homebrew formula to the
+same tag.
 
 ## Release Environment
 
@@ -35,6 +39,22 @@ During the `@semantic-release/npm` publish step, npm detects the GitHub OIDC ide
 The workflow keeps dependency caches only on the secretless verify job. Secret-bearing release, binary asset, and Homebrew publish jobs use fresh installs or release tooling with package-manager caching disabled.
 
 The release-bot remote is configured only after dependencies are installed and the package build completes.
+
+## Recover
+
+Rerun the failed `main` workflow. The release job resolves the tag associated
+with the original workflow commit and retries exact Release visibility before
+choosing a state:
+
+- a draft rebuilds and replaces its binary assets, verifies all six names, and
+  publishes once
+- a published Release skips asset mutation, verifies the complete manifest,
+  and reruns the idempotent Homebrew reconciliation
+- a push with no associated release remains a no-op
+
+An expected Release that stays invisible fails closed with the final lookup
+error. Use the manual `Backfill Release Assets` workflow only for an older
+published release created before draft-first publication.
 
 ## Package Contents
 

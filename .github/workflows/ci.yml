@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
 
@@ -57,9 +57,11 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
-      new_release_git_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
-      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      release_draft: ${{ steps.release-target.outputs.draft }}
+      release_present: ${{ steps.release-target.outputs.present }}
+      release_published: ${{ steps.release-target.outputs.published }}
+      release_tag: ${{ steps.release-target.outputs.tag }}
+      release_version: ${{ steps.release-target.outputs.version }}
 
     steps:
       - name: Create release bot token
@@ -126,8 +128,84 @@ jobs:
           GIT_COMMITTER_NAME: ${{ steps.release-bot.outputs.app-slug }}[bot]
           GIT_COMMITTER_EMAIL: ${{ steps.release-bot-identity.outputs.user_id }}+${{ steps.release-bot.outputs.app-slug }}[bot]@users.noreply.github.com
 
+      - name: Resolve exact release target
+        id: release-target
+        env:
+          GH_TOKEN: ${{ steps.release-bot.outputs.token }}
+          NEW_RELEASE_TAG: ${{ steps.semantic.outputs.new_release_git_tag }}
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags --force
+
+          tag="$NEW_RELEASE_TAG"
+          if [[ -z "$tag" ]]; then
+            matches=""
+            while IFS= read -r candidate; do
+              candidate_commit="$(git rev-parse "${candidate}^{commit}")"
+              candidate_parent="$(git rev-parse "${candidate}^{commit}^" 2>/dev/null || true)"
+              if [[ "$candidate_commit" == "$GITHUB_SHA" || "$candidate_parent" == "$GITHUB_SHA" ]]; then
+                matches="${matches}${candidate}"$'\n'
+              fi
+            done < <(git tag --sort=-creatordate | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
+
+            match_count="$(printf '%s' "$matches" | awk 'NF { count++ } END { print count + 0 }')"
+            if (( match_count > 1 )); then
+              echo "multiple release tags match workflow commit $GITHUB_SHA" >&2
+              exit 1
+            fi
+            tag="$(printf '%s' "$matches" | awk 'NF { print; exit }')"
+          fi
+
+          if [[ -z "$tag" ]]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "unsupported release tag: $tag" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$tag" origin/main; then
+            echo "release tag is not on origin/main: $tag" >&2
+            exit 1
+          fi
+
+          release=""
+          release_error_file="$(mktemp)"
+          trap 'rm -f "$release_error_file"' EXIT
+          for attempt in {1..12}; do
+            if release="$(gh release view "$tag" --json databaseId,isDraft,isPrerelease,tagName 2>"$release_error_file")"; then
+              break
+            fi
+            if (( attempt == 12 )); then
+              cat "$release_error_file" >&2
+              echo "release $tag lookup failed after $attempt attempts" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+          rm -f "$release_error_file"
+          trap - EXIT
+
+          if [[ "$(jq -r .tagName <<<"$release")" != "$tag" ]]; then
+            echo "release lookup returned the wrong tag" >&2
+            exit 1
+          fi
+          if [[ "$(jq -r .isPrerelease <<<"$release")" != "false" ]]; then
+            echo "stable release tag resolved to a prerelease: $tag" >&2
+            exit 1
+          fi
+
+          is_draft="$(jq -r .isDraft <<<"$release")"
+          {
+            echo "present=true"
+            echo "tag=$tag"
+            echo "version=${tag#v}"
+            echo "draft=$is_draft"
+            echo "published=$([[ "$is_draft" == "false" ]] && echo true || echo false)"
+          } >> "$GITHUB_OUTPUT"
+
   build-unix-binaries:
-    if: needs.release.outputs.new_release_published == 'true'
+    if: needs.release.outputs.release_draft == 'true'
     name: Build ${{ matrix.os }} release assets
     needs:
       - release
@@ -161,7 +239,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ needs.release.outputs.new_release_git_tag }}
+          ref: ${{ needs.release.outputs.release_tag }}
           persist-credentials: false
 
       - name: Set up Vite+
@@ -182,7 +260,7 @@ jobs:
       - name: Package release assets
         shell: pwsh
         run: |
-          $version = "${{ needs.release.outputs.new_release_version }}"
+          $version = "${{ needs.release.outputs.release_version }}"
           $assetBase = "putio-cli-$version-${{ matrix.asset_os }}-${{ matrix.asset_arch }}"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -205,12 +283,13 @@ jobs:
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           token: ${{ steps.release-bot.outputs.token }}
-          tag_name: ${{ needs.release.outputs.new_release_git_tag }}
+          tag_name: ${{ needs.release.outputs.release_tag }}
+          draft: true
           files: |
             .artifacts/release/*
 
   build-windows-binary:
-    if: needs.release.outputs.new_release_published == 'true'
+    if: needs.release.outputs.release_draft == 'true'
     name: Build windows-latest release assets
     needs:
       - release
@@ -234,7 +313,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ needs.release.outputs.new_release_git_tag }}
+          ref: ${{ needs.release.outputs.release_tag }}
           persist-credentials: false
 
       - name: Set up Vite+
@@ -255,7 +334,7 @@ jobs:
       - name: Package release assets
         shell: pwsh
         run: |
-          $version = "${{ needs.release.outputs.new_release_version }}"
+          $version = "${{ needs.release.outputs.release_version }}"
           $assetBase = "putio-cli-$version-windows-amd64"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -273,16 +352,109 @@ jobs:
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
         with:
           token: ${{ steps.release-bot.outputs.token }}
-          tag_name: ${{ needs.release.outputs.new_release_git_tag }}
+          tag_name: ${{ needs.release.outputs.release_tag }}
+          draft: true
           files: |
             .artifacts/release/*
 
-  update-homebrew-tap:
-    if: needs.release.outputs.new_release_published == 'true'
-    name: Update Homebrew tap
+  finalize-release:
+    if: >-
+      ${{
+        !cancelled() &&
+        needs.release.result == 'success' &&
+        needs.release.outputs.release_present == 'true' &&
+        (
+          needs.release.outputs.release_published == 'true' ||
+          (
+            needs.release.outputs.release_draft == 'true' &&
+            needs.build-unix-binaries.result == 'success' &&
+            needs.build-windows-binary.result == 'success'
+          )
+        )
+      }}
+    name: Verify and publish GitHub release
     needs:
       - release
       - build-unix-binaries
+      - build-windows-binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: release
+      deployment: false
+    permissions:
+      contents: read
+    outputs:
+      release_ready: ${{ steps.finalized.outputs.ready }}
+
+    steps:
+      - name: Create release bot token
+        id: release-bot
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Verify draft asset manifest and publish
+        if: needs.release.outputs.release_draft == 'true'
+        env:
+          GH_TOKEN: ${{ steps.release-bot.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          release="$(gh release view "$RELEASE_TAG" --json assets,isDraft,isPrerelease)"
+          [[ "$(jq -r .isDraft <<<"$release")" == "true" ]]
+          [[ "$(jq -r .isPrerelease <<<"$release")" == "false" ]]
+          expected="$(printf '%s\n' \
+            "putio-cli-${RELEASE_VERSION}-darwin-arm64.tar.gz" \
+            "putio-cli-${RELEASE_VERSION}-darwin-arm64.tar.gz.sha256" \
+            "putio-cli-${RELEASE_VERSION}-linux-amd64.tar.gz" \
+            "putio-cli-${RELEASE_VERSION}-linux-amd64.tar.gz.sha256" \
+            "putio-cli-${RELEASE_VERSION}-windows-amd64.zip" \
+            "putio-cli-${RELEASE_VERSION}-windows-amd64.zip.sha256" | sort)"
+          actual="$(jq -r '.assets[].name' <<<"$release" | sort)"
+          diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual")
+          gh release edit "$RELEASE_TAG" --draft=false --latest
+
+      - name: Verify published release
+        id: finalized
+        env:
+          GH_TOKEN: ${{ steps.release-bot.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          expected="$(printf '%s\n' \
+            "putio-cli-${RELEASE_VERSION}-darwin-arm64.tar.gz" \
+            "putio-cli-${RELEASE_VERSION}-darwin-arm64.tar.gz.sha256" \
+            "putio-cli-${RELEASE_VERSION}-linux-amd64.tar.gz" \
+            "putio-cli-${RELEASE_VERSION}-linux-amd64.tar.gz.sha256" \
+            "putio-cli-${RELEASE_VERSION}-windows-amd64.zip" \
+            "putio-cli-${RELEASE_VERSION}-windows-amd64.zip.sha256" | sort)"
+          for attempt in {1..12}; do
+            release="$(gh release view "$RELEASE_TAG" --json assets,isDraft,isPrerelease)"
+            actual="$(jq -r '.assets[].name' <<<"$release" | sort)"
+            if [[ "$(jq -r .isDraft <<<"$release")" == "false" ]] &&
+               [[ "$(jq -r .isPrerelease <<<"$release")" == "false" ]] &&
+               diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual"); then
+              echo "ready=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if (( attempt == 12 )); then
+              echo "release $RELEASE_TAG did not reach the expected published state" >&2
+              exit 1
+            fi
+            sleep 5
+          done
+
+  update-homebrew-tap:
+    if: needs.finalize-release.outputs.release_ready == 'true'
+    name: Update Homebrew tap
+    needs:
+      - release
+      - finalize-release
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -329,6 +501,7 @@ jobs:
           commit_email: ${{ steps.homebrew-release-bot-user.outputs.user_id }}+${{ steps.homebrew-release-bot.outputs.app-slug }}[bot]@users.noreply.github.com
           branch: main
           formula_folder: Formula
+          version: ${{ needs.release.outputs.release_tag }}
           install: 'bin.install "putio"'
           test: |
             output = shell_output("#{bin}/putio version")
@@ -337,3 +510,16 @@ jobs:
           target_darwin_arm64: true
           target_linux_amd64: true
           skip_checksum: true
+          ignore_warnings: true
+
+      - name: Verify Homebrew tap points at the release
+        env:
+          GH_TOKEN: ${{ steps.homebrew-release-bot.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+          RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
+        run: |
+          set -euo pipefail
+          formula="$(gh api repos/putdotio/homebrew-tap/contents/Formula/putio-cli.rb --jq .content | base64 --decode)"
+          grep -Fq "/archive/refs/tags/${RELEASE_TAG}.tar.gz" <<<"$formula"
+          grep -Fq "/releases/download/${RELEASE_TAG}/putio-cli-${RELEASE_VERSION}-darwin-arm64.tar.gz" <<<"$formula"
+          grep -Fq "/releases/download/${RELEASE_TAG}/putio-cli-${RELEASE_VERSION}-linux-amd64.tar.gz" <<<"$formula"
