@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Exact existing draft tag to resume, for example v1.5.1
+        required: true
+        type: string
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -44,7 +50,14 @@ jobs:
         run: vp run smoke:pack
 
   release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+    if: >-
+      ${{
+        github.ref == 'refs/heads/main' &&
+        (
+          github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip ci]'))
+        )
+      }}
     name: Release CLI
     needs:
       - verify
@@ -103,14 +116,17 @@ jobs:
         run: vp install
 
       - name: Build package
+        if: github.event_name != 'workflow_dispatch'
         run: vp run build
 
       - name: Configure release bot remote
+        if: github.event_name != 'workflow_dispatch'
         run: git remote set-url origin "https://x-access-token:${RELEASE_BOT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
         env:
           RELEASE_BOT_TOKEN: ${{ steps.release-bot.outputs.token }}
 
       - name: Release package
+        if: github.event_name != 'workflow_dispatch'
         id: semantic
         uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
         with:
@@ -133,11 +149,12 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.release-bot.outputs.token }}
           NEW_RELEASE_TAG: ${{ steps.semantic.outputs.new_release_git_tag }}
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           git fetch origin main --tags --force
 
-          tag="$NEW_RELEASE_TAG"
+          tag="${REQUESTED_RELEASE_TAG:-$NEW_RELEASE_TAG}"
           if [[ -z "$tag" ]]; then
             matches=""
             while IFS= read -r candidate; do
@@ -404,7 +421,7 @@ jobs:
           RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
         run: |
           set -euo pipefail
-          release="$(gh release view "$RELEASE_TAG" --json assets,isDraft,isPrerelease)"
+          release="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease)"
           [[ "$(jq -r .isDraft <<<"$release")" == "true" ]]
           [[ "$(jq -r .isPrerelease <<<"$release")" == "false" ]]
           expected="$(printf '%s\n' \
@@ -416,7 +433,7 @@ jobs:
             "putio-cli-${RELEASE_VERSION}-windows-amd64.zip.sha256" | sort)"
           actual="$(jq -r '.assets[].name' <<<"$release" | sort)"
           diff -u <(printf '%s\n' "$expected") <(printf '%s\n' "$actual")
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
       - name: Verify published release
         id: finalized
@@ -434,7 +451,7 @@ jobs:
             "putio-cli-${RELEASE_VERSION}-windows-amd64.zip" \
             "putio-cli-${RELEASE_VERSION}-windows-amd64.zip.sha256" | sort)"
           for attempt in {1..12}; do
-            release="$(gh release view "$RELEASE_TAG" --json assets,isDraft,isPrerelease)"
+            release="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease)"
             actual="$(jq -r '.assets[].name' <<<"$release" | sort)"
             if [[ "$(jq -r .isDraft <<<"$release")" == "false" ]] &&
                [[ "$(jq -r .isPrerelease <<<"$release")" == "false" ]] &&

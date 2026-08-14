@@ -42,9 +42,10 @@ The release-bot remote is configured only after dependencies are installed and t
 
 ## Recover
 
-Rerun the failed `main` workflow. The release job resolves the tag associated
-with the original workflow commit and retries exact Release visibility before
-choosing a state:
+Rerun the failed `main` workflow. If the original workflow definition itself
+needs repair, dispatch `CI` from current `main` with the exact existing draft
+tag. The release job validates that tag against `main` and retries exact Release
+visibility before choosing a state:
 
 - a draft rebuilds and replaces its binary assets, verifies all six names, and
   publishes once
