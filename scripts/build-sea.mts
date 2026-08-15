@@ -13,6 +13,7 @@ import { mkdir, unlink } from "node:fs/promises";
 import { request } from "node:https";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
+import { buildSync } from "esbuild";
 
 import { makeCrashReportingBuildDefines } from "../src/internal/crash-reporting-config.ts";
 
@@ -199,15 +200,16 @@ const resolveOfficialNodeRuntime = async () => {
 rmSync(artifactsDir, { force: true, recursive: true });
 mkdirSync(buildDir, { recursive: true });
 
-run(localBin("esbuild"), [
-  "src/sea.ts",
-  "--bundle",
-  ...Object.entries(crashReportingBuildDefines).map(([name, value]) => `--define:${name}=${value}`),
-  "--format=cjs",
-  "--platform=node",
-  "--target=node24",
-  "--outfile=" + seaEntry,
-]);
+buildSync({
+  bundle: true,
+  define: crashReportingBuildDefines,
+  entryPoints: ["src/sea.ts"],
+  format: "cjs",
+  logLevel: "info",
+  outfile: seaEntry,
+  platform: "node",
+  target: "node24",
+});
 
 writeFileSync(
   seaConfig,
