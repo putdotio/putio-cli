@@ -1,7 +1,16 @@
-import { execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
+import {
+  execFile as execFileCallback,
+  execFileSync,
+  spawn,
+  spawnSync,
+  type ChildProcess,
+} from "node:child_process";
+import { once } from "node:events";
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import process from "node:process";
+import { promisify } from "node:util";
 
 type AuthStatus = {
   readonly apiBaseUrl: string;
@@ -40,9 +49,10 @@ type NpmPackageInventoryEntry = {
 
 const root = process.cwd();
 const artifactsDir = join(root, ".artifacts");
-const installDir = mkdtempSync(join(tmpdir(), "putio-cli-install-"));
-const configPath = join(installDir, "putio-config.json");
+let installDir: string;
+let configPath: string;
 const commandTimeoutMs = 120_000;
+const execFile = promisify(execFileCallback);
 
 const mockApiSource = `
 import { createServer } from "node:http";
@@ -107,11 +117,11 @@ const assert = (condition: boolean, message: string) => {
   }
 };
 
-const startMockApi = () =>
-  new Promise<{ readonly baseUrl: string; readonly child: ChildProcess }>((resolve, reject) => {
-    const child = spawn(process.execPath, ["--input-type=module", "--eval", mockApiSource], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+const startMockApi = () => {
+  const child = spawn(process.execPath, ["--input-type=module", "--eval", mockApiSource], {
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const ready = new Promise<string>((resolve, reject) => {
     let stderr = "";
     let stdout = "";
     const timer = setTimeout(() => {
@@ -145,9 +155,30 @@ const startMockApi = () =>
         return;
       }
 
-      resolve({ baseUrl: `http://127.0.0.1:${port}`, child });
+      resolve(`http://127.0.0.1:${port}`);
     });
   });
+
+  return { child, ready } as const;
+};
+
+const waitForExit = async (child: ChildProcess, timeoutMs: number) => {
+  if (child.exitCode !== null || child.signalCode !== null) return true;
+  return Promise.race([
+    once(child, "exit").then(() => true),
+    new Promise<false>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
+};
+
+const stopMockApi = async (child: ChildProcess) => {
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  child.kill("SIGTERM");
+  if (await waitForExit(child, 2_000)) return;
+  child.kill("SIGKILL");
+  if (!(await waitForExit(child, 2_000))) {
+    throw new Error(`Packed-install API server ${child.pid ?? "unknown"} did not stop.`);
+  }
+};
 
 const readFailureMessage = (value: unknown) => {
   if (
@@ -336,8 +367,26 @@ const smokeAuthProfiles = (binaryPath: string) => {
 };
 
 let mockApiProcess: ChildProcess | undefined;
+let didCreateInstallDir = false;
+let interruptedBy: NodeJS.Signals | undefined;
+const commandController = new AbortController();
+const interruptHandlers = new Map<NodeJS.Signals, () => void>();
 
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  const handler = () => {
+    interruptedBy ??= signal;
+    commandController.abort();
+  };
+  interruptHandlers.set(signal, handler);
+  process.on(signal, handler);
+}
+
+let primaryError: unknown;
+let cleanupError: unknown;
 try {
+  installDir = mkdtempSync(join(tmpdir(), "putio-cli-install-"));
+  didCreateInstallDir = true;
+  configPath = join(installDir, "putio-config.json");
   rmSync(artifactsDir, { force: true, recursive: true });
   run("pnpm", ["pack", "--pack-destination", artifactsDir]);
 
@@ -398,16 +447,25 @@ try {
     `Expected the package to install one Effect 4.0.0-rc.109 runtime, received ${effectVersions.join(", ")}.`,
   );
 
-  const mockApi = await startMockApi();
+  const mockApi = startMockApi();
   mockApiProcess = mockApi.child;
-  const transfers = runPutioJson<TransfersList>(
-    binaryPath,
-    ["transfers", "list", "--output", "json"],
-    {
-      PUTIO_CLI_API_BASE_URL: mockApi.baseUrl,
-      PUTIO_CLI_TOKEN: "packed-smoke-token",
-    },
-  );
+  const mockApiBaseUrl = await mockApi.ready;
+  const transfers = JSON.parse(
+    (
+      await execFile(binaryPath, ["transfers", "list", "--output", "json"], {
+        cwd: installDir,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PUTIO_CLI_API_BASE_URL: mockApiBaseUrl,
+          PUTIO_CLI_CONFIG_PATH: configPath,
+          PUTIO_CLI_TOKEN: "packed-smoke-token",
+        },
+        signal: commandController.signal,
+        timeout: commandTimeoutMs,
+      })
+    ).stdout,
+  ) as TransfersList;
   assert(transfers.transfers.length === 0, "Expected the SDK-backed transfer list to be empty.");
   assert(transfers.cursor === null, "Expected the SDK-backed transfer list cursor to be null.");
   assert(transfers.total === 0, "Expected the SDK-backed transfer list total to be zero.");
@@ -454,7 +512,26 @@ try {
       2,
     )}\n`,
   );
+} catch (error) {
+  primaryError = error;
 } finally {
-  mockApiProcess?.kill();
-  rmSync(installDir, { force: true, recursive: true });
+  if (mockApiProcess !== undefined) {
+    try {
+      await stopMockApi(mockApiProcess);
+    } catch (error) {
+      cleanupError = error;
+    }
+  }
+  if (didCreateInstallDir) rmSync(installDir, { force: true, recursive: true });
+  for (const [signal, handler] of interruptHandlers) process.off(signal, handler);
+}
+
+if (interruptedBy !== undefined) {
+  if (cleanupError !== undefined) console.error(`Packed-install cleanup failed: ${cleanupError}`);
+  process.exitCode = interruptedBy === "SIGINT" ? 130 : 143;
+} else if (primaryError !== undefined) {
+  if (cleanupError !== undefined) console.error(`Packed-install cleanup failed: ${cleanupError}`);
+  throw primaryError;
+} else if (cleanupError !== undefined) {
+  throw cleanupError;
 }
