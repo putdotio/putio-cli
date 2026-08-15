@@ -192,71 +192,38 @@ credential fields and token-bearing URLs are redacted in plans and results.
 
 ## Crash Reporting and Diagnostics
 
-Privacy-safe crash reporting is enabled by default. `putio` sends no usage analytics, traces,
-command results, or other product telemetry. Disable it once for every future invocation:
+Privacy-safe crash reporting is enabled by default for unexpected CLI failures. It does not collect
+usage analytics, command results, or original error data. Manage the persisted preference with:
 
 ```bash
 putio telemetry disable
-```
-
-The preference is stored in the normal private CLI config. Inspect or reverse it with:
-
-```bash
 putio telemetry status
 putio telemetry enable
 ```
 
-The same enabled default applies in CI and agent or other non-interactive runs. `DO_NOT_TRACK` does
-not override this project-specific setting; run `putio telemetry disable` once with the config path
-used by that environment to disable future crash reports there. Missing config enables reporting,
-while unreadable or invalid config fails closed for that process.
+The preference lives in the normal private CLI config and applies to interactive, CI, agent, and
+other non-interactive runs. `DO_NOT_TRACK` does not override it. Missing config keeps reporting
+enabled; unreadable or invalid config fails closed for that process.
 
 The `crashReporting` object in `describe` shows the effective enabled state or disabled reason,
 flush deadline, preference commands, and captured-field allowlist.
 
-When enabled, the CLI sends at most one synthetic crash event per process to the dedicated
-put.io Sentry project in Sentry's US region. Events contain only:
+At most one synthetic event is sent per process. It contains a random event ID and timestamp, one
+of three fixed failure categories, fixed runtime labels, and the package release. It never contains
+the original error, message, or stack; credentials; config or environment contents; command names
+or arguments; request or response data; URLs; paths or filenames; full payloads; untrusted server
+text; or user and device identifiers. Reporting does not write to stdout, replace local stderr,
+change exit or signal behavior, follow redirects, retry, or make network access a command
+requirement.
 
-- a random Sentry event ID and timestamp
-- the fixed message `Unexpected CLI failure`
-- the crash category: Effect defect, uncaught exception, or unhandled rejection
-- fixed CLI, Node platform, and production-environment labels
-- fixed fatal level, logger, and message/category fingerprint
-- the package release such as `@putdotio/cli@1.5.1`
-- provider envelope routing metadata required to deliver the event
-
-The event never contains the original error or stack, tokens, profile data, environment
-variables, configuration contents, command names or arguments, API request or response bodies,
-URLs, filesystem paths, filenames, full payloads, device or user identifiers, breadcrumbs, or
-untrusted server text. The bundled Sentry DSN is a public routing key; no Sentry authentication
-or administration credential is included in npm or standalone artifacts.
-The transport drops SDK-internal and malformed envelopes, then rebuilds an authorized envelope
-from the fixed fields above before any request leaves the process.
-
-When a command fails, its sanitized error is written locally to stderr. Text, JSON, and NDJSON
-results remain on stdout, and expected CLI or API failures use the same local error path rather
-than becoming crash reports. Unexpected failures are reported once and flushed for no more than
-250 milliseconds. Network and reporting failures do not replace the original error, alter its
-exit status, write to stdout, or prevent offline use.
-
-To ask for help, open a GitHub issue or use the private contact in [Security](./SECURITY.md) when
-the report may be sensitive. Include only:
-
-- output from `putio version`
-- the installation method and operating-system name
-- whether the run was interactive, CI, or another non-interactive environment
-- the command name and output mode, without copying the command arguments
-- the smallest sanitized stderr excerpt needed to identify the failure
-
-Never include access tokens, profile names or contents, environment variables, configuration
-contents, command arguments, API request or response bodies, URLs, filesystem paths, filenames,
-or untrusted server text. Ask the private security contact to remove a voluntarily submitted
-support or crash record. Provider ownership, retention, payload, and process behavior are recorded
-in [Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy).
+See [Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy) for the exact payload, process
+boundary, provider ownership, retention, and removal policy. Use the private contact in
+[Security](./SECURITY.md) for sensitive reports or deletion requests.
 
 ## Docs
 
 - [Architecture](./docs/ARCHITECTURE.md)
+- [Distribution](./docs/DISTRIBUTION.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](./SECURITY.md)
 
