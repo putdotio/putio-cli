@@ -42,7 +42,7 @@
     "coverage": "vp test run --coverage",
     "dev": "vp pack --watch",
     "prepack": "vp pack",
-    "smoke:pack": "node ./scripts/smoke-packed-install.mts",
+    "smoke:pack": "node --test ./scripts/process-lifecycle.test.mts && node ./scripts/smoke-packed-install.mts",
     "test": "vp test",
     "prepublishOnly": "npm run build",
     "verify:sea": "node ./scripts/verify-sea.mjs",
