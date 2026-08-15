@@ -25,10 +25,15 @@ Release jobs declare the protected GitHub Environment named `release`.
 Environment entries:
 
 - secrets: `PUTIO_RELEASE_BOT_PRIVATE_KEY`
-- variables: `PUTIO_RELEASE_BOT_CLIENT_ID`
+- variables: `PUTIO_RELEASE_BOT_CLIENT_ID`, `PUTIO_CLI_SENTRY_DSN`
 - approval: none; releases are continuous after the `main` gate passes
 - refs: release branch/tag policy constrains what can publish
 - deployment records: disabled with `deployment: false` because this is package publishing, not an app deploy
+
+`PUTIO_CLI_SENTRY_DSN` is a public routing key rather than an administration secret. The workflow
+validates and injects it into npm and standalone artifacts at build time, and release builds fail if
+it is absent or invalid. Local and pull-request builds intentionally omit it so verification cannot
+send crash reports.
 
 Release GitHub writes use `putio-releaser` for version sync commits, `v*` tags, GitHub Releases, binary asset uploads, and Homebrew tap formula commits. The app installation grants Contents read and write access to `putio-cli` and `homebrew-tap`; the Homebrew job mints an installation token scoped to those two repositories.
 

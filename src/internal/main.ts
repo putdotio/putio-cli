@@ -1,5 +1,6 @@
 import { Cause, Effect } from "effect";
 
+import { CliCrashReporter } from "./crash-reporting.js";
 import { CliOutput, detectOutputModeFromArgv } from "./output-service.js";
 import { CliRuntime } from "./runtime.js";
 
@@ -15,5 +16,16 @@ export const handleCliCause = (cause: Cause.Cause<unknown>) => {
 
     yield* cliOutput.error(cliOutput.formatError(Cause.squash(cause), outputMode));
     yield* runtime.setExitCode(1);
+
+    if (Cause.hasDies(cause)) {
+      const crashReporter = yield* CliCrashReporter;
+      yield* Effect.promise(async () => {
+        try {
+          await crashReporter.capture("effect_defect");
+        } catch {
+          // Reporting is best-effort and must never replace the command failure.
+        }
+      });
+    }
   });
 };

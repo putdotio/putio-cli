@@ -6,7 +6,7 @@ import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { normalizeAuthProfileName } from "./auth-profile.js";
 import { CONFIG_FILE_MODE } from "./constants.js";
-import { CliConfig, resolveCliRuntimeConfig } from "./config.js";
+import { CliConfig, resolveCliConfigPath, resolveCliRuntimeConfig } from "./config.js";
 import { CliRuntime } from "./runtime.js";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
@@ -23,6 +23,7 @@ export const PutioCliConfigSchema = Schema.Struct({
   auth_token: Schema.optional(NonEmptyStringSchema),
   default_profile: Schema.optional(NonEmptyStringSchema),
   profiles: Schema.optional(Schema.Record(Schema.String, PutioCliProfileConfigSchema)),
+  telemetry_disabled: Schema.optional(Schema.Boolean),
 });
 
 export type PutioCliConfig = Schema.Schema.Type<typeof PutioCliConfigSchema>;
@@ -74,6 +75,11 @@ type AuthProfileSelection = {
 };
 
 export type CliStateService = {
+  readonly getTelemetryStatus: () => Effect.Effect<
+    { readonly configPath: string; readonly enabled: boolean },
+    AuthStateError,
+    CliConfig | FileSystem.FileSystem | CliRuntime
+  >;
   readonly loadPersistedState: (
     configPath?: string,
   ) => Effect.Effect<
@@ -94,6 +100,13 @@ export type CliStateService = {
       readonly profile: string | null;
       readonly state: PutioCliConfig;
     },
+    AuthStateError,
+    CliConfig | FileSystem.FileSystem | CliRuntime
+  >;
+  readonly setTelemetryEnabled: (
+    enabled: boolean,
+  ) => Effect.Effect<
+    { readonly configPath: string; readonly enabled: boolean },
     AuthStateError,
     CliConfig | FileSystem.FileSystem | CliRuntime
   >;
@@ -140,7 +153,9 @@ export class CliState extends Context.Service<CliState, CliStateService>()(
   "@putdotio/cli/CliState",
 ) {}
 
-const decodePersistedConfig = Schema.decodeUnknownSync(PutioCliConfigSchema);
+const decodePersistedConfig = Schema.decodeUnknownSync(PutioCliConfigSchema, {
+  onExcessProperty: "error",
+});
 
 const mapFileSystemError = (error: unknown, message: string): AuthStateError =>
   error instanceof AuthStateError
@@ -151,6 +166,16 @@ const mapFileSystemError = (error: unknown, message: string): AuthStateError =>
 
 const resolveAuthRuntimeConfig = () =>
   resolveCliRuntimeConfig().pipe(
+    Effect.mapError(
+      (error) =>
+        new AuthStateError({
+          message: error.message,
+        }),
+    ),
+  );
+
+const resolveTelemetryConfigPath = () =>
+  resolveCliConfigPath().pipe(
     Effect.mapError(
       (error) =>
         new AuthStateError({
@@ -201,7 +226,7 @@ const validatePersistedConfig = (state: PutioCliConfig) => {
   return state;
 };
 
-const parsePersistedConfig = (raw: string): PutioCliConfig => {
+export const parsePersistedConfig = (raw: string): PutioCliConfig => {
   let value: unknown;
 
   try {
@@ -251,6 +276,7 @@ const shouldRemoveConfigFile = (state: PutioCliConfig) =>
   state.api_base_url === DEFAULT_PUTIO_API_BASE_URL &&
   state.auth_token === undefined &&
   state.default_profile === undefined &&
+  state.telemetry_disabled !== true &&
   Object.keys(state.profiles ?? {}).length === 0;
 
 const persistConfigEffect = (
@@ -318,6 +344,45 @@ const loadPersistedStateEffect = (
       catch: (error) =>
         mapFileSystemError(error, `Unable to read CLI config at ${effectiveConfigPath}.`),
     });
+  });
+
+const getTelemetryStatusEffect = (): Effect.Effect<
+  { readonly configPath: string; readonly enabled: boolean },
+  AuthStateError,
+  CliConfig | FileSystem.FileSystem | CliRuntime
+> =>
+  Effect.gen(function* () {
+    const configPath = yield* resolveTelemetryConfigPath();
+    const state = yield* loadPersistedStateEffect(configPath);
+
+    return {
+      configPath,
+      enabled: state?.telemetry_disabled !== true,
+    };
+  });
+
+const setTelemetryEnabledEffect = (
+  enabled: boolean,
+): Effect.Effect<
+  { readonly configPath: string; readonly enabled: boolean },
+  AuthStateError,
+  CliConfig | FileSystem.FileSystem | CliRuntime
+> =>
+  Effect.gen(function* () {
+    const configPath = yield* resolveTelemetryConfigPath();
+    const state = (yield* loadPersistedStateEffect(configPath)) ?? makeEmptyState();
+    const nextState: PutioCliConfig = {
+      ...state,
+      telemetry_disabled: enabled ? undefined : true,
+    };
+
+    yield* persistConfigEffect(
+      configPath,
+      nextState,
+      `Unable to update telemetry preference at ${configPath}.`,
+    );
+
+    return { configPath, enabled };
   });
 
 const savePersistedStateEffect = (
@@ -728,11 +793,13 @@ const useProfileEffect = (
 const makeCliState = (): CliStateService => ({
   clearPersistedState: clearPersistedStateEffect,
   getAuthStatus: getAuthStatusEffect,
+  getTelemetryStatus: getTelemetryStatusEffect,
   listProfiles: listProfilesEffect,
   loadPersistedState: loadPersistedStateEffect,
   removeProfile: removeProfileEffect,
   resolveAuthState: resolveAuthStateEffect,
   savePersistedState: savePersistedStateEffect,
+  setTelemetryEnabled: setTelemetryEnabledEffect,
   useProfile: useProfileEffect,
 });
 
@@ -757,6 +824,9 @@ export const clearPersistedState = (configPath?: string, selection?: AuthProfile
 export const getAuthStatus = (selection?: AuthProfileSelection) =>
   Effect.flatMap(CliState, (state) => state.getAuthStatus(selection));
 
+export const getTelemetryStatus = () =>
+  Effect.flatMap(CliState, (state) => state.getTelemetryStatus());
+
 export const listProfiles = () => Effect.flatMap(CliState, (state) => state.listProfiles());
 
 export const removeProfile = (profile: string) =>
@@ -764,6 +834,9 @@ export const removeProfile = (profile: string) =>
 
 export const resolveAuthState = (selection?: AuthProfileSelection) =>
   Effect.flatMap(CliState, (state) => state.resolveAuthState(selection));
+
+export const setTelemetryEnabled = (enabled: boolean) =>
+  Effect.flatMap(CliState, (state) => state.setTelemetryEnabled(enabled));
 
 export const useProfile = (profile: string) =>
   Effect.flatMap(CliState, (state) => state.useProfile(profile));

@@ -22,7 +22,7 @@ Structured output defaults:
 - non-interactive / piped: `json`
 - explicit `--output json`, `--output ndjson`, or `--output text` always wins
 
-Use `automation` to confirm concrete support such as dry-run on writes, raw JSON input, field selection, streaming reads, redaction, and untrusted-text annotations. Treat missing features as a real contract gap instead of assuming they exist.
+Use `automation` to confirm concrete support such as dry-run on writes, raw JSON input, field selection, streaming reads, redaction, and untrusted-text annotations. Use `crashReporting` to inspect the effective reporting state, persisted telemetry commands, flush bound, and captured-field allowlist. Treat missing features as a real contract gap instead of assuming they exist.
 
 When the required API operation has no dedicated command, inspect the pinned TypeScript SDK surface:
 

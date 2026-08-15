@@ -4,6 +4,7 @@ import { downloadLinksCommandSpecs } from "../commands/download-links.js";
 import { eventsCommandSpecs } from "../commands/events.js";
 import { filesCommandSpecs } from "../commands/files.js";
 import { sdkCommandSpecs } from "../commands/sdk.js";
+import { telemetryCommandSpecs } from "../commands/telemetry.js";
 import { transfersCommandSpecs } from "../commands/transfers.js";
 import { whoamiCommandSpecs } from "../commands/whoami.js";
 import { translate } from "../i18n/index.js";
@@ -41,5 +42,6 @@ export const commandCatalog = decodeCommandSpecs([
   ...eventsCommandSpecs,
   ...filesCommandSpecs,
   ...sdkCommandSpecs,
+  ...telemetryCommandSpecs,
   ...transfersCommandSpecs,
 ]);

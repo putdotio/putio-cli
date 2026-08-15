@@ -190,9 +190,41 @@ credential fields and token-bearing URLs are redacted in plans and results.
 - Use `PUTIO_CLI_CONFIG_PATH` to override the default config location and isolate test state.
 - If no profile is specified, the configured default profile is used when present; otherwise legacy single-token config remains supported.
 
+## Crash Reporting and Diagnostics
+
+Official releases enable privacy-safe crash reporting by default for unexpected CLI failures. It
+does not collect usage analytics, command results, or original error data. Manage the persisted
+preference with:
+
+```bash
+putio telemetry disable
+putio telemetry status
+putio telemetry enable
+```
+
+The preference lives in the normal private CLI config and applies to interactive, CI, agent, and
+other non-interactive runs. `DO_NOT_TRACK` does not override it. Missing config keeps reporting
+enabled; unreadable or invalid config fails closed for that process.
+
+The `crashReporting` object in `describe` shows the effective enabled state or disabled reason,
+flush deadline, preference commands, and captured-field allowlist.
+
+At most one synthetic event is sent per process. It contains a random event ID and timestamp, one
+of three fixed failure categories, fixed runtime labels, and the package release. It never contains
+the original error, message, or stack; credentials; config or environment contents; command names
+or arguments; request or response data; URLs; paths or filenames; full payloads; untrusted server
+text; or user and device identifiers. Reporting does not write to stdout, replace local stderr,
+change exit or signal behavior, follow redirects, retry, or make network access a command
+requirement.
+
+See [Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy) for the exact payload, process
+boundary, provider ownership, retention, and removal policy. Use the private contact in
+[Security](./SECURITY.md) for sensitive reports or deletion requests.
+
 ## Docs
 
 - [Architecture](./docs/ARCHITECTURE.md)
+- [Distribution](./docs/DISTRIBUTION.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](./SECURITY.md)
 

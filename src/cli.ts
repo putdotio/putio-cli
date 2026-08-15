@@ -11,8 +11,10 @@ import { sdkCommand } from "./commands/sdk.js";
 import { translate } from "./i18n/index.js";
 import type { CliConfig } from "./internal/config.js";
 import { transfersCommand } from "./commands/transfers.js";
+import { telemetryCommand } from "./commands/telemetry.js";
 import { whoamiCommand } from "./commands/whoami.js";
 import { describeCli } from "./internal/metadata.js";
+import { CliCrashReporter } from "./internal/crash-reporting.js";
 import type { CliOutput } from "./internal/output-service.js";
 import { CliRuntime } from "./internal/runtime.js";
 import { getOption, outputOption } from "./internal/command.js";
@@ -28,7 +30,10 @@ import type { CliState } from "./internal/state.js";
 const authCommand = makeAuthCommand();
 
 const describeCommand = Command.make("describe", { output: outputOption }, ({ output }) =>
-  writeOutput(describeCli(), getOption(output), renderJson),
+  Effect.gen(function* () {
+    const crashReporter = yield* CliCrashReporter;
+    yield* writeOutput(describeCli(crashReporter.decision), getOption(output), renderJson);
+  }),
 );
 
 const command = Command.make("putio", {}, () => Console.log(translate("cli.root.help"))).pipe(
@@ -43,6 +48,7 @@ const command = Command.make("putio", {}, () => Console.log(translate("cli.root.
     filesCommand,
     searchCommand,
     sdkCommand,
+    telemetryCommand,
     transfersCommand,
   ]),
 );
@@ -138,6 +144,7 @@ const commandArgsFromArgv = (args: ReadonlyArray<string>) => {
 type CliCommandEnvironment =
   | Command.Environment
   | CliConfig
+  | CliCrashReporter
   | CliOutput
   | CliRuntime
   | CliSdk

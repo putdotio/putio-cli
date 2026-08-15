@@ -258,6 +258,9 @@ export const en = {
       authStatus: "Report the currently resolved auth state.",
       brand: "Render the put.io CLI brand mark without making any API calls.",
       describe: "Print machine-readable CLI metadata for agents and scripts.",
+      telemetryDisable: "Persistently disable anonymous crash reporting.",
+      telemetryEnable: "Restore anonymous crash reporting.",
+      telemetryStatus: "Report the persisted crash-reporting preference.",
       downloadLinksCreate: "Create a browser-link generation job for files or a cursor selection.",
       downloadLinksGet: "Inspect a download-links generation job and read completed links.",
       eventsList: "List account history events, with optional client-side type filtering.",
@@ -283,6 +286,13 @@ export const en = {
       transfersWatch: "Watch a transfer until it finishes or the watch times out.",
       version: "Print the CLI version and render the brand mark in terminal mode.",
       whoami: "Read broad account information through the put.io SDK.",
+    },
+    telemetry: {
+      status: {
+        configPath: "config path: {{value}}",
+        disabled: "telemetry: disabled",
+        enabled: "telemetry: enabled",
+      },
     },
     root: {
       chooseAuthSubcommand: "Choose `status`, `login`, `logout`, `preview`, or `approve`.",

@@ -51,6 +51,7 @@ class CliConfigError extends Data.TaggedError("CliConfigError")<{
 
 export type CliConfigService = {
   readonly authFlowConfig: Effect.Effect<PutioCliAuthFlowConfig, CliConfigError>;
+  readonly configPath: Effect.Effect<string, CliConfigError>;
   readonly runtimeConfig: Effect.Effect<CliRuntimeConfig, CliConfigError>;
 };
 
@@ -94,6 +95,20 @@ const mapCliConfigError = (message: string) => (error: unknown) =>
         message: getErrorMessage(error) ? `${message} ${getErrorMessage(error)}` : message,
       });
 
+const resolveConfigPath = (runtime: CliRuntimeService) =>
+  Effect.gen(function* () {
+    const homePath = yield* runtime.getHomeDirectory;
+    const explicitConfigPath = yield* optionalTrimmedString(ENV_CLI_CONFIG_PATH);
+    const xdgConfigHome = yield* optionalTrimmedString(ENV_XDG_CONFIG_HOME);
+
+    return buildConfigPath({
+      explicitConfigPath: Option.getOrUndefined(explicitConfigPath),
+      homePath,
+      joinPath: runtime.joinPath,
+      xdgConfigHome: Option.getOrUndefined(xdgConfigHome),
+    });
+  }).pipe(Effect.mapError(mapCliConfigError("Unable to resolve the CLI config path.")));
+
 const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
   authFlowConfig: Effect.gen(function* () {
     const hostName = yield* runtime.getHostname;
@@ -112,26 +127,20 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
       catch: mapCliConfigError("Unable to resolve the CLI auth flow configuration."),
     });
   }).pipe(Effect.mapError(mapCliConfigError("Unable to resolve the CLI auth flow configuration."))),
+  configPath: resolveConfigPath(runtime),
   runtimeConfig: Effect.gen(function* () {
-    const homePath = yield* runtime.getHomeDirectory;
     const apiBaseUrl = yield* optionalTrimmedString(ENV_API_BASE_URL).pipe(
       Config.map((value) => Option.getOrElse(value, () => DEFAULT_PUTIO_API_BASE_URL)),
     );
     const token = yield* optionalTrimmedString(ENV_CLI_TOKEN);
     const profile = yield* optionalTrimmedString(ENV_CLI_PROFILE);
-    const explicitConfigPath = yield* optionalTrimmedString(ENV_CLI_CONFIG_PATH);
-    const xdgConfigHome = yield* optionalTrimmedString(ENV_XDG_CONFIG_HOME);
+    const configPath = yield* resolveConfigPath(runtime);
 
     return yield* Effect.try({
       try: () =>
         decodeRuntimeConfig({
           apiBaseUrl,
-          configPath: buildConfigPath({
-            explicitConfigPath: Option.getOrUndefined(explicitConfigPath),
-            xdgConfigHome: Option.getOrUndefined(xdgConfigHome),
-            homePath,
-            joinPath: runtime.joinPath,
-          }),
+          configPath,
           profile: Option.getOrUndefined(profile),
           token: Option.getOrUndefined(token),
         }),
@@ -144,6 +153,8 @@ export const CliConfigLive = Layer.effect(CliConfig, Effect.map(CliRuntime, make
 
 export const resolveCliRuntimeConfig = () =>
   Effect.flatMap(CliConfig, (config) => config.runtimeConfig);
+
+export const resolveCliConfigPath = () => Effect.flatMap(CliConfig, (config) => config.configPath);
 
 export const resolveCliAuthFlowConfig = () =>
   Effect.flatMap(CliConfig, (config) => config.authFlowConfig);

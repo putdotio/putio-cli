@@ -50,7 +50,7 @@ installed package under `node_modules/effect`.
 - When the public CLI surface or agent-facing setup flow changes, update [`README.md`](README.md) and [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md) together so the copy-paste prompt and consumer guidance stay aligned.
 - Keep docs free of volatile metrics.
 
-## Learning more about the Effect
+## Learning more about Effect
 
 This repository uses the Effect TypeScript library.
 
