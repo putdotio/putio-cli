@@ -14,6 +14,8 @@ import { request } from "node:https";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 
+import { makeCrashReportingBuildDefines } from "../src/internal/crash-reporting-config.ts";
+
 const root = process.cwd();
 const artifactsDir = join(root, ".artifacts", "sea");
 const buildDir = join(artifactsDir, "build");
@@ -27,6 +29,7 @@ const seaEntry = join(buildDir, "putio-sea.cjs");
 const seaBlob = join(buildDir, "putio-sea.blob");
 const seaConfig = join(buildDir, "sea-config.json");
 const seaSentinelFuse = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
+const crashReportingBuildDefines = makeCrashReportingBuildDefines(process.env);
 
 const localBin = (name) =>
   join(root, "node_modules", ".bin", `${name}${platform === "win32" ? ".cmd" : ""}`);
@@ -199,6 +202,7 @@ mkdirSync(buildDir, { recursive: true });
 run(localBin("esbuild"), [
   "src/sea.ts",
   "--bundle",
+  ...Object.entries(crashReportingBuildDefines).map(([name, value]) => `--define:${name}=${value}`),
   "--format=cjs",
   "--platform=node",
   "--target=node24",

@@ -8,20 +8,20 @@ import { Context } from "effect";
 import packageJson from "../../package.json";
 
 import { buildConfigPath } from "./config.js";
+import { loadCrashReportingConfig, type CrashReportingConfig } from "./crash-reporting-config.js";
 import { ENV_CLI_CONFIG_PATH, ENV_XDG_CONFIG_HOME } from "./env.js";
 import { parsePersistedConfig } from "./state.js";
 
 export const CRASH_REPORTING_FLUSH_TIMEOUT_MS = 250;
 const CRASH_REPORTING_REQUEST_TIMEOUT_MS = 200;
 
-const SENTRY_DSN =
-  "https://50cfbc1da5d6ee5c7665a2f10ec3d08f@o804.ingest.us.sentry.io/4511913835495424";
 const SENTRY_ENVIRONMENT = "production";
 const SENTRY_RELEASE = `@putdotio/cli@${packageJson.version}`;
 const SENTRY_MESSAGE = "Unexpected CLI failure";
 
 export type CrashKind = "effect_defect" | "uncaught_exception" | "unhandled_rejection";
 type CrashReportingDisabledReason =
+  | "build_configuration_unavailable"
   | "configuration_unavailable"
   | "initialization_failed"
   | "persisted_opt_out";
@@ -259,6 +259,7 @@ const disabledReporter = (reason: CrashReportingDisabledReason): CrashReporterSe
 
 export const makeCrashReporter = (
   options: {
+    readonly config?: CrashReportingConfig;
     readonly createEventIdentity?: () => { readonly eventId: string; readonly timestamp: number };
     readonly preference?: CrashReportingPreference;
     readonly sentry?: SentryAdapter;
@@ -268,6 +269,11 @@ export const makeCrashReporter = (
 
   if (!decision.enabled) {
     return disabledReporter(decision.reason);
+  }
+
+  const config = options.config ?? loadCrashReportingConfig();
+  if (config === undefined) {
+    return disabledReporter("build_configuration_unavailable");
   }
 
   const sentry = options.sentry ?? sentryAdapter;
@@ -282,7 +288,7 @@ export const makeCrashReporter = (
   try {
     sentry.init({
       beforeSend: (event) => sanitizeCrashEvent(event, pendingEvent?.kind ?? "uncaught_exception"),
-      dsn: SENTRY_DSN,
+      dsn: config.dsn,
       environment: SENTRY_ENVIRONMENT,
       release: SENTRY_RELEASE,
       sanitizeEnvelope: (body) =>

@@ -64,8 +64,10 @@ is owned by the Sentry `frontend` team. It is operational diagnostics, not produ
 normal private CLI config. `putio telemetry enable` removes that field, and `putio telemetry status`
 reports the preference without authentication. Startup reads only that boolean before initializing
 Sentry. A missing config keeps the default enabled; an unreadable, invalid, or unexpected config
-fails closed and disables reporting. Disabled runs do not initialize Sentry or install crash
-handlers. The same enabled default applies in CI, agents, and other non-interactive execution.
+fails closed and disables reporting. Released npm and standalone artifacts receive a validated DSN
+at build time. Source and pull-request builds omit it and fail closed without initializing Sentry or
+installing crash handlers. The same enabled default applies in CI, agents, and other non-interactive
+execution when the artifact contains release configuration.
 `DO_NOT_TRACK` is not a separate control; those environments use the same persisted
 `putio telemetry disable` preference and config-path precedence. Online and offline command
 behavior is otherwise identical.
@@ -101,12 +103,14 @@ and user identifiers. Default Sentry integrations, client reports, logs, tracing
 detection, PII capture, breadcrumbs, and stack attachment are disabled. Because no stack is sent,
 this integration has no source-map upload.
 
-The DSN is a public project-routing key embedded in npm and standalone artifacts. Sentry auth and
-admin tokens remain outside the repository and release artifacts. The `frontend` team owns the
-project and manual support path. Events inherit the put.io Sentry organization's current retention
-contract and are used only for debugging, not product analysis. Removal requests go through the
-private contact in SECURITY.md; `putio telemetry disable` prevents future events but does not itself
-delete an already delivered event.
+The release workflow reads `PUTIO_CLI_SENTRY_DSN` from the protected `release` GitHub Environment,
+validates it as an HTTPS Sentry DSN, and injects it into npm and standalone builds. Release builds
+fail when that value is missing or invalid. The DSN remains a public project-routing key embedded in
+the resulting artifacts; Sentry auth and admin tokens remain outside the repository and release
+artifacts. The `frontend` team owns the project and manual support path. Events inherit the put.io
+Sentry organization's current retention contract and are used only for debugging, not product
+analysis. Removal requests go through the private contact in SECURITY.md; `putio telemetry disable`
+prevents future events but does not itself delete an already delivered event.
 
 Local diagnosis should use the CLI version, installation method, operating-system name,
 interactive/CI/non-interactive context, command name and output mode, and the smallest useful

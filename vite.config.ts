@@ -1,5 +1,7 @@
 import { defineConfig } from "vite-plus";
 
+import { makeCrashReportingBuildDefines } from "./src/internal/crash-reporting-config.ts";
+
 type CoverageConfig = {
   readonly exclude: Array<string>;
   readonly include: Array<string>;
@@ -24,6 +26,7 @@ const coverageConfig: CoverageConfig = {
 export default defineConfig({
   pack: {
     clean: true,
+    define: makeCrashReportingBuildDefines(process.env),
     deps: {
       alwaysBundle: ["@putdotio/sdk"],
       onlyBundle: ["@putdotio/sdk"],

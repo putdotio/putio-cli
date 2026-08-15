@@ -276,4 +276,14 @@ describe("describeCli", () => {
     expect(metadata.crashReporting.enabled).toBe(false);
     expect(metadata.crashReporting.disabledReason).toBe("persisted_opt_out");
   });
+
+  it("reports a source build without injected crash-reporting configuration", () => {
+    const metadata = describeCli({
+      enabled: false,
+      reason: "build_configuration_unavailable",
+    });
+
+    expect(metadata.crashReporting.enabled).toBe(false);
+    expect(metadata.crashReporting.disabledReason).toBe("build_configuration_unavailable");
+  });
 });

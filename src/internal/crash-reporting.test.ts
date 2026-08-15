@@ -13,6 +13,11 @@ import {
   sendCrashRequest,
   type SentryAdapter,
 } from "./crash-reporting.js";
+import type { CrashReportingConfig } from "./crash-reporting-config.js";
+
+const TEST_CRASH_REPORTING_CONFIG = {
+  dsn: "https://0123456789abcdef0123456789abcdef@o1.ingest.us.sentry.io/123",
+} satisfies CrashReportingConfig;
 
 const makeSentryAdapter = () => {
   const captureEvent = vi.fn<SentryAdapter["captureEvent"]>(() => "event-id");
@@ -345,7 +350,10 @@ describe("makeCrashReporter", () => {
 
   it("initializes without default integrations and captures only once", async () => {
     const sentry = makeSentryAdapter();
-    const reporter = makeCrashReporter({ sentry: sentry.adapter });
+    const reporter = makeCrashReporter({
+      config: TEST_CRASH_REPORTING_CONFIG,
+      sentry: sentry.adapter,
+    });
 
     await reporter.capture("effect_defect");
     await reporter.capture("unhandled_rejection");
@@ -385,7 +393,10 @@ describe("makeCrashReporter", () => {
   it("swallows transport failures", async () => {
     const sentry = makeSentryAdapter();
     sentry.flush.mockRejectedValue(new Error("offline"));
-    const reporter = makeCrashReporter({ sentry: sentry.adapter });
+    const reporter = makeCrashReporter({
+      config: TEST_CRASH_REPORTING_CONFIG,
+      sentry: sentry.adapter,
+    });
 
     await expect(reporter.capture("effect_defect")).resolves.toBeUndefined();
   });
@@ -393,6 +404,7 @@ describe("makeCrashReporter", () => {
   it("swallows synthetic event construction failures", async () => {
     const sentry = makeSentryAdapter();
     const reporter = makeCrashReporter({
+      config: TEST_CRASH_REPORTING_CONFIG,
       createEventIdentity: () => {
         throw new Error("random source unavailable");
       },
@@ -408,7 +420,10 @@ describe("makeCrashReporter", () => {
     vi.useFakeTimers();
     const sentry = makeSentryAdapter();
     sentry.flush.mockReturnValue(new Promise(() => undefined));
-    const reporter = makeCrashReporter({ sentry: sentry.adapter });
+    const reporter = makeCrashReporter({
+      config: TEST_CRASH_REPORTING_CONFIG,
+      sentry: sentry.adapter,
+    });
 
     const capture = reporter.capture("effect_defect");
     await vi.advanceTimersByTimeAsync(CRASH_REPORTING_FLUSH_TIMEOUT_MS);
@@ -421,7 +436,10 @@ describe("makeCrashReporter", () => {
     sentry.init.mockImplementation(() => {
       throw new Error("bad DSN");
     });
-    const reporter = makeCrashReporter({ sentry: sentry.adapter });
+    const reporter = makeCrashReporter({
+      config: TEST_CRASH_REPORTING_CONFIG,
+      sentry: sentry.adapter,
+    });
 
     await reporter.capture("effect_defect");
 
@@ -439,6 +457,7 @@ describe("makeCrashReporter", () => {
     );
     vi.stubGlobal("fetch", request);
     const reporter = makeCrashReporter({
+      config: TEST_CRASH_REPORTING_CONFIG,
       createEventIdentity: () => ({
         eventId: "0123456789abcdef0123456789abcdef",
         timestamp: 123,
@@ -455,7 +474,7 @@ describe("makeCrashReporter", () => {
 
     const [url, init] = call;
     expect(url).toBe(
-      "https://o804.ingest.us.sentry.io/api/4511913835495424/envelope/?sentry_version=7&sentry_key=50cfbc1da5d6ee5c7665a2f10ec3d08f",
+      "https://o1.ingest.us.sentry.io/api/123/envelope/?sentry_version=7&sentry_key=0123456789abcdef0123456789abcdef",
     );
     expect(init).toEqual(
       expect.objectContaining({

@@ -5,10 +5,12 @@ import {
   type CrashReportingPreference,
   type SentryAdapter,
 } from "./crash-reporting.js";
+import type { CrashReportingConfig } from "./crash-reporting-config.js";
 
 export const bootstrapCrashReporting = (
   options: {
     readonly boundary?: CrashBoundaryOptions;
+    readonly config?: CrashReportingConfig;
     readonly loadPreference?: () => CrashReportingPreference;
     readonly sentry?: SentryAdapter;
   } = {},
@@ -21,6 +23,7 @@ export const bootstrapCrashReporting = (
   }
 
   const reporter = makeCrashReporter({
+    config: options.config,
     preference,
     sentry: options.sentry,
   });

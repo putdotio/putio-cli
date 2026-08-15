@@ -69,4 +69,32 @@ describe("bootstrapCrashReporting", () => {
     expect(runtime.addUncaughtExceptionHandler).not.toHaveBeenCalled();
     expect(runtime.addUnhandledRejectionHandler).not.toHaveBeenCalled();
   });
+
+  it("fails closed when the built artifact has no reporting configuration", () => {
+    const runtime: CrashBoundaryRuntime = {
+      addUncaughtExceptionHandler: vi.fn(),
+      addUnhandledRejectionHandler: vi.fn(),
+      removeUncaughtExceptionHandler: vi.fn(),
+      removeUnhandledRejectionHandler: vi.fn(),
+    };
+    const sentry: SentryAdapter = {
+      captureEvent: vi.fn(() => "event-id"),
+      flush: vi.fn(() => Promise.resolve(true)),
+      init: vi.fn(),
+    };
+
+    const { reporter } = bootstrapCrashReporting({
+      boundary: { runtime },
+      loadPreference: () => ({ disabled: false }),
+      sentry,
+    });
+
+    expect(reporter.decision).toEqual({
+      enabled: false,
+      reason: "build_configuration_unavailable",
+    });
+    expect(sentry.init).not.toHaveBeenCalled();
+    expect(runtime.addUncaughtExceptionHandler).not.toHaveBeenCalled();
+    expect(runtime.addUnhandledRejectionHandler).not.toHaveBeenCalled();
+  });
 });

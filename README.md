@@ -192,8 +192,9 @@ credential fields and token-bearing URLs are redacted in plans and results.
 
 ## Crash Reporting and Diagnostics
 
-Privacy-safe crash reporting is enabled by default for unexpected CLI failures. It does not collect
-usage analytics, command results, or original error data. Manage the persisted preference with:
+Official releases enable privacy-safe crash reporting by default for unexpected CLI failures. It
+does not collect usage analytics, command results, or original error data. Manage the persisted
+preference with:
 
 ```bash
 putio telemetry disable

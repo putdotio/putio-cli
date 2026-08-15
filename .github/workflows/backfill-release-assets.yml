@@ -47,6 +47,9 @@ jobs:
       - validate-release-tag
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      PUTIO_CLI_REQUIRE_SENTRY_DSN: "true"
+      PUTIO_CLI_SENTRY_DSN: ${{ vars.PUTIO_CLI_SENTRY_DSN }}
     environment:
       name: release
       deployment: false
@@ -139,6 +142,9 @@ jobs:
       - validate-release-tag
     runs-on: windows-latest
     timeout-minutes: 30
+    env:
+      PUTIO_CLI_REQUIRE_SENTRY_DSN: "true"
+      PUTIO_CLI_SENTRY_DSN: ${{ vars.PUTIO_CLI_SENTRY_DSN }}
     environment:
       name: release
       deployment: false

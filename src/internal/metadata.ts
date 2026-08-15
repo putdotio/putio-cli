@@ -79,6 +79,7 @@ const CliMetadataSchema = Schema.Struct({
     defaultEnabled: Schema.Literal(true),
     disabledReason: Schema.NullOr(
       Schema.Literals([
+        "build_configuration_unavailable",
         "configuration_unavailable",
         "initialization_failed",
         "persisted_opt_out",
