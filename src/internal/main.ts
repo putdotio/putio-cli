@@ -19,7 +19,13 @@ export const handleCliCause = (cause: Cause.Cause<unknown>) => {
 
     if (Cause.hasDies(cause)) {
       const crashReporter = yield* CliCrashReporter;
-      yield* Effect.promise(() => crashReporter.capture("effect_defect"));
+      yield* Effect.promise(async () => {
+        try {
+          await crashReporter.capture("effect_defect");
+        } catch {
+          // Reporting is best-effort and must never replace the command failure.
+        }
+      });
     }
   });
 };

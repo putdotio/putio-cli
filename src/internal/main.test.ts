@@ -59,13 +59,13 @@ describe("handleCliCause", () => {
     expect(exitCode).toBe(1);
   });
 
-  it("keeps unexpected defects on the same local stderr-only failure path", async () => {
+  it("keeps unexpected defects on the same local stderr-only path when reporting fails", async () => {
     const defect = new Error("unexpected defect");
     let exitCode: number | undefined;
     const formatError = vi.fn(() => "sanitized defect");
     const writeError = vi.fn(() => Effect.void);
     const writeOutput = vi.fn(() => Effect.void);
-    const capture = vi.fn(() => Promise.resolve());
+    const capture = vi.fn(() => Promise.reject(new Error("reporting failed")));
     const crashReporter: CrashReporterService = {
       capture,
       decision: { enabled: true },

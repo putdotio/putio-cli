@@ -14,7 +14,9 @@ import { CliStateLive } from "./state.js";
 
 export const makeCliAppLayer = (
   runtime?: CliRuntimeService,
-  crashReporter: CrashReporterService = makeCrashReporter(),
+  crashReporter: CrashReporterService = makeCrashReporter({
+    preference: { disabled: true, reason: "configuration_unavailable" },
+  }),
 ) => {
   const runtimeLayer = runtime ? Layer.succeed(CliRuntime, runtime) : CliRuntimeLive;
 
