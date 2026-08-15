@@ -23,6 +23,31 @@ describe("describeCli", () => {
     );
 
     expect(metadata.binary).toBe("putio");
+    expect(metadata.crashReporting).toEqual({
+      capturedFields: [
+        "event_id",
+        "timestamp",
+        "fixed_message",
+        "failure_kind",
+        "fixed_component",
+        "fixed_platform",
+        "fixed_environment",
+        "fixed_fingerprint",
+        "fixed_level",
+        "fixed_logger",
+        "package_release",
+        "provider_envelope_metadata",
+      ],
+      defaultEnabled: true,
+      disabledReason: null,
+      disableCommand: "telemetry disable",
+      enabled: true,
+      enableCommand: "telemetry enable",
+      flushDeadlineMs: 250,
+      persistedConfigField: "telemetry_disabled",
+      provider: "Sentry",
+      statusCommand: "telemetry status",
+    });
     expect(metadata.automation).toMatchObject({
       consumerSkillLibrary: true,
       defaultNonInteractiveOutput: "json",
@@ -73,6 +98,9 @@ describe("describeCli", () => {
       "search",
       "sdk list",
       "sdk call",
+      "telemetry status",
+      "telemetry disable",
+      "telemetry enable",
       "transfers list",
       "transfers add",
       "transfers cancel",
@@ -237,7 +265,15 @@ describe("describeCli", () => {
           auth_token: { required: false, type: "string" },
         },
       },
+      telemetry_disabled: { required: false, type: "boolean" },
     });
     expect(metadata.auth.profileEnv).toBe("PUTIO_CLI_PROFILE");
+  });
+
+  it("reports an effective crash-reporting opt-out", () => {
+    const metadata = describeCli({ enabled: false, reason: "persisted_opt_out" });
+
+    expect(metadata.crashReporting.enabled).toBe(false);
+    expect(metadata.crashReporting.disabledReason).toBe("persisted_opt_out");
   });
 });

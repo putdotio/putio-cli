@@ -109,6 +109,31 @@ describe("cli argv parsing", () => {
     expect(stdout).toContain("Use `putio describe` or `putio --help`.");
   });
 
+  it("persists the telemetry opt-out", async () => {
+    const { configPath, result, stdout } = await runCli([
+      "putio",
+      "telemetry",
+      "disable",
+      "--output",
+      "json",
+    ]);
+
+    expect(result._tag).toBe("Success");
+    expect(parseJsonOutput(stdout)).toEqual({ configPath, enabled: false });
+    await expect(readFile(configPath, "utf8")).resolves.toContain('"telemetry_disabled": true');
+  });
+
+  it("persists the telemetry opt-out despite unrelated invalid API configuration", async () => {
+    const { configPath, result, stdout } = await runCli(
+      ["putio", "telemetry", "disable", "--output", "json"],
+      { env: { PUTIO_CLI_API_BASE_URL: "not-a-url" } },
+    );
+
+    expect(result._tag).toBe("Success");
+    expect(parseJsonOutput(stdout)).toEqual({ configPath, enabled: false });
+    await expect(readFile(configPath, "utf8")).resolves.toContain('"telemetry_disabled": true');
+  });
+
   it("renders the global version without double-prefixing", async () => {
     const { result, stdout } = await runCli(["putio", "--version"]);
 

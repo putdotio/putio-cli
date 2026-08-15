@@ -15,11 +15,13 @@ import {
   CliState,
   clearPersistedState,
   getAuthStatus,
+  getTelemetryStatus,
   listProfiles,
   loadPersistedState,
   removeProfile,
   resolveAuthState,
   savePersistedState,
+  setTelemetryEnabled,
   useProfile,
 } from "./state.js";
 
@@ -98,6 +100,41 @@ describe("resolveConfigPath", () => {
     expect(file.mode & 0o777).toBe(0o600);
     expect(contents.api_base_url).toBe("https://api.put.io");
     expect(contents.auth_token).toBe("dummy-token");
+  });
+
+  it("persists and clears the telemetry opt-out without changing auth state", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const configPath = join(dir, "config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({ api_base_url: "https://api.put.io", auth_token: "stored-token" }),
+      "utf8",
+    );
+    const provideConfig = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({ PUTIO_CLI_CONFIG_PATH: configPath }),
+        ),
+        makeRuntimeLayer(),
+      );
+
+    await Effect.runPromise(provideConfig(setTelemetryEnabled(false)));
+    await expect(Effect.runPromise(provideConfig(getTelemetryStatus()))).resolves.toEqual({
+      configPath,
+      enabled: false,
+    });
+    expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
+      api_base_url: "https://api.put.io",
+      auth_token: "stored-token",
+      telemetry_disabled: true,
+    });
+
+    await Effect.runPromise(provideConfig(setTelemetryEnabled(true)));
+    expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
+      api_base_url: "https://api.put.io",
+      auth_token: "stored-token",
+    });
   });
 
   it("creates config files with private permissions before chmod", async () => {

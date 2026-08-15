@@ -9,6 +9,10 @@ import {
   commandCatalog,
 } from "./cli-contract.js";
 import {
+  CRASH_REPORTING_FLUSH_TIMEOUT_MS,
+  type CrashReportingDecision,
+} from "./crash-reporting.js";
+import {
   ENV_API_BASE_URL,
   ENV_CLI_CLIENT_NAME,
   ENV_CLI_CONFIG_PATH,
@@ -22,6 +26,10 @@ const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 const ConfigStringFieldSchema = Schema.Struct({
   required: Schema.Boolean,
   type: Schema.Literal("string"),
+});
+const ConfigBooleanFieldSchema = Schema.Struct({
+  required: Schema.Boolean,
+  type: Schema.Literal("boolean"),
 });
 const PersistedProfileShapeSchema = Schema.Struct({
   api_base_url: ConfigStringFieldSchema,
@@ -60,11 +68,30 @@ const CliMetadataSchema = Schema.Struct({
         type: Schema.Literal("record"),
         values: PersistedProfileShapeSchema,
       }),
+      telemetry_disabled: ConfigBooleanFieldSchema,
     }),
     profileEnv: NonEmptyStringSchema,
   }),
   binary: NonEmptyStringSchema,
   commands: Schema.Array(CommandDescriptorSchema),
+  crashReporting: Schema.Struct({
+    capturedFields: Schema.Array(NonEmptyStringSchema),
+    defaultEnabled: Schema.Literal(true),
+    disabledReason: Schema.NullOr(
+      Schema.Literals([
+        "configuration_unavailable",
+        "initialization_failed",
+        "persisted_opt_out",
+      ] as const),
+    ),
+    disableCommand: Schema.Literal("telemetry disable"),
+    enabled: Schema.Boolean,
+    enableCommand: Schema.Literal("telemetry enable"),
+    flushDeadlineMs: Schema.Int,
+    persistedConfigField: Schema.Literal("telemetry_disabled"),
+    provider: Schema.Literal("Sentry"),
+    statusCommand: Schema.Literal("telemetry status"),
+  }),
   name: NonEmptyStringSchema,
   output: CliOutputContractSchema,
   version: NonEmptyStringSchema,
@@ -94,7 +121,9 @@ const makeAutomationContract = (): Schema.Schema.Type<typeof AutomationContractS
   };
 };
 
-export const describeCli = (): CliMetadata =>
+export const describeCli = (
+  crashReporting: CrashReportingDecision = { enabled: true },
+): CliMetadata =>
   decodeCliMetadata({
     automation: makeAutomationContract(),
     auth: {
@@ -117,11 +146,37 @@ export const describeCli = (): CliMetadata =>
             auth_token: { required: false, type: "string" },
           },
         },
+        telemetry_disabled: { required: false, type: "boolean" },
       },
       profileEnv: ENV_CLI_PROFILE,
     },
     binary: translate("cli.brand.binary"),
     commands: commandCatalog,
+    crashReporting: {
+      capturedFields: [
+        "event_id",
+        "timestamp",
+        "fixed_message",
+        "failure_kind",
+        "fixed_component",
+        "fixed_platform",
+        "fixed_environment",
+        "fixed_fingerprint",
+        "fixed_level",
+        "fixed_logger",
+        "package_release",
+        "provider_envelope_metadata",
+      ],
+      defaultEnabled: true,
+      disabledReason: crashReporting.enabled ? null : crashReporting.reason,
+      disableCommand: "telemetry disable",
+      enabled: crashReporting.enabled,
+      enableCommand: "telemetry enable",
+      flushDeadlineMs: CRASH_REPORTING_FLUSH_TIMEOUT_MS,
+      persistedConfigField: "telemetry_disabled",
+      provider: "Sentry",
+      statusCommand: "telemetry status",
+    },
     name: packageJson.name,
     output: {
       defaultInteractive: "text",
