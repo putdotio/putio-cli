@@ -237,14 +237,14 @@ describe("selectTopLevelFields", () => {
               source: "env",
             },
             info: {
-              username: "altay",
+              username: "example-user",
             },
           },
         }),
       ),
     ).resolves.toEqual({
       info: {
-        username: "altay",
+        username: "example-user",
       },
     });
   });
@@ -259,7 +259,7 @@ describe("selectTopLevelFields", () => {
             source: "env",
           },
           info: {
-            username: "altay",
+            username: "example-user",
           },
         },
       }),
