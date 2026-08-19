@@ -42,11 +42,12 @@
     "coverage": "vp test run --coverage",
     "dev": "vp pack --watch",
     "prepack": "vp pack",
+    "skills:lint": "skillcheck lint",
     "smoke:pack": "node ./scripts/smoke-packed-install.mts",
     "test": "vp test",
     "prepublishOnly": "npm run build",
     "verify:sea": "node ./scripts/verify-sea.mjs",
-    "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run smoke:pack && vp test && vp test run --coverage"
+    "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run skills:lint && vp run smoke:pack && vp test && vp test run --coverage"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-rc.109",
@@ -60,6 +61,7 @@
     "@effect/vitest": "4.0.0-rc.109",
     "@putdotio/sdk": "10.0.1",
     "@types/node": "^26.1.0",
+    "@uinaf/skillcheck": "0.4.0",
     "@vitest/coverage-v8": "catalog:",
     "esbuild": "^0.28.1",
     "knip": "6.31.0",

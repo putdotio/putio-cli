@@ -5,8 +5,13 @@ overrides:
 
 allowBuilds:
   "@parcel/watcher": true
+  "@playwright/browser-chromium": false
+  "@swc/core": false
   esbuild: true
   msgpackr-extract: true
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
 
 minimumReleaseAgeExclude:
   - "@effect/platform-node-shared@4.0.0-rc.109"
@@ -14,6 +19,7 @@ minimumReleaseAgeExclude:
   - "@effect/vitest@4.0.0-rc.109"
   - effect@4.0.0-rc.109
   - knip@6.31.0
+  - "@uinaf/skillcheck@0.4.0"
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.6
   vitest: 4.1.10
