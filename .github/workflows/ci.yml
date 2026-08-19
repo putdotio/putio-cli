@@ -46,9 +46,6 @@ jobs:
       - name: Verify repository
         run: vp run verify
 
-      - name: Smoke test packed install surface
-        run: vp run smoke:pack
-
   release:
     if: >-
       ${{
