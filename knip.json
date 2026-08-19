@@ -1,5 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": ["src/index.ts", "src/bin.ts", "src/sea.ts"],
-  "ignoreDependencies": ["postject"]
+  "ignoreDependencies": ["@effect/platform-node-shared", "postject"]
 }
