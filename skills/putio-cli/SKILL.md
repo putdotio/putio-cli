@@ -1,11 +1,9 @@
 ---
 name: putio-cli
-description: Use when an agent needs to operate the put.io CLI as a consumer for put.io authentication, device approval, files, downloads, transfers, cloud storage, or generic TypeScript SDK tasks, including discovering commands with `putio describe --output json`, authenticating with named profiles, reading stable JSON or NDJSON output, narrowing responses with `--fields`, paging safely with `--page-all`, and previewing writes with `--dry-run` and raw `--json`.
+description: Use when an agent needs to operate the put.io CLI as a consumer for put.io authentication, device approval, files, downloads, transfers, cloud storage, or generic TypeScript SDK tasks, including discovering commands with `putio describe --output json`, authenticating with named profiles, reading stable JSON or NDJSON output, narrowing responses with `--fields`, paging safely with `--page-all`, and previewing writes with `--dry-run` and raw `--json`. Do not use when developing this repository itself.
 ---
 
 # putio-cli
-
-Use this skill when you need to use `putio` itself, not when you are developing this repository.
 
 ## Quick Rules
 

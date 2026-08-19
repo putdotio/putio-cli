@@ -1,0 +1,38 @@
+name: Bug report
+description: Report a reproducible putio-cli problem.
+title: ""
+labels:
+  - bug
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Exact commands and flags. Prefer `--output json` so output is comparable.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Output of `putio version`, plus OS and install method (npm, Homebrew, or release binary).
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Logs, command output, or artifacts. Do not include OAuth tokens, profile credentials, or private file IDs.
