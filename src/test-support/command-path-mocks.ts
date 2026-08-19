@@ -10,13 +10,13 @@ const defaultAccountInfo = () => ({
   },
   family_owner: null,
   is_sub_account: false,
-  mail: "altay@put.io",
+  mail: "user@example.com",
   settings: {
     theme: "system",
     two_factor_enabled: true,
   },
   trash_size: 25,
-  username: "altay",
+  username: "example-user",
 });
 
 const defaultEventsResponse = () => ({

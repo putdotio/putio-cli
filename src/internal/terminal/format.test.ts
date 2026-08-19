@@ -43,7 +43,7 @@ describe("formatPercent", () => {
 
 describe("formatNullable", () => {
   it("returns non-empty strings as-is", () => {
-    expect(formatNullable("altay")).toBe("altay");
+    expect(formatNullable("example-user")).toBe("example-user");
   });
 
   it("renders empty values as em dash", () => {
