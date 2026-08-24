@@ -74,7 +74,7 @@
   "engines": {
     "node": ">=24.19.0"
   },
-  "packageManager": "pnpm@11.2.2",
+  "packageManager": "pnpm@11.23.0",
   "inlinedDependencies": {
     "@putdotio/sdk": "10.0.1"
   }
