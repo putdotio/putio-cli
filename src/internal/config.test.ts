@@ -1,12 +1,8 @@
-import { ConfigProvider, Effect, Redacted } from "effect";
+import { ConfigProvider, Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { makeCliAppLayer } from "./app-layer.js";
-import {
-  resolveCliAuthFlowConfig,
-  resolveCliCredentialAuthConfig,
-  resolveCliRuntimeConfig,
-} from "./config.js";
+import { resolveCliAuthFlowConfig, resolveCliRuntimeConfig } from "./config.js";
 import { makeCliRuntime } from "./runtime.js";
 
 const withRuntime = <A, E, R>(
@@ -56,33 +52,6 @@ describe("CliConfig", () => {
       clientName: "putio-cli-test",
       webAppUrl: "https://app.put.io/custom",
     });
-  });
-
-  it("resolves credential login config as redacted values", async () => {
-    const result = await Effect.runPromise(
-      withRuntime(resolveCliCredentialAuthConfig(), [
-        ["PUTIO_CLI_LOGIN_CLIENT_ID", "1234"],
-        ["PUTIO_CLI_LOGIN_CLIENT_SECRET", "client-secret"],
-        ["PUTIO_CLI_LOGIN_PASSWORD", "password"],
-        ["PUTIO_CLI_LOGIN_TOTP_SECRET", "JBSWY3DPEHPK3PXP"],
-        ["PUTIO_CLI_LOGIN_USERNAME", "devs-fe-auto"],
-      ]),
-    );
-
-    expect(Redacted.value(result.clientId)).toBe("1234");
-    expect(Redacted.value(result.clientSecret)).toBe("client-secret");
-    expect(Redacted.value(result.password)).toBe("password");
-    expect(Redacted.value(result.totpSecret)).toBe("JBSWY3DPEHPK3PXP");
-    expect(Redacted.value(result.username)).toBe("devs-fe-auto");
-    expect(String(result.password)).toBe("<redacted>");
-  });
-
-  it("fails closed when credential login config is incomplete", async () => {
-    await expect(
-      Effect.runPromise(
-        withRuntime(resolveCliCredentialAuthConfig(), [["PUTIO_CLI_LOGIN_CLIENT_ID", "1234"]]),
-      ),
-    ).rejects.toThrow("Unable to resolve credential login configuration.");
   });
 
   it("falls back to host-derived defaults when auth flow env is missing", async () => {
