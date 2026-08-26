@@ -112,6 +112,8 @@ putio auth login --profile devs-fe-auto
 putio auth profiles use devs-fe-auto
 ```
 
+The CLI does not accept put.io account credentials. Its login flow delegates authorization to the official web app and stores only the returned OAuth token.
+
 Check the auth source:
 
 ```bash
