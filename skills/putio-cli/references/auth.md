@@ -15,6 +15,7 @@ putio auth status --output json
 For a stable agent or test-harness session:
 
 ```bash
+putio auth status --profile devs-fe-auto --output json
 putio auth login --profile devs-fe-auto
 putio auth profiles use devs-fe-auto
 ```
