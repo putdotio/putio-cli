@@ -112,6 +112,21 @@ putio auth login --profile devs-fe-auto
 putio auth profiles use devs-fe-auto
 ```
 
+For unattended login, inject credentials through the process environment and require a named
+profile:
+
+```bash
+PUTIO_CLI_LOGIN_CLIENT_ID=... \
+PUTIO_CLI_LOGIN_CLIENT_SECRET=... \
+PUTIO_CLI_LOGIN_USERNAME=... \
+PUTIO_CLI_LOGIN_PASSWORD=... \
+PUTIO_CLI_LOGIN_TOTP_SECRET=... \
+  putio auth login --from-env --profile devs-fe-auto --output json
+```
+
+`--from-env` never accepts credentials as flags. Inject the five values from a secret manager at
+the process boundary; the CLI persists only the resulting OAuth token in the named profile.
+
 Check the auth source:
 
 ```bash
@@ -186,6 +201,8 @@ credential fields and token-bearing URLs are redacted in plans and results.
 - Use `--fields` to keep structured responses small.
 - Use `--dry-run` before mutating commands.
 - Set `PUTIO_CLI_TOKEN` for headless auth; it overrides persisted auth and selected profiles.
+- Use `auth login --from-env --profile <name>` to mint a named session from injected credentials
+  and a base32 TOTP seed without a device-link flow.
 - Set `PUTIO_CLI_PROFILE` to select a persisted profile for automation.
 - Use `PUTIO_CLI_CONFIG_PATH` to override the default config location and isolate test state.
 - If no profile is specified, the configured default profile is used when present; otherwise legacy single-token config remains supported.

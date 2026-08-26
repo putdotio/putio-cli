@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { Effect } from "effect";
+import { Effect, Redacted } from "effect";
 
 import { resetCommandPathMocks } from "./test-support/command-path-mocks.js";
 import { runCliInTest } from "./test-support/run-cli.js";
@@ -105,6 +105,8 @@ const mocks = vi.hoisted(() => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
+  const loginMock = vi.fn(() => Effect.succeed({ access_token: "two-factor-token", user_id: 1 }));
+  const verifyTotpMock = vi.fn(() => Effect.succeed({ token: "token-123", user_id: 1 }));
   const linkDeviceMock = vi.fn(() =>
     Effect.succeed({
       description: "Living room TV",
@@ -292,6 +294,16 @@ const mocks = vi.hoisted(() => {
       webAppUrl: "https://app.put.io",
     }),
   );
+  const resolveCliCredentialAuthConfigMock = vi.fn(() =>
+    Effect.succeed({
+      clientId: Redacted.make("1234"),
+      clientSecret: Redacted.make("client-secret"),
+      password: Redacted.make("password"),
+      totpSecret: Redacted.make("JBSWY3DPEHPK3PXP"),
+      username: Redacted.make("devs-fe-auto"),
+    }),
+  );
+  const generateTotpMock = vi.fn(() => Effect.succeed("123456"));
   const waitForDeviceTokenMock = vi.fn(() => Effect.succeed("token-123"));
   const openBrowserMock = vi.fn(() => Effect.succeed(true));
 
@@ -303,6 +315,10 @@ const mocks = vi.hoisted(() => {
       checkCodeMatch: checkCodeMatchMock,
       getCode: getCodeMock,
       linkDevice: linkDeviceMock,
+      login: loginMock,
+      twoFactor: {
+        verifyTOTP: verifyTotpMock,
+      },
     },
     downloadLinks: {
       create: createDownloadLinksMock,
@@ -354,6 +370,7 @@ const mocks = vi.hoisted(() => {
     getAuthStatusMock,
     checkCodeMatchMock,
     getCodeMock,
+    generateTotpMock,
     getStartFromMock,
     getTransferMock,
     listEventsMock,
@@ -361,6 +378,7 @@ const mocks = vi.hoisted(() => {
     listProfilesMock,
     listTransfersMock,
     linkDeviceMock,
+    loginMock,
     moveFilesMock,
     openBrowserMock,
     provideSdkMock,
@@ -369,12 +387,14 @@ const mocks = vi.hoisted(() => {
     reannounceTransferMock,
     removeProfileMock,
     resolveAuthFlowConfigMock,
+    resolveCliCredentialAuthConfigMock,
     resolveCliRuntimeConfigMock,
     retryTransferMock,
     savePersistedStateMock,
     searchFilesMock,
     setStartFromMock,
     useProfileMock,
+    verifyTotpMock,
     uploadFileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
@@ -438,6 +458,7 @@ vi.mock("./internal/config.js", async () => {
 
   return {
     ...actual,
+    resolveCliCredentialAuthConfig: mocks.resolveCliCredentialAuthConfigMock,
     resolveCliRuntimeConfig: mocks.resolveCliRuntimeConfigMock,
   };
 });
@@ -451,6 +472,15 @@ vi.mock("./internal/auth-flow.js", async () => {
     openBrowser: mocks.openBrowserMock,
     resolveAuthFlowConfig: mocks.resolveAuthFlowConfigMock,
     waitForDeviceToken: mocks.waitForDeviceTokenMock,
+  };
+});
+
+vi.mock("./internal/totp.js", async () => {
+  const actual = await vi.importActual<typeof import("./internal/totp.js")>("./internal/totp.js");
+
+  return {
+    ...actual,
+    generateTotp: mocks.generateTotpMock,
   };
 });
 
@@ -599,6 +629,80 @@ describe("cli command paths", () => {
       "json",
       expect.any(Function),
     );
+  });
+
+  it("executes credential login from redacted environment config", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "auth",
+        "login",
+        "--from-env",
+        "--profile",
+        "devs-fe-auto",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.getCodeMock).not.toHaveBeenCalled();
+    expect(mocks.resolveCliCredentialAuthConfigMock).toHaveBeenCalled();
+    expect(mocks.loginMock).toHaveBeenCalledWith({
+      clientId: "1234",
+      clientSecret: "client-secret",
+      password: "password",
+      username: "devs-fe-auto",
+    });
+    expect(mocks.generateTotpMock).toHaveBeenCalledWith("JBSWY3DPEHPK3PXP");
+    expect(mocks.verifyTotpMock).toHaveBeenCalledWith("two-factor-token", "123456");
+    expect(mocks.savePersistedStateMock).toHaveBeenCalledWith(
+      {
+        apiBaseUrl: "https://api.put.io",
+        token: "token-123",
+      },
+      undefined,
+      { profile: "devs-fe-auto" },
+    );
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authenticated: true,
+        browserOpened: false,
+        method: "credentials",
+        profile: "devs-fe-auto",
+      }),
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("requires a named profile for credential login", async () => {
+    await expect(
+      runCliInTest(["putio", "auth", "login", "--from-env", "--output", "json"]),
+    ).rejects.toMatchObject({
+      message: "`auth login --from-env` requires `--profile`.",
+    });
+
+    expect(mocks.loginMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects device-only flags during credential login", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "auth",
+        "login",
+        "--from-env",
+        "--profile",
+        "devs-fe-auto",
+        "--open",
+        "--output",
+        "json",
+      ]),
+    ).rejects.toMatchObject({
+      message: "`auth login --from-env` cannot be combined with `--open` or `--timeout-seconds`.",
+    });
+
+    expect(mocks.loginMock).not.toHaveBeenCalled();
   });
 
   it("executes auth status without a token", async () => {

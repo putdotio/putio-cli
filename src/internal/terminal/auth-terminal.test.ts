@@ -38,9 +38,12 @@ describe("renderAuthLoginSuccessTerminal", () => {
       apiBaseUrl: "https://api.put.io",
       browserOpened: true,
       configPath: "/tmp/putio/config.json",
+      method: "device",
     });
 
     expect(output).toContain("authenticated and saved token");
+    expect(output).toContain("method");
+    expect(output).toContain("device");
     expect(output).toContain("/tmp/putio/config.json");
   });
 });

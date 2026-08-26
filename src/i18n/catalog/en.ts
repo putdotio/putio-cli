@@ -80,6 +80,7 @@ export const en = {
         apiBaseUrl: "api base url   {{value}}",
         browserOpened: "browser opened {{value}}",
         configPath: "config path    {{value}}",
+        method: "method         {{value}}",
         profile: "profile        {{value}}",
         savedToken: "authenticated and saved token",
       },
