@@ -15,20 +15,9 @@ putio auth status --output json
 For a stable agent or test-harness session:
 
 ```bash
-putio auth status --profile devs-fe-auto --output json
+putio auth login --profile devs-fe-auto
 putio auth profiles use devs-fe-auto
 ```
-
-Validate the saved token with an authenticated read. If it expired, inject the approved account,
-OAuth client, and base32 TOTP values through the process environment, then mint a replacement:
-
-```bash
-putio auth login --from-env --profile devs-fe-auto --output json
-```
-
-`--from-env` requires all five `PUTIO_CLI_LOGIN_*` variables and a named profile. It does not
-accept credential flags and persists only the resulting OAuth token. Do not switch an unattended
-workflow to device login or browser automation when its credential payload is available.
 
 For interactive login:
 
@@ -59,7 +48,6 @@ putio auth profiles remove devs-fe-auto
 Headless usage rules:
 
 - Prefer `PUTIO_CLI_TOKEN` when a browser flow is not appropriate; it overrides persisted config and selected profiles.
-- Prefer `auth login --from-env --profile devs-fe-auto` when the approved credential payload is available and the saved profile is missing or expired.
 - Use `PUTIO_CLI_PROFILE=devs-fe-auto` to select a persisted profile without passing flags.
 - Use `PUTIO_CLI_CONFIG_PATH` to isolate config for automation or tests.
 - If no profile is specified, the configured default profile is used when present; otherwise legacy single-token config remains supported.

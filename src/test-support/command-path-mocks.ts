@@ -1,4 +1,4 @@
-import { Effect, Redacted } from "effect";
+import { Effect } from "effect";
 import { vi } from "vite-plus/test";
 
 const defaultAccountInfo = () => ({
@@ -128,8 +128,6 @@ const createCommandPathMocks = () => {
   const provideSdkMock = vi.fn((_config, program) => program);
   const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
   const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
-  const loginMock = vi.fn(() => Effect.succeed({ access_token: "two-factor-token", user_id: 1 }));
-  const verifyTotpMock = vi.fn(() => Effect.succeed({ token: "token-123", user_id: 1 }));
   const linkDeviceMock = vi.fn(() =>
     Effect.succeed({
       description: "Living room TV",
@@ -271,16 +269,6 @@ const createCommandPathMocks = () => {
       webAppUrl: "https://app.put.io",
     }),
   );
-  const resolveCliCredentialAuthConfigMock = vi.fn(() =>
-    Effect.succeed({
-      clientId: Redacted.make("1234"),
-      clientSecret: Redacted.make("client-secret"),
-      password: Redacted.make("password"),
-      totpSecret: Redacted.make("JBSWY3DPEHPK3PXP"),
-      username: Redacted.make("devs-fe-auto"),
-    }),
-  );
-  const generateTotpMock = vi.fn(() => Effect.succeed("123456"));
   const waitForDeviceTokenMock = vi.fn(() => Effect.succeed("token-123"));
   const openBrowserMock = vi.fn(() => Effect.succeed(true));
 
@@ -292,10 +280,6 @@ const createCommandPathMocks = () => {
       checkCodeMatch: checkCodeMatchMock,
       getCode: getCodeMock,
       linkDevice: linkDeviceMock,
-      login: loginMock,
-      twoFactor: {
-        verifyTOTP: verifyTotpMock,
-      },
     },
     downloadLinks: {
       create: createDownloadLinksMock,
@@ -347,7 +331,6 @@ const createCommandPathMocks = () => {
     getAuthStatusMock,
     checkCodeMatchMock,
     getCodeMock,
-    generateTotpMock,
     getStartFromMock,
     getTransferMock,
     listEventsMock,
@@ -355,7 +338,6 @@ const createCommandPathMocks = () => {
     listProfilesMock,
     listTransfersMock,
     linkDeviceMock,
-    loginMock,
     moveFilesMock,
     openBrowserMock,
     provideSdkMock,
@@ -364,14 +346,12 @@ const createCommandPathMocks = () => {
     reannounceTransferMock,
     removeProfileMock,
     resolveAuthFlowConfigMock,
-    resolveCliCredentialAuthConfigMock,
     resolveCliRuntimeConfigMock,
     retryTransferMock,
     savePersistedStateMock,
     searchFilesMock,
     setStartFromMock,
     useProfileMock,
-    verifyTotpMock,
     uploadFileMock,
     waitForDeviceTokenMock,
     withAuthedSdkMock,
@@ -399,11 +379,6 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
   mocks.provideSdkMock.mockImplementation((_config, program) => program);
   mocks.getCodeMock.mockImplementation(() => Effect.succeed({ code: "PUTIO1" }));
   mocks.checkCodeMatchMock.mockImplementation(() => Effect.succeed("token-123"));
-  mocks.loginMock.mockImplementation(() =>
-    Effect.succeed({ access_token: "two-factor-token", user_id: 1 }),
-  );
-  mocks.verifyTotpMock.mockImplementation(() => Effect.succeed({ token: "token-123", user_id: 1 }));
-  mocks.generateTotpMock.mockImplementation(() => Effect.succeed("123456"));
   mocks.linkDeviceMock.mockImplementation(() =>
     Effect.succeed({
       description: "Living room TV",
@@ -597,15 +572,6 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
       appId: 8993,
       clientName: "putio-cli-test",
       webAppUrl: "https://app.put.io",
-    }),
-  );
-  mocks.resolveCliCredentialAuthConfigMock.mockImplementation(() =>
-    Effect.succeed({
-      clientId: Redacted.make("1234"),
-      clientSecret: Redacted.make("client-secret"),
-      password: Redacted.make("password"),
-      totpSecret: Redacted.make("JBSWY3DPEHPK3PXP"),
-      username: Redacted.make("devs-fe-auto"),
     }),
   );
   mocks.waitForDeviceTokenMock.mockImplementation(() => Effect.succeed("token-123"));

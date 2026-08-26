@@ -1,16 +1,11 @@
 import { DEFAULT_PUTIO_API_BASE_URL, DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
-import { Config, Context, Data, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Config, Context, Data, Effect, Layer, Option, Schema } from "effect";
 
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 import {
   ENV_API_BASE_URL,
   ENV_CLI_CLIENT_NAME,
   ENV_CLI_CONFIG_PATH,
-  ENV_CLI_LOGIN_CLIENT_ID,
-  ENV_CLI_LOGIN_CLIENT_SECRET,
-  ENV_CLI_LOGIN_PASSWORD,
-  ENV_CLI_LOGIN_TOTP_SECRET,
-  ENV_CLI_LOGIN_USERNAME,
   ENV_CLI_PROFILE,
   ENV_CLI_TOKEN,
   ENV_CLI_WEB_APP_URL,
@@ -50,14 +45,6 @@ const CliRuntimeConfigSchema = Schema.Struct({
 
 type CliRuntimeConfig = Schema.Schema.Type<typeof CliRuntimeConfigSchema>;
 
-type CliCredentialAuthConfig = {
-  readonly clientId: Redacted.Redacted<string>;
-  readonly clientSecret: Redacted.Redacted<string>;
-  readonly password: Redacted.Redacted<string>;
-  readonly totpSecret: Redacted.Redacted<string>;
-  readonly username: Redacted.Redacted<string>;
-};
-
 class CliConfigError extends Data.TaggedError("CliConfigError")<{
   readonly message: string;
 }> {}
@@ -65,7 +52,6 @@ class CliConfigError extends Data.TaggedError("CliConfigError")<{
 export type CliConfigService = {
   readonly authFlowConfig: Effect.Effect<PutioCliAuthFlowConfig, CliConfigError>;
   readonly configPath: Effect.Effect<string, CliConfigError>;
-  readonly credentialAuthConfig: Effect.Effect<CliCredentialAuthConfig, CliConfigError>;
   readonly runtimeConfig: Effect.Effect<CliRuntimeConfig, CliConfigError>;
 };
 
@@ -83,9 +69,6 @@ const optionalTrimmedString = (name: string) =>
       }),
     ),
   );
-
-const requiredRedactedString = (name: string) =>
-  Config.schema(Schema.Redacted(NonEmptyStringSchema), name);
 
 export const buildConfigPath = (input: {
   readonly explicitConfigPath?: string;
@@ -145,13 +128,6 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
     });
   }).pipe(Effect.mapError(mapCliConfigError("Unable to resolve the CLI auth flow configuration."))),
   configPath: resolveConfigPath(runtime),
-  credentialAuthConfig: Config.all({
-    clientId: requiredRedactedString(ENV_CLI_LOGIN_CLIENT_ID),
-    clientSecret: requiredRedactedString(ENV_CLI_LOGIN_CLIENT_SECRET),
-    password: requiredRedactedString(ENV_CLI_LOGIN_PASSWORD),
-    totpSecret: requiredRedactedString(ENV_CLI_LOGIN_TOTP_SECRET),
-    username: requiredRedactedString(ENV_CLI_LOGIN_USERNAME),
-  }).pipe(Effect.mapError(mapCliConfigError("Unable to resolve credential login configuration."))),
   runtimeConfig: Effect.gen(function* () {
     const apiBaseUrl = yield* optionalTrimmedString(ENV_API_BASE_URL).pipe(
       Config.map((value) => Option.getOrElse(value, () => DEFAULT_PUTIO_API_BASE_URL)),
@@ -179,9 +155,6 @@ export const resolveCliRuntimeConfig = () =>
   Effect.flatMap(CliConfig, (config) => config.runtimeConfig);
 
 export const resolveCliConfigPath = () => Effect.flatMap(CliConfig, (config) => config.configPath);
-
-export const resolveCliCredentialAuthConfig = () =>
-  Effect.flatMap(CliConfig, (config) => config.credentialAuthConfig);
 
 export const resolveCliAuthFlowConfig = () =>
   Effect.flatMap(CliConfig, (config) => config.authFlowConfig);

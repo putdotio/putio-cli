@@ -79,7 +79,6 @@ export const renderAuthLoginSuccessTerminal = (value: {
   readonly apiBaseUrl: string;
   readonly browserOpened: boolean;
   readonly configPath: string;
-  readonly method?: "credentials" | "device";
   readonly profile?: string | null;
 }) =>
   [
@@ -89,9 +88,6 @@ export const renderAuthLoginSuccessTerminal = (value: {
         ansi.bold(translate("cli.auth.success.savedToken")),
         translate("cli.auth.success.profile", {
           value: value.profile ?? translate("cli.common.none"),
-        }),
-        translate("cli.auth.success.method", {
-          value: value.method ?? "device",
         }),
         translate("cli.auth.success.apiBaseUrl", { value: value.apiBaseUrl }),
         translate("cli.auth.success.configPath", { value: value.configPath }),
