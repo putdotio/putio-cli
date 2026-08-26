@@ -21,6 +21,7 @@ describe("describeCli", () => {
     const authProfilesUseCommand = metadata.commands.find(
       (command) => command.command === "auth profiles use",
     );
+    const authLoginCommand = metadata.commands.find((command) => command.command === "auth login");
 
     expect(metadata.binary).toBe("putio");
     expect(metadata.crashReporting).toEqual({
@@ -250,8 +251,26 @@ describe("describeCli", () => {
         ],
       },
     });
+    expect(authLoginCommand).toMatchObject({
+      input: {
+        flags: expect.arrayContaining([
+          expect.objectContaining({
+            defaultValue: false,
+            name: "from-env",
+            type: "boolean",
+          }),
+        ]),
+      },
+    });
     expect(metadata.auth.envPrecedence).toEqual(["PUTIO_CLI_TOKEN"]);
     expect(metadata.auth.loginAppId).toBe("8993");
+    expect(metadata.auth.loginCredentialEnv).toEqual({
+      clientId: "PUTIO_CLI_LOGIN_CLIENT_ID",
+      clientSecret: "PUTIO_CLI_LOGIN_CLIENT_SECRET",
+      password: "PUTIO_CLI_LOGIN_PASSWORD",
+      totpSecret: "PUTIO_CLI_LOGIN_TOTP_SECRET",
+      username: "PUTIO_CLI_LOGIN_USERNAME",
+    });
     expect(metadata.auth.loginOpensBrowserByDefault).toBe(false);
     expect(metadata.auth.persistedConfigShape).toMatchObject({
       api_base_url: { required: true, type: "string" },

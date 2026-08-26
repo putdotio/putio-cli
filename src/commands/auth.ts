@@ -1,6 +1,6 @@
 import { Argument, Command } from "effect/unstable/cli";
 import * as Terminal from "effect/Terminal";
-import { Cause, Console, Effect, Fiber, Option, Queue, Schema } from "effect";
+import { Cause, Console, Effect, Fiber, Option, Queue, Redacted, Schema } from "effect";
 
 import { translate } from "../i18n/index.js";
 import {
@@ -36,7 +36,7 @@ import {
   type CommandSpec,
 } from "../internal/command-specs.js";
 import type { CliConfig } from "../internal/config.js";
-import { resolveCliRuntimeConfig } from "../internal/config.js";
+import { resolveCliCredentialAuthConfig, resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import type { CliOutput } from "../internal/output-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
@@ -56,8 +56,13 @@ import {
   renderAuthLoginSuccessTerminal,
   renderAuthLoginTerminal,
 } from "../internal/terminal/auth-terminal.js";
+import { generateTotp } from "../internal/totp.js";
 
 const openConfig = defineBooleanOption("open", { defaultValue: false });
+const fromEnvConfig = defineBooleanOption("from-env", {
+  defaultValue: false,
+  description: "Authenticate from the PUTIO_CLI_LOGIN_* environment variables.",
+});
 const timeoutSecondsConfig = defineIntegerOption("timeout-seconds", { optional: true });
 const previewCodeConfig = defineTextOption("code", { defaultValue: "PUTIO1" });
 const profileConfig = defineTextOption("profile", {
@@ -66,6 +71,7 @@ const profileConfig = defineTextOption("profile", {
 });
 
 const openOption = openConfig.option;
+const fromEnvOption = fromEnvConfig.option;
 const timeoutSecondsOption = timeoutSecondsConfig.option;
 const previewCodeOption = previewCodeConfig.option;
 const profileOption = profileConfig.option;
@@ -198,12 +204,13 @@ const authStatus = Command.make(
 const authLogin = Command.make(
   "login",
   {
+    fromEnv: fromEnvOption,
     open: openOption,
     output: outputOption,
     profile: profileOption,
     timeoutSeconds: timeoutSecondsOption,
   },
-  ({ open, output, profile, timeoutSeconds }) =>
+  ({ fromEnv, open, output, profile, timeoutSeconds }) =>
     Effect.gen(function* () {
       const runtimeService = yield* CliRuntime;
       const outputMode = normalizeOutputMode(
@@ -216,6 +223,60 @@ const authLogin = Command.make(
         try: () => resolveProfileInput(profile),
         catch: (error) => error,
       });
+
+      if (fromEnv && selectedProfile === undefined) {
+        return yield* new CliCommandInputError({
+          message: "`auth login --from-env` requires `--profile`.",
+        });
+      }
+
+      if (fromEnv && (open || Option.isSome(timeoutSeconds))) {
+        return yield* new CliCommandInputError({
+          message:
+            "`auth login --from-env` cannot be combined with `--open` or `--timeout-seconds`.",
+        });
+      }
+
+      if (fromEnv) {
+        const credentials = yield* resolveCliCredentialAuthConfig();
+        const login = yield* provideSdk(
+          { apiBaseUrl },
+          sdk.auth.login({
+            clientId: Redacted.value(credentials.clientId),
+            clientSecret: Redacted.value(credentials.clientSecret),
+            password: Redacted.value(credentials.password),
+            username: Redacted.value(credentials.username),
+          }),
+        );
+        const code = yield* generateTotp(Redacted.value(credentials.totpSecret));
+        const { token } = yield* provideSdk(
+          { apiBaseUrl },
+          sdk.auth.twoFactor.verifyTOTP(login.access_token, code),
+        );
+        const {
+          configPath,
+          profile: savedProfile,
+          state,
+        } = yield* savePersistedState({ apiBaseUrl, token }, undefined, {
+          profile: selectedProfile,
+        });
+
+        return yield* writeOutput(
+          {
+            apiBaseUrl: savedProfile
+              ? (state.profiles?.[savedProfile]?.api_base_url ?? state.api_base_url)
+              : state.api_base_url,
+            authenticated: true,
+            browserOpened: false,
+            configPath,
+            method: "credentials",
+            profile: savedProfile,
+          },
+          getOption(output),
+          (value) => renderAuthLoginSuccessTerminal(value),
+        );
+      }
+
       const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1_000;
       const authFlow = yield* resolveAuthFlowConfig();
       const { code } = yield* provideSdk(
@@ -281,6 +342,7 @@ const authLogin = Command.make(
           authenticated: true,
           browserOpened,
           configPath,
+          method: "device",
           profile: savedProfile,
           linkUrl,
         },
@@ -480,7 +542,13 @@ export const authCommandSpecs = [
     },
     command: "auth login",
     input: {
-      flags: [openConfig.flag, outputFlag(), profileConfig.flag, timeoutSecondsConfig.flag],
+      flags: [
+        fromEnvConfig.flag,
+        openConfig.flag,
+        outputFlag(),
+        profileConfig.flag,
+        timeoutSecondsConfig.flag,
+      ],
     },
     kind: "auth",
     purpose: translate("cli.metadata.authLogin"),
