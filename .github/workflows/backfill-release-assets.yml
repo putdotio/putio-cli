@@ -13,7 +13,7 @@ permissions: {}
 jobs:
   validate-release-tag:
     name: Validate release tag
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 5
     permissions:
       contents: read
@@ -59,10 +59,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: blacksmith-2vcpu-ubuntu-2404
             asset_os: linux
             asset_arch: amd64
-          - os: macos-latest
+          - os: blacksmith-6vcpu-macos-latest
             asset_os: darwin
             asset_arch: arm64
 
@@ -137,10 +137,10 @@ jobs:
             .artifacts/release/*
 
   build-windows-binary:
-    name: Build windows-latest release assets
+    name: Build Windows release assets
     needs:
       - validate-release-tag
-    runs-on: windows-latest
+    runs-on: blacksmith-2vcpu-windows-2025
     timeout-minutes: 30
     env:
       PUTIO_CLI_REQUIRE_SENTRY_DSN: "true"

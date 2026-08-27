@@ -22,7 +22,7 @@ jobs:
   verify:
     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
     name: Verify CLI
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 20
     permissions:
       contents: read
@@ -58,7 +58,7 @@ jobs:
     name: Release CLI
     needs:
       - verify
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # npm Trusted Publishing rejects self-hosted runners
     timeout-minutes: 20
     env:
       PUTIO_CLI_REQUIRE_SENTRY_DSN: "true"
@@ -203,10 +203,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: blacksmith-2vcpu-ubuntu-2404
             asset_os: linux
             asset_arch: amd64
-          - os: macos-latest
+          - os: blacksmith-6vcpu-macos-latest
             asset_os: darwin
             asset_arch: arm64
 
@@ -273,10 +273,10 @@ jobs:
 
   build-windows-binary:
     if: needs.release.outputs.release_state == 'draft'
-    name: Build windows-latest release assets
+    name: Build Windows release assets
     needs:
       - release
-    runs-on: windows-latest
+    runs-on: blacksmith-2vcpu-windows-2025
     timeout-minutes: 30
     env:
       PUTIO_CLI_REQUIRE_SENTRY_DSN: "true"
@@ -363,7 +363,7 @@ jobs:
       - release
       - build-unix-binaries
       - build-windows-binary
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     environment:
       name: release
@@ -412,7 +412,7 @@ jobs:
     needs:
       - release
       - finalize-release
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 20
     environment:
       name: release
