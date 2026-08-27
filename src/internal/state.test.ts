@@ -351,16 +351,16 @@ describe("resolveConfigPath", () => {
           apiBaseUrl: "https://staging.put.io",
         },
         configPath,
-        { profile: "devs-fe-auto" },
+        { profile: "automation" },
       ).pipe(makeRuntimeLayer()),
     );
 
-    expect(result.profile).toBe("devs-fe-auto");
+    expect(result.profile).toBe("automation");
     expect(result.state).toEqual({
       api_base_url: "https://api.put.io",
       auth_token: "legacy-token",
       profiles: {
-        "devs-fe-auto": {
+        automation: {
           api_base_url: "https://staging.put.io",
           auth_token: "profile-token",
         },
@@ -376,9 +376,9 @@ describe("resolveConfigPath", () => {
       configPath,
       JSON.stringify({
         api_base_url: "https://api.put.io",
-        default_profile: "devs-fe-auto",
+        default_profile: "automation",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             api_base_url: "https://staging.put.io",
             auth_token: "profile-token",
           },
@@ -404,7 +404,7 @@ describe("resolveConfigPath", () => {
       source: "profile",
       apiBaseUrl: "https://staging.put.io",
       configPath,
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
   });
 
@@ -417,7 +417,7 @@ describe("resolveConfigPath", () => {
       JSON.stringify({
         api_base_url: "https://staging.put.io",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             auth_token: "profile-token",
           },
         },
@@ -431,7 +431,7 @@ describe("resolveConfigPath", () => {
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
             PUTIO_CLI_CONFIG_PATH: configPath,
-            PUTIO_CLI_PROFILE: "devs-fe-auto",
+            PUTIO_CLI_PROFILE: "automation",
           }),
         ),
         makeRuntimeLayer(),
@@ -443,7 +443,7 @@ describe("resolveConfigPath", () => {
       source: "profile",
       apiBaseUrl: "https://staging.put.io",
       configPath,
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
   });
 
@@ -457,7 +457,7 @@ describe("resolveConfigPath", () => {
         api_base_url: "https://staging.put.io",
         default_profile: "human",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             auth_token: "profile-token",
           },
           human: {
@@ -474,7 +474,7 @@ describe("resolveConfigPath", () => {
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
             PUTIO_CLI_CONFIG_PATH: configPath,
-            PUTIO_CLI_PROFILE: "devs-fe-auto",
+            PUTIO_CLI_PROFILE: "automation",
             PUTIO_CLI_TOKEN: "env-token",
           }),
         ),
@@ -487,7 +487,7 @@ describe("resolveConfigPath", () => {
       source: "env",
       apiBaseUrl: "https://api.put.io",
       configPath,
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
 
     const status = await Effect.runPromise(
@@ -496,7 +496,7 @@ describe("resolveConfigPath", () => {
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
             PUTIO_CLI_CONFIG_PATH: configPath,
-            PUTIO_CLI_PROFILE: "devs-fe-auto",
+            PUTIO_CLI_PROFILE: "automation",
             PUTIO_CLI_TOKEN: "env-token",
           }),
         ),
@@ -510,7 +510,7 @@ describe("resolveConfigPath", () => {
       apiBaseUrl: "https://api.put.io",
       configPath,
       defaultProfile: null,
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
   });
 
@@ -522,9 +522,9 @@ describe("resolveConfigPath", () => {
       configPath,
       JSON.stringify({
         api_base_url: "https://api.put.io",
-        default_profile: "devs-fe-auto",
+        default_profile: "automation",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             auth_token: "profile-token",
           },
         },
@@ -546,13 +546,13 @@ describe("resolveConfigPath", () => {
 
     expect(result).toEqual({
       configPath,
-      defaultProfile: "devs-fe-auto",
+      defaultProfile: "automation",
       profiles: [
         {
           apiBaseUrl: "https://api.put.io",
           authenticated: true,
           current: true,
-          name: "devs-fe-auto",
+          name: "automation",
         },
       ],
     });
@@ -568,7 +568,7 @@ describe("resolveConfigPath", () => {
         api_base_url: "https://api.put.io",
         default_profile: "human",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             auth_token: "profile-token",
           },
           human: {
@@ -585,7 +585,7 @@ describe("resolveConfigPath", () => {
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
             PUTIO_CLI_CONFIG_PATH: configPath,
-            PUTIO_CLI_PROFILE: "devs-fe-auto",
+            PUTIO_CLI_PROFILE: "automation",
           }),
         ),
         makeRuntimeLayer(),
@@ -597,7 +597,7 @@ describe("resolveConfigPath", () => {
         apiBaseUrl: "https://api.put.io",
         authenticated: true,
         current: true,
-        name: "devs-fe-auto",
+        name: "automation",
       },
       {
         apiBaseUrl: "https://api.put.io",
@@ -617,7 +617,7 @@ describe("resolveConfigPath", () => {
       JSON.stringify({
         api_base_url: "https://api.put.io",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             auth_token: "profile-token",
           },
         },
@@ -656,7 +656,7 @@ describe("resolveConfigPath", () => {
       JSON.stringify({
         api_base_url: "https://staging.put.io",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             auth_token: "profile-token",
           },
         },
@@ -665,7 +665,7 @@ describe("resolveConfigPath", () => {
     );
 
     await Effect.runPromise(
-      useProfile("devs-fe-auto").pipe(
+      useProfile("automation").pipe(
         Effect.provideService(
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
@@ -680,10 +680,10 @@ describe("resolveConfigPath", () => {
       default_profile?: string;
       profiles?: Record<string, unknown>;
     };
-    expect(contents.default_profile).toBe("devs-fe-auto");
+    expect(contents.default_profile).toBe("automation");
 
     const result = await Effect.runPromise(
-      removeProfile("devs-fe-auto").pipe(
+      removeProfile("automation").pipe(
         Effect.provideService(
           ConfigProvider.ConfigProvider,
           ConfigProvider.fromUnknown({
@@ -734,7 +734,7 @@ describe("resolveConfigPath", () => {
       JSON.stringify({
         api_base_url: "https://api.put.io",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             auth_token: "profile-token",
           },
           human: {
@@ -746,23 +746,23 @@ describe("resolveConfigPath", () => {
     );
 
     const result = await Effect.runPromise(
-      clearPersistedState(configPath, { profile: "devs-fe-auto" }).pipe(makeRuntimeLayer()),
+      clearPersistedState(configPath, { profile: "automation" }).pipe(makeRuntimeLayer()),
     );
 
     expect(result).toEqual({
       cleared: true,
       configPath,
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
 
     const contents = JSON.parse(await readFile(configPath, "utf8")) as {
       profiles: {
-        readonly "devs-fe-auto": { readonly auth_token?: string };
+        readonly automation: { readonly auth_token?: string };
         readonly human: { readonly auth_token?: string };
       };
     };
 
-    expect(contents.profiles["devs-fe-auto"].auth_token).toBeUndefined();
+    expect(contents.profiles["automation"].auth_token).toBeUndefined();
     expect(contents.profiles.human.auth_token).toBe("human-token");
   });
 
@@ -784,13 +784,13 @@ describe("resolveConfigPath", () => {
     );
 
     const result = await Effect.runPromise(
-      clearPersistedState(configPath, { profile: "devs-fe-auto" }).pipe(makeRuntimeLayer()),
+      clearPersistedState(configPath, { profile: "automation" }).pipe(makeRuntimeLayer()),
     );
 
     expect(result).toEqual({
       cleared: false,
       configPath,
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
 
     const contents = JSON.parse(await readFile(configPath, "utf8")) as {

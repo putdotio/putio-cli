@@ -343,13 +343,13 @@ describe("cli argv parsing", () => {
     const initialConfig = JSON.stringify({
       api_base_url: "https://api.put.io",
       profiles: {
-        "devs-fe-auto": {
+        automation: {
           auth_token: "profile-token",
         },
       },
     });
     const useResult = await runCli(
-      ["putio", "auth", "profiles", "use", "devs-fe-auto", "--output", "json"],
+      ["putio", "auth", "profiles", "use", "automation", "--output", "json"],
       {
         configContents: initialConfig,
       },
@@ -357,16 +357,16 @@ describe("cli argv parsing", () => {
 
     expect(useResult.result._tag).toBe("Success");
     expect(parseJsonOutput(useResult.stdout)).toMatchObject({
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
 
     const afterUse = JSON.parse(await readFile(useResult.configPath, "utf8")) as {
       readonly default_profile?: string;
     };
-    expect(afterUse.default_profile).toBe("devs-fe-auto");
+    expect(afterUse.default_profile).toBe("automation");
 
     const removeResult = await runCli(
-      ["putio", "auth", "profiles", "remove", "devs-fe-auto", "--output", "json"],
+      ["putio", "auth", "profiles", "remove", "automation", "--output", "json"],
       {
         configContents: await readFile(useResult.configPath, "utf8"),
       },
@@ -374,7 +374,7 @@ describe("cli argv parsing", () => {
 
     expect(removeResult.result._tag).toBe("Success");
     expect(parseJsonOutput(removeResult.stdout)).toMatchObject({
-      profile: "devs-fe-auto",
+      profile: "automation",
       removed: true,
     });
 

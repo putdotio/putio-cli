@@ -25,7 +25,7 @@ describe("CliConfig", () => {
   it("resolves runtime config through the config service", async () => {
     const result = await Effect.runPromise(
       withRuntime(resolveCliRuntimeConfig(), [
-        ["PUTIO_CLI_PROFILE", "devs-fe-auto"],
+        ["PUTIO_CLI_PROFILE", "automation"],
         ["PUTIO_CLI_TOKEN", "secret-token"],
         ["XDG_CONFIG_HOME", "/tmp/xdg"],
       ]),
@@ -34,7 +34,7 @@ describe("CliConfig", () => {
     expect(result).toEqual({
       apiBaseUrl: "https://api.put.io",
       configPath: "/tmp/xdg/putio/config.json",
-      profile: "devs-fe-auto",
+      profile: "automation",
       token: "secret-token",
     });
   });

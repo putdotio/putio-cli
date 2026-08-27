@@ -10,7 +10,7 @@ description: "Operate the put.io CLI as a consumer for put.io authentication, fi
 - Start with `putio describe --output json`.
 - Check `automation` in the describe output for the current machine-readable contract and supported safety features.
 - Prefer structured output: `json` by default in non-interactive runs, `ndjson` for streaming reads, `text` for human TTY sessions.
-- Prefer a named profile such as `devs-fe-auto` for non-human sessions.
+- Prefer a named profile such as `automation` for non-human sessions.
 - Use `--fields` to keep responses small.
 - Use `--page-all` only when the full dataset is truly needed.
 - Use `--dry-run` before writes.
@@ -50,16 +50,16 @@ putio describe --output json
 For non-human sessions, prefer a named profile instead of relying on ambient default auth:
 
 ```bash
-putio auth status --profile devs-fe-auto --output json
-putio auth login --profile devs-fe-auto
-putio auth profiles use devs-fe-auto
+putio auth status --profile automation --output json
+putio auth login --profile automation
+putio auth profiles use automation
 ```
 
-Use `PUTIO_CLI_PROFILE=devs-fe-auto` when a harness should select that profile without repeating `--profile`. Use `PUTIO_CLI_TOKEN` only when headless token auth is the better fit; it overrides selected and persisted profiles.
+Use `PUTIO_CLI_PROFILE=automation` when a harness should select that profile without repeating `--profile`. Use `PUTIO_CLI_TOKEN` only when headless token auth is the better fit; it overrides selected and persisted profiles.
 
 Manage persisted profiles explicitly:
 
 ```bash
 putio auth profiles list --output json
-putio auth profiles remove devs-fe-auto
+putio auth profiles remove automation
 ```

@@ -229,7 +229,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
         api_base_url: "https://api.put.io",
         default_profile: "human",
         profiles: {
-          "devs-fe-auto": {
+          automation: {
             api_base_url: "https://staging.put.io",
             auth_token: "dev-token",
           },
@@ -255,8 +255,8 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "Expected default profile `human` to be current.",
   );
   assert(
-    defaultList.profiles.find((profile) => profile.name === "devs-fe-auto")?.current === false,
-    "Expected `devs-fe-auto` not to be current before selection.",
+    defaultList.profiles.find((profile) => profile.name === "automation")?.current === false,
+    "Expected `automation` not to be current before selection.",
   );
 
   const defaultStatus = runPutioJson<AuthStatus>(binaryPath, [
@@ -270,10 +270,10 @@ const smokeAuthProfiles = (binaryPath: string) => {
   assert(defaultStatus.source === "profile", "Expected default status source to be `profile`.");
 
   const envStatus = runPutioJson<AuthStatus>(binaryPath, ["auth", "status", "--output", "json"], {
-    PUTIO_CLI_PROFILE: "devs-fe-auto",
+    PUTIO_CLI_PROFILE: "automation",
   });
   assert(envStatus.authenticated, "Expected env-selected profile status to be authenticated.");
-  assert(envStatus.profile === "devs-fe-auto", "Expected env selection to use `devs-fe-auto`.");
+  assert(envStatus.profile === "automation", "Expected env selection to use `automation`.");
   assert(
     envStatus.apiBaseUrl === "https://staging.put.io",
     "Expected env-selected profile to use its profile-specific API base URL.",
@@ -283,11 +283,11 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "auth",
     "profiles",
     "use",
-    "devs-fe-auto",
+    "automation",
     "--output",
     "json",
   ]);
-  assert(useResult.profile === "devs-fe-auto", "Expected `profiles use` to select dev profile.");
+  assert(useResult.profile === "automation", "Expected `profiles use` to select dev profile.");
 
   const selectedList = runPutioJson<ProfileList>(binaryPath, [
     "auth",
@@ -297,11 +297,11 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "json",
   ]);
   assert(
-    selectedList.defaultProfile === "devs-fe-auto",
+    selectedList.defaultProfile === "automation",
     "Expected `profiles use` to persist dev profile as default.",
   );
   assert(
-    selectedList.profiles.find((profile) => profile.name === "devs-fe-auto")?.current === true,
+    selectedList.profiles.find((profile) => profile.name === "automation")?.current === true,
     "Expected dev profile to be current after `profiles use`.",
   );
 
@@ -309,18 +309,18 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "auth",
     "logout",
     "--profile",
-    "devs-fe-auto",
+    "automation",
     "--output",
     "json",
   ]);
   assert(logoutResult.cleared, "Expected profile logout to report a cleared token.");
-  assert(logoutResult.profile === "devs-fe-auto", "Expected logout to report selected profile.");
+  assert(logoutResult.profile === "automation", "Expected logout to report selected profile.");
 
   const devAfterLogout = runPutioJson<AuthStatus>(binaryPath, [
     "auth",
     "status",
     "--profile",
-    "devs-fe-auto",
+    "automation",
     "--output",
     "json",
   ]);
@@ -357,7 +357,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "json",
   ]);
   assert(
-    finalList.profiles.some((profile) => profile.name === "devs-fe-auto"),
+    finalList.profiles.some((profile) => profile.name === "automation"),
     "Expected dev profile to remain after removing human.",
   );
   assert(

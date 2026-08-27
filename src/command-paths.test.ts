@@ -574,7 +574,7 @@ describe("cli command paths", () => {
         "auth",
         "login",
         "--profile",
-        "devs-fe-auto",
+        "automation",
         "--output",
         "json",
         "--timeout-seconds",
@@ -588,13 +588,13 @@ describe("cli command paths", () => {
         token: "token-123",
       },
       undefined,
-      { profile: "devs-fe-auto" },
+      { profile: "automation" },
     );
     expect(mocks.writeOutputMock).toHaveBeenCalledWith(
       expect.objectContaining({
         authenticated: true,
         configPath: "/tmp/putio-cli.json",
-        profile: "devs-fe-auto",
+        profile: "automation",
       }),
       "json",
       expect.any(Function),
@@ -630,10 +630,10 @@ describe("cli command paths", () => {
 
   it("executes auth status for a named profile", async () => {
     await expect(
-      runCliInTest(["putio", "auth", "status", "--profile", "devs-fe-auto", "--output", "json"]),
+      runCliInTest(["putio", "auth", "status", "--profile", "automation", "--output", "json"]),
     ).resolves.toBeUndefined();
 
-    expect(mocks.getAuthStatusMock).toHaveBeenCalledWith({ profile: "devs-fe-auto" });
+    expect(mocks.getAuthStatusMock).toHaveBeenCalledWith({ profile: "automation" });
   });
 
   it("executes auth preview", async () => {
@@ -718,17 +718,17 @@ describe("cli command paths", () => {
 
   it("executes auth logout for a named profile", async () => {
     await expect(
-      runCliInTest(["putio", "auth", "logout", "--profile", "devs-fe-auto", "--output", "json"]),
+      runCliInTest(["putio", "auth", "logout", "--profile", "automation", "--output", "json"]),
     ).resolves.toBeUndefined();
 
     expect(mocks.clearPersistedStateMock).toHaveBeenCalledWith(undefined, {
-      profile: "devs-fe-auto",
+      profile: "automation",
     });
     expect(mocks.writeOutputMock).toHaveBeenCalledWith(
       {
         cleared: true,
         configPath: "/tmp/putio-cli.json",
-        profile: "devs-fe-auto",
+        profile: "automation",
       },
       "json",
       expect.any(Function),
@@ -749,26 +749,26 @@ describe("cli command paths", () => {
     );
 
     await expect(
-      runCliInTest(["putio", "auth", "profiles", "use", "devs-fe-auto", "--output", "json"]),
+      runCliInTest(["putio", "auth", "profiles", "use", "automation", "--output", "json"]),
     ).resolves.toBeUndefined();
-    expect(mocks.useProfileMock).toHaveBeenCalledWith("devs-fe-auto");
+    expect(mocks.useProfileMock).toHaveBeenCalledWith("automation");
     expect(mocks.writeOutputMock).toHaveBeenCalledWith(
       {
         configPath: "/tmp/putio-cli.json",
-        profile: "devs-fe-auto",
+        profile: "automation",
       },
       "json",
       expect.any(Function),
     );
 
     await expect(
-      runCliInTest(["putio", "auth", "profiles", "remove", "devs-fe-auto", "--output", "json"]),
+      runCliInTest(["putio", "auth", "profiles", "remove", "automation", "--output", "json"]),
     ).resolves.toBeUndefined();
-    expect(mocks.removeProfileMock).toHaveBeenCalledWith("devs-fe-auto");
+    expect(mocks.removeProfileMock).toHaveBeenCalledWith("automation");
     expect(mocks.writeOutputMock).toHaveBeenCalledWith(
       {
         configPath: "/tmp/putio-cli.json",
-        profile: "devs-fe-auto",
+        profile: "automation",
         removed: true,
       },
       "json",
