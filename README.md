@@ -79,7 +79,7 @@ putio auth status --profile devs-fe-auto --output json
 If auth is missing, start login with:
 putio auth login --profile devs-fe-auto
 
-Tell the human to open the printed URL, enter the printed code, and complete approval. After auth succeeds, select the named profile with:
+Tell the human to open the printed URL. If the shared account is not already signed in, get its credentials from the owning workspace's private credential vault and enter them only in the browser. Enter the printed code and complete approval. Never put account credentials or private vault details in the CLI, prompt, logs, or public documentation. After auth succeeds, select the named profile with:
 putio auth profiles use devs-fe-auto
 
 After that, continue with the requested task instead of stopping after setup.
@@ -114,6 +114,9 @@ putio auth profiles use devs-fe-auto
 
 The CLI does not accept put.io account credentials. Its login flow delegates authorization to the
 configured web app (`app.put.io` by default) and stores only the returned OAuth token.
+For a shared account, get its credentials from the owning workspace's private credential vault and
+enter them only in that browser flow. Keep credential values and private vault topology out of the
+CLI, logs, chat, and public documentation.
 
 Check the auth source:
 

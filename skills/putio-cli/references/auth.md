@@ -20,6 +20,21 @@ putio auth login --profile devs-fe-auto
 putio auth profiles use devs-fe-auto
 ```
 
+The named-profile login is a browser-backed device-code flow:
+
+1. Run `putio auth login --profile devs-fe-auto` and keep the process running.
+2. Open the printed URL in a browser.
+3. If the shared account is not already signed in, get its credentials from
+   the owning workspace's private credential vault and enter them only in the
+   browser.
+4. Enter and approve the CLI's printed device code.
+5. Let the CLI finish storing the returned OAuth token, then select and verify
+   the profile.
+
+The CLI never accepts the account username, password, or one-time code. Do not
+put credential values, private vault topology, approval codes, or approval URLs
+in commands, logs, chat, or public documentation.
+
 For interactive login:
 
 ```bash

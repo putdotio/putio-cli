@@ -55,6 +55,13 @@ putio auth login --profile devs-fe-auto
 putio auth profiles use devs-fe-auto
 ```
 
+`putio auth login` delegates account authentication to the browser; it never
+accepts the account username, password, or one-time code. For a shared account,
+get those credentials from the owning workspace's private credential vault and
+enter them only in the browser before approving the CLI's device code. Keep
+credential values and private vault topology out of commands, logs, chat, and
+public documentation.
+
 Use `PUTIO_CLI_PROFILE=devs-fe-auto` when a harness should select that profile without repeating `--profile`. Use `PUTIO_CLI_TOKEN` only when headless token auth is the better fit; it overrides selected and persisted profiles.
 
 Manage persisted profiles explicitly:
