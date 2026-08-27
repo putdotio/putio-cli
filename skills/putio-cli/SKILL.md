@@ -10,7 +10,8 @@ description: "Operate the put.io CLI as a consumer for put.io authentication, fi
 - Start with `putio describe --output json`.
 - Check `automation` in the describe output for the current machine-readable contract and supported safety features.
 - Prefer structured output: `json` by default in non-interactive runs, `ndjson` for streaming reads, `text` for human TTY sessions.
-- Prefer a named profile such as `automation` for non-human sessions.
+- Prefer a named auth profile for non-human sessions; examples use the
+  arbitrary profile name `automation`.
 - Use `--fields` to keep responses small.
 - Use `--page-all` only when the full dataset is truly needed.
 - Use `--dry-run` before writes.

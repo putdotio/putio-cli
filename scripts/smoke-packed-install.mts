@@ -231,7 +231,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
         profiles: {
           automation: {
             api_base_url: "https://staging.put.io",
-            auth_token: "dev-token",
+            auth_token: "automation-token",
           },
           human: {
             auth_token: "human-token",
@@ -287,7 +287,10 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "--output",
     "json",
   ]);
-  assert(useResult.profile === "automation", "Expected `profiles use` to select dev profile.");
+  assert(
+    useResult.profile === "automation",
+    "Expected `profiles use` to select the `automation` profile.",
+  );
 
   const selectedList = runPutioJson<ProfileList>(binaryPath, [
     "auth",
@@ -298,11 +301,11 @@ const smokeAuthProfiles = (binaryPath: string) => {
   ]);
   assert(
     selectedList.defaultProfile === "automation",
-    "Expected `profiles use` to persist dev profile as default.",
+    "Expected `profiles use` to persist the `automation` profile as default.",
   );
   assert(
     selectedList.profiles.find((profile) => profile.name === "automation")?.current === true,
-    "Expected dev profile to be current after `profiles use`.",
+    "Expected the `automation` profile to be current after `profiles use`.",
   );
 
   const logoutResult = runPutioJson<LogoutResult>(binaryPath, [
@@ -316,7 +319,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
   assert(logoutResult.cleared, "Expected profile logout to report a cleared token.");
   assert(logoutResult.profile === "automation", "Expected logout to report selected profile.");
 
-  const devAfterLogout = runPutioJson<AuthStatus>(binaryPath, [
+  const automationAfterLogout = runPutioJson<AuthStatus>(binaryPath, [
     "auth",
     "status",
     "--profile",
@@ -324,9 +327,12 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "--output",
     "json",
   ]);
-  assert(!devAfterLogout.authenticated, "Expected dev profile to be unauthenticated after logout.");
+  assert(
+    !automationAfterLogout.authenticated,
+    "Expected the `automation` profile to be unauthenticated after logout.",
+  );
 
-  const humanAfterDevLogout = runPutioJson<AuthStatus>(binaryPath, [
+  const humanAfterAutomationLogout = runPutioJson<AuthStatus>(binaryPath, [
     "auth",
     "status",
     "--profile",
@@ -335,8 +341,8 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "json",
   ]);
   assert(
-    humanAfterDevLogout.authenticated,
-    "Expected human profile to remain authenticated after dev logout.",
+    humanAfterAutomationLogout.authenticated,
+    "Expected the human profile to remain authenticated after automation logout.",
   );
 
   const removeResult = runPutioJson<RemoveResult>(binaryPath, [
@@ -358,7 +364,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
   ]);
   assert(
     finalList.profiles.some((profile) => profile.name === "automation"),
-    "Expected dev profile to remain after removing human.",
+    "Expected the `automation` profile to remain after removing human.",
   );
   assert(
     !finalList.profiles.some((profile) => profile.name === "human"),
