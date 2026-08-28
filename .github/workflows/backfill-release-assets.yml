@@ -13,7 +13,7 @@ permissions: {}
 jobs:
   validate-release-tag:
     name: Validate release tag
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     timeout-minutes: 5
     permissions:
       contents: read
