@@ -295,6 +295,9 @@ jobs:
           client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
           permission-contents: write
+      - name: Preserve LF patch files
+        shell: pwsh
+        run: git config --global core.autocrlf false
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

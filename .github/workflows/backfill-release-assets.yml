@@ -85,7 +85,8 @@ jobs:
         id: tool-versions
         shell: bash
         run: |
-          version=$(jq -er '.devDependencies["vite-plus"] | sub("^[~^]"; "")' package.json)
+          version=$(sed -n 's/^  vite-plus: //p' pnpm-workspace.yaml)
+          test -n "$version"
           echo "vite-plus-version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Vite+
@@ -170,7 +171,8 @@ jobs:
         id: tool-versions
         shell: bash
         run: |
-          version=$(jq -er '.devDependencies["vite-plus"] | sub("^[~^]"; "")' package.json)
+          version=$(sed -n 's/^  vite-plus: //p' pnpm-workspace.yaml)
+          test -n "$version"
           echo "vite-plus-version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Vite+
