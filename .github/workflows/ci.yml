@@ -452,7 +452,7 @@ jobs:
           echo "user_id=${user_id}" >> "$GITHUB_OUTPUT"
 
       - name: Release to Homebrew tap
-        uses: Justintime50/homebrew-releaser@a62d7a359683bfc047cdb2431f53ee58241464d1 # v3
+        uses: Justintime50/homebrew-releaser@454cc0d45a99949c9ea0bd9f03e6309df1617628 # v3
         with:
           homebrew_owner: putdotio
           homebrew_tap: homebrew-tap
