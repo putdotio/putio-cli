@@ -7,6 +7,7 @@ import {
   defineChoiceOption,
   defineIntegerOption,
   defineRepeatedIntegerOption,
+  defineRepeatedTextOption,
   defineTextOption,
   dryRunOption,
   fieldsOption,
@@ -76,6 +77,12 @@ const optionalFileIdConfig = defineIntegerOption("id", { optional: true });
 const optionalFileNameConfig = defineTextOption("name", { optional: true });
 const uploadPathConfig = defineTextOption("path", { optional: true });
 const uploadFileNameConfig = defineTextOption("file-name", { optional: true });
+const hlsOriginalConfig = defineBooleanOption("original", {
+  defaultValue: false,
+  description: "Serve the original file instead of the MP4 conversion.",
+});
+const hlsMaxSubtitleCountConfig = defineIntegerOption("max-subtitle-count", { optional: true });
+const hlsSubtitleLanguageConfig = defineRepeatedTextOption("subtitle-language");
 
 const parentIdOption = parentIdConfig.option;
 const perPageOption = perPageConfig.option;
@@ -90,6 +97,7 @@ const optionalFileIdOption = optionalFileIdConfig.option;
 const optionalFileNameOption = optionalFileNameConfig.option;
 const uploadPathOption = uploadPathConfig.option;
 const uploadFileNameOption = uploadFileNameConfig.option;
+const hlsFileIdArgument = Argument.integer("file-id");
 const startFromFileIdArgument = Argument.integer("file-id");
 const optionalStartFromFileIdArgument = startFromFileIdArgument.pipe(Argument.optional);
 const optionalStartFromTimeArgument = Argument.integer("seconds").pipe(Argument.optional);
@@ -591,9 +599,8 @@ const filesSearchCommand = Command.make(
     pageAll: pageAllOption,
     perPage: perPageOption,
     query: queryOption,
-    fileType: fileTypeOption,
   },
-  ({ fields, output, pageAll, perPage, query, fileType }) =>
+  ({ fields, output, pageAll, perPage, query }) =>
     Effect.gen(function* () {
       const controls = yield* resolveReadOutputControls({
         fields,
@@ -604,7 +611,6 @@ const filesSearchCommand = Command.make(
       const searchQuery = {
         per_page: perPageValue,
         query,
-        type: Option.getOrUndefined(fileType),
       } as const;
       const result = yield* withTerminalLoader(
         {
@@ -757,6 +763,57 @@ const filesStartFromReset = Command.make(
     }),
 );
 
+const filesHlsManifest = Command.make(
+  "hls-manifest",
+  {
+    fields: fieldsOption,
+    fileId: hlsFileIdArgument,
+    maxSubtitleCount: hlsMaxSubtitleCountConfig.option,
+    original: hlsOriginalConfig.option,
+    output: outputOption,
+    subtitleLanguages: hlsSubtitleLanguageConfig.option,
+  },
+  ({ fields, fileId, maxSubtitleCount, original, output, subtitleLanguages }) =>
+    Effect.gen(function* () {
+      const validatedFileId = requiredPositiveInteger(
+        fileId,
+        "Expected `files hls-manifest` file-id to be a positive integer.",
+      );
+      const controls = yield* resolveReadOutputControls({
+        fields,
+        output: getOption(output),
+      });
+      const languages = subtitleLanguages.map((value) => value.trim()).filter(Boolean);
+      const manifest = yield* withTerminalLoader(
+        {
+          message: translate("cli.files.command.loadingHlsManifest", { fileId: validatedFileId }),
+          output: controls.output,
+        },
+        withAuthedSdk(({ sdk }) =>
+          sdk.files.getHlsMasterPlaylist(validatedFileId, {
+            maxSubtitleCount: Option.getOrUndefined(maxSubtitleCount),
+            playOriginal: original,
+            ...(languages.length > 0 ? { subtitleLanguages: languages } : {}),
+          }),
+        ),
+      );
+      const result = {
+        file_id: validatedFileId,
+        manifest,
+        original,
+      };
+
+      yield* writeReadOutput({
+        command: "files hls-manifest",
+        output: controls.output,
+        outputMode: controls.outputMode,
+        renderTerminalValue: (value) => value.manifest,
+        requestedFields: controls.requestedFields,
+        value: result,
+      });
+    }),
+);
+
 const filesStartFrom = Command.make("start-from", {}, () => Effect.void).pipe(
   Command.withSubcommands([filesStartFromGet, filesStartFromSet, filesStartFromReset]),
 );
@@ -772,11 +829,34 @@ export const filesCommand = Command.make("files", {}, () => Effect.void).pipe(
     filesRename,
     filesMove,
     filesDelete,
+    filesHlsManifest,
     filesStartFrom,
   ]),
 );
 
 export const filesCommandSpecs = [
+  {
+    auth: { required: true },
+    capabilities: {
+      dryRun: false,
+      fieldSelection: true,
+      rawJsonInput: false,
+      streaming: false,
+    },
+    command: "files hls-manifest",
+    input: {
+      arguments: [integerArgument("file-id")],
+      flags: [
+        fieldsFlag(),
+        outputFlag(),
+        hlsOriginalConfig.flag,
+        hlsMaxSubtitleCountConfig.flag,
+        hlsSubtitleLanguageConfig.flag,
+      ],
+    },
+    kind: "read",
+    purpose: translate("cli.metadata.filesHlsManifest"),
+  },
   {
     auth: { required: true },
     capabilities: {
@@ -865,14 +945,7 @@ export const filesCommandSpecs = [
     },
     command: "files search",
     input: {
-      flags: [
-        fieldsFlag(),
-        outputFlag(),
-        pageAllFlag(),
-        perPageConfig.flag,
-        queryConfig.flag,
-        fileTypeConfig.flag,
-      ],
+      flags: [fieldsFlag(), outputFlag(), pageAllFlag(), perPageConfig.flag, queryConfig.flag],
     },
     kind: "read",
     purpose: translate("cli.metadata.filesSearch"),
@@ -993,14 +1066,7 @@ export const filesCommandSpecs = [
     },
     command: "search",
     input: {
-      flags: [
-        fieldsFlag(),
-        outputFlag(),
-        pageAllFlag(),
-        perPageConfig.flag,
-        queryConfig.flag,
-        fileTypeConfig.flag,
-      ],
+      flags: [fieldsFlag(), outputFlag(), pageAllFlag(), perPageConfig.flag, queryConfig.flag],
     },
     kind: "read",
     purpose: translate("cli.metadata.search"),

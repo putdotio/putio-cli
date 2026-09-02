@@ -36,6 +36,12 @@ const defaultEventsResponse = () => ({
   ],
 });
 
+const defaultHlsManifest = [
+  "#EXTM3U",
+  '#EXT-X-STREAM-INF:BANDWIDTH=2376462,CODECS="avc1.42c01e,mp4a.40.2",VIDEO-RANGE=PQ',
+  "https://api.put.io/hls/playlist/abc/index-v1-a1.m3u8?oauth_token=token-123",
+].join("\n");
+
 const defaultDownloadLinksJob = () => ({
   error_msg: null,
   id: 55,
@@ -190,6 +196,7 @@ const createCommandPathMocks = () => {
       type: "file" as const,
     }),
   );
+  const getHlsMasterPlaylistMock = vi.fn(() => Effect.succeed(defaultHlsManifest));
   const getStartFromMock = vi.fn(() => Effect.succeed(90));
   const setStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
   const resetStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
@@ -293,6 +300,7 @@ const createCommandPathMocks = () => {
       continueSearch: continueSearchFilesMock,
       createFolder: createFolderMock,
       delete: deleteFilesMock,
+      getHlsMasterPlaylist: getHlsMasterPlaylistMock,
       getStartFrom: getStartFromMock,
       list: listFilesMock,
       move: moveFilesMock,
@@ -327,6 +335,7 @@ const createCommandPathMocks = () => {
     deleteFilesMock,
     fakeSdk,
     getDownloadLinksMock,
+    getHlsMasterPlaylistMock,
     getAccountInfoMock,
     getAuthStatusMock,
     checkCodeMatchMock,
@@ -450,6 +459,7 @@ export const resetCommandPathMocks = (mocks: ReturnType<typeof createCommandPath
       type: "file" as const,
     }),
   );
+  mocks.getHlsMasterPlaylistMock.mockImplementation(() => Effect.succeed(defaultHlsManifest));
   mocks.getStartFromMock.mockImplementation(() => Effect.succeed(90));
   mocks.setStartFromMock.mockImplementation(() => Effect.succeed({ status: "OK" }));
   mocks.resetStartFromMock.mockImplementation(() => Effect.succeed({ status: "OK" }));

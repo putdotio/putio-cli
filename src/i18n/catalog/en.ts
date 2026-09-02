@@ -219,6 +219,7 @@ export const en = {
         creatingFolder: 'Creating folder "{{name}}"...',
         deleting: "Deleting {{count}} file(s)...",
         loading: "Loading files...",
+        loadingHlsManifest: "Loading HLS master playlist for file {{fileId}}...",
         loadingStartFrom: "Loading watch position for file {{fileId}}...",
         moving: "Moving {{count}} file(s) to parent {{parentId}}...",
         renaming: 'Renaming file {{id}} to "{{name}}"...',
@@ -269,7 +270,9 @@ export const en = {
       filesMkdir: "Create a folder under a parent directory.",
       filesMove: "Move one or more files to a parent directory.",
       filesRename: "Rename a file by id.",
-      filesSearch: "Search files by query and optional file type.",
+      filesHlsManifest:
+        "Fetch the HLS master playlist put.io serves for a video, for the MP4 conversion or the original file.",
+      filesSearch: "Search files by query.",
       filesUpload: "Upload a readable local file into put.io.",
       filesStartFromGet: "Read the saved watch position for a file.",
       filesStartFromReset: "Reset the saved watch position for a file.",

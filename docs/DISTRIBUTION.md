@@ -68,7 +68,7 @@ The npm package includes `dist`, `README.md`, `docs`, `skills`, `AGENTS.md`,
 library is part of the public package contract so consuming repos and agents can
 install the same guidance that maintainers use from git.
 
-The build bundles the pinned, compatibility-patched put.io SDK into `dist`.
+The build bundles the pinned put.io SDK into `dist`.
 Effect remains a package dependency so the CLI and its bundled SDK execute on
 the same installed Effect runtime.
 

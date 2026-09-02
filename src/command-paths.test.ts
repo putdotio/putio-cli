@@ -167,6 +167,15 @@ const mocks = vi.hoisted(() => {
       type: "file" as const,
     }),
   );
+  const getHlsMasterPlaylistMock = vi.fn(() =>
+    Effect.succeed(
+      [
+        "#EXTM3U",
+        '#EXT-X-STREAM-INF:BANDWIDTH=2376462,CODECS="avc1.42c01e,mp4a.40.2",VIDEO-RANGE=PQ',
+        "https://api.put.io/hls/playlist/abc/index-v1-a1.m3u8?oauth_token=token-123",
+      ].join("\n"),
+    ),
+  );
   const getStartFromMock = vi.fn(() => Effect.succeed(90));
   const setStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
   const resetStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
@@ -316,6 +325,7 @@ const mocks = vi.hoisted(() => {
       continueSearch: continueSearchFilesMock,
       createFolder: createFolderMock,
       delete: deleteFilesMock,
+      getHlsMasterPlaylist: getHlsMasterPlaylistMock,
       getStartFrom: getStartFromMock,
       list: listFilesMock,
       move: moveFilesMock,
@@ -354,6 +364,7 @@ const mocks = vi.hoisted(() => {
     getAuthStatusMock,
     checkCodeMatchMock,
     getCodeMock,
+    getHlsMasterPlaylistMock,
     getStartFromMock,
     getTransferMock,
     listEventsMock,
@@ -1770,8 +1781,67 @@ describe("cli command paths", () => {
     expect(mocks.searchFilesMock).toHaveBeenCalledWith({
       per_page: 3,
       query: "movie",
-      type: undefined,
     });
+  });
+
+  it("fetches the served HLS master playlist for the MP4 conversion by default", async () => {
+    await expect(
+      runCliInTest(["putio", "files", "hls-manifest", "42", "--output", "json"]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.getHlsMasterPlaylistMock).toHaveBeenCalledWith(42, {
+      maxSubtitleCount: undefined,
+      playOriginal: false,
+    });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file_id: 42,
+        manifest: expect.stringContaining('CODECS="avc1.42c01e,mp4a.40.2"'),
+        original: false,
+      }),
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("fetches the original HLS master playlist with subtitle options", async () => {
+    await expect(
+      runCliInTest([
+        "putio",
+        "files",
+        "hls-manifest",
+        "42",
+        "--original",
+        "--max-subtitle-count",
+        "2",
+        "--subtitle-language",
+        "en",
+        "--subtitle-language",
+        "tr",
+        "--fields",
+        "manifest",
+        "--output",
+        "json",
+      ]),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.getHlsMasterPlaylistMock).toHaveBeenCalledWith(42, {
+      maxSubtitleCount: 2,
+      playOriginal: true,
+      subtitleLanguages: ["en", "tr"],
+    });
+    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+      { manifest: expect.stringContaining("#EXTM3U") },
+      "json",
+      expect.any(Function),
+    );
+  });
+
+  it("rejects a non-positive hls-manifest file id", async () => {
+    await expect(
+      runCliInTest(["putio", "files", "hls-manifest", "0", "--output", "json"]),
+    ).rejects.toThrow(/positive integer/);
+    expect(mocks.getHlsMasterPlaylistMock).not.toHaveBeenCalled();
   });
 
   it("selects top-level file search fields for json output", async () => {

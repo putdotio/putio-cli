@@ -44,3 +44,11 @@ Notes:
 - `--fields` requires structured output.
 - `events list` supports `--fields`, but not `--page-all`.
 - `files start-from get` returns `file_id` and `start_from` in seconds.
+- `files hls-manifest <file-id>` returns `file_id`, `original`, and the raw
+  `manifest` text of the HLS master playlist. Playlist URLs inside it carry a
+  redacted token; read `CODECS` and `VIDEO-RANGE` from the
+  `#EXT-X-STREAM-INF` line to learn what a player would be served. Use
+  `--original` for the original file instead of the MP4 conversion; put.io
+  answers `INVALID_MEDIA` when the original cannot be served as HLS.
+- `files search` and `search` accept `--query` and `--per-page` only; put.io
+  does not filter search results by file type.

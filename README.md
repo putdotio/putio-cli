@@ -162,6 +162,14 @@ putio files start-from set 42 95 --dry-run --output json
 putio files start-from reset 42 --dry-run --output json
 ```
 
+Inspect the HLS master playlist put.io serves for a video. The default is the MP4 conversion when one exists; `--original` asks for the original file:
+
+```bash
+putio files hls-manifest 42 --output json
+putio files hls-manifest 42 --original --fields manifest --output json
+putio files hls-manifest 42 --max-subtitle-count 1 --subtitle-language en --output text
+```
+
 Stream larger reads:
 
 ```bash

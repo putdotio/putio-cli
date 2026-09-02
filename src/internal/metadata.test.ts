@@ -85,6 +85,7 @@ describe("describeCli", () => {
       "download-links create",
       "download-links get",
       "events list",
+      "files hls-manifest",
       "files start-from get",
       "files start-from set",
       "files start-from reset",
