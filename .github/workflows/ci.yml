@@ -22,7 +22,7 @@ jobs:
   verify:
     if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
     name: Verify CLI
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     permissions:
       contents: read
@@ -203,10 +203,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: blacksmith-2vcpu-ubuntu-2404
+          - os: ubuntu-24.04
             asset_os: linux
             asset_arch: amd64
-          - os: blacksmith-6vcpu-macos-latest
+          - os: macos-latest
             asset_os: darwin
             asset_arch: arm64
 
@@ -276,7 +276,7 @@ jobs:
     name: Build Windows release assets
     needs:
       - release
-    runs-on: blacksmith-2vcpu-windows-2025
+    runs-on: windows-2025
     timeout-minutes: 30
     env:
       PUTIO_CLI_REQUIRE_SENTRY_DSN: "true"
@@ -366,7 +366,7 @@ jobs:
       - release
       - build-unix-binaries
       - build-windows-binary
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     environment:
       name: release
@@ -415,7 +415,7 @@ jobs:
     needs:
       - release
       - finalize-release
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment:
       name: release
