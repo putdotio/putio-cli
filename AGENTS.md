@@ -43,8 +43,7 @@ Runtime proofs:
 ## Worktrees
 
 Run `pnpm exec vp install`, `pnpm exec vp config`, then
-`pnpm exec vp run verify`. Effect guidance and inspectable source come from the
-installed package under `node_modules/effect`.
+`pnpm exec vp run verify`.
 
 ## Development Guidance
 
@@ -56,23 +55,23 @@ installed package under `node_modules/effect`.
 - When the public CLI surface or agent-facing setup flow changes, update [`README.md`](README.md) and [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md) together so the copy-paste prompt and consumer guidance stay aligned.
 - Keep docs free of volatile metrics.
 
-## Learning more about Effect
+## Effect
 
-This repository uses the Effect TypeScript library.
-
-Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
-**completely**, and follow the links in the file when required.
-
-If you need to learn more about particular Effect APIs and concepts that the
-guide doesn't cover, search through the source code in `node_modules/effect/src`.
+This repository uses the Effect TypeScript library. The installed version's own
+guide is `node_modules/effect/AGENTS.md`; consult it for the APIs the change
+touches, and search `node_modules/effect/src` for anything it does not cover.
 
 ## Testing
 
 - Prefer in-process tests unless the process boundary is the behavior under test.
 - Add command-path coverage when the `@effect/cli` boundary changes.
 - Run repo guardrails before closing work, then prove important command-surface changes with the built binary.
+- Finish in-scope edits, guardrails, and fixes without pausing; ask before publishing, credential-bearing release or SEA builds, and live writes against shared accounts.
 
 ## Skills
 
 - `skills/*` is for reusable consumer-facing skills, not repo onboarding.
+- `skills/putio-cli/SKILL.md` is the router; surface-specific detail lives in the matching reference file.
+- `skills/putio-cli/agents/openai.yaml` is the Codex picker display and default-prompt metadata; keep it aligned with the skill frontmatter.
+- Refresh the skill and its references in the same change whenever `describe.version`, commands, output, auth, or `automation` change in a way consumers need to know.
 - `CLAUDE.md` should remain a symlink to this file.
