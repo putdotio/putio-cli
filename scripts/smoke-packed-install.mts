@@ -6,7 +6,7 @@ import {
   type ChildProcess,
 } from "node:child_process";
 import { once } from "node:events";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import process from "node:process";
@@ -58,6 +58,12 @@ const mockApiSource = `
 import { createServer } from "node:http";
 
 const server = createServer((request, response) => {
+  if (request.url?.startsWith("/v2/oauth2/oob/code?")) {
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ status: "OK", code: "fixture-code", qr_code_url: "https://example.invalid/qr" }));
+    return;
+  }
+  if (request.url === "/v2/oauth2/oob/code/fixture-code") return;
   const isExpectedRequest =
     request.method === "GET" &&
     request.url?.startsWith("/v2/transfers/list?") === true &&
@@ -475,6 +481,36 @@ try {
   assert(transfers.transfers.length === 0, "Expected the SDK-backed transfer list to be empty.");
   assert(transfers.cursor === null, "Expected the SDK-backed transfer list cursor to be null.");
   assert(transfers.total === 0, "Expected the SDK-backed transfer list total to be zero.");
+
+  const stateBeforeLogin = readFileSync(configPath, "utf8");
+  const loginStartedAt = Date.now();
+  const timedOutLogin = spawnSync(
+    binaryPath,
+    ["auth", "login", "--timeout-seconds", "1", "--output", "json"],
+    {
+      cwd: installDir,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PUTIO_CLI_CONFIG_PATH: configPath,
+        PUTIO_CLI_API_BASE_URL: mockApiBaseUrl,
+        PUTIO_CLI_TOKEN: "",
+      },
+      timeout: 5_000,
+    },
+  );
+  assert(
+    timedOutLogin.error === undefined && timedOutLogin.status === 1,
+    "Expected installed login to exit with failure before the process timeout.",
+  );
+  assert(
+    Date.now() - loginStartedAt >= 1_000 && timedOutLogin.stderr.includes("Device login failed"),
+    "Expected the pending poll to reach its deadline and retain the localized auth-flow error.",
+  );
+  assert(
+    readFileSync(configPath, "utf8") === stateBeforeLogin,
+    "Timed-out login changed persisted auth state.",
+  );
 
   const missingAuthMessage = runPutioFailure(
     binaryPath,

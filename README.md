@@ -115,6 +115,9 @@ putio auth profiles use automation
 The CLI does not accept put.io account credentials. Its login flow delegates authorization to the
 configured web app (`app.put.io` by default) and stores only the returned OAuth token.
 
+Use `auth login --timeout-seconds 30` to bound the authorization wait, including
+pending polls and polling delays. A timeout leaves saved auth state unchanged.
+
 Check the auth source:
 
 ```bash

@@ -133,6 +133,63 @@ describe("waitForDeviceToken", () => {
     }),
   );
 
+  it.effect("interrupts a pending poll when the deadline expires", () =>
+    Effect.gen(function* () {
+      let interrupted = false;
+      const fiber = yield* Effect.forkChild(
+        Effect.result(
+          waitForDeviceToken({
+            code: "fixture-code",
+            timeoutMs: 100,
+            checkCodeMatch: () =>
+              Effect.never.pipe(
+                Effect.onInterrupt(() =>
+                  Effect.sync(() => {
+                    interrupted = true;
+                  }),
+                ),
+              ),
+          }),
+        ),
+      );
+      yield* TestClock.adjust(100);
+      assert.isDefined(fiber.pollUnsafe());
+      const result = yield* Fiber.join(fiber);
+      assert.isTrue(interrupted);
+      assert.strictEqual(result._tag, "Failure");
+      if (result._tag === "Failure")
+        assert.strictEqual(
+          result.failure.message,
+          "Timed out waiting for device authorization to complete.",
+        );
+    }),
+  );
+
+  it.effect("does not wait out a polling interval beyond the deadline", () =>
+    Effect.gen(function* () {
+      let attempts = 0;
+      const fiber = yield* Effect.forkChild(
+        Effect.result(
+          waitForDeviceToken({
+            code: "fixture-code",
+            timeoutMs: 100,
+            pollIntervalMs: 5_000,
+            checkCodeMatch: () =>
+              Effect.sync(() => {
+                attempts++;
+                return null;
+              }),
+          }),
+        ),
+      );
+      yield* TestClock.adjust(100);
+      assert.isDefined(fiber.pollUnsafe());
+      const result = yield* Fiber.join(fiber);
+      assert.strictEqual(attempts, 1);
+      assert.strictEqual(result._tag, "Failure");
+    }),
+  );
+
   it.effect("fails with a polling error when the backend check fails", () =>
     Effect.gen(function* () {
       const result = yield* Effect.result(

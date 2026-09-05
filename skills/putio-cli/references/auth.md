@@ -26,6 +26,9 @@ For interactive login:
 putio auth login
 ```
 
+Use `--timeout-seconds` to bound the authorization wait, including pending polls
+and polling delays. A timeout does not save partial auth state.
+
 Preview a device-link URL without requesting or approving a real code:
 
 ```bash

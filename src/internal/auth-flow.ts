@@ -1,5 +1,5 @@
 import { DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
-import { Clock, Data, Duration, Effect } from "effect";
+import { Data, Duration, Effect } from "effect";
 
 export { resolveCliAuthFlowConfig as resolveAuthFlowConfig } from "./config.js";
 import { CliRuntime } from "./runtime.js";
@@ -26,9 +26,6 @@ export const waitForDeviceToken = <R>(options: {
 }): Effect.Effect<string, PutioCliAuthFlowError, R> =>
   Effect.gen(function* () {
     const pollIntervalMs = options.pollIntervalMs ?? 2_000;
-    const timeoutMs = options.timeoutMs ?? 120_000;
-    const startedAt = yield* Clock.currentTimeMillis;
-    const deadline = startedAt + timeoutMs;
 
     while (true) {
       const token = yield* options.checkCodeMatch(options.code).pipe(
@@ -44,14 +41,16 @@ export const waitForDeviceToken = <R>(options: {
         return token;
       }
 
-      if ((yield* Clock.currentTimeMillis) >= deadline) {
-        return yield* Effect.fail(
+      yield* Effect.sleep(Duration.millis(pollIntervalMs));
+    }
+  }).pipe(
+    Effect.timeoutOrElse({
+      duration: Duration.millis(options.timeoutMs ?? 120_000),
+      orElse: () =>
+        Effect.fail(
           new PutioCliAuthFlowError({
             message: "Timed out waiting for device authorization to complete.",
           }),
-        );
-      }
-
-      yield* Effect.sleep(Duration.millis(pollIntervalMs));
-    }
-  });
+        ),
+    }),
+  );

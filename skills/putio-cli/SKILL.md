@@ -12,6 +12,7 @@ description: "Operate the put.io CLI as a consumer for put.io authentication, fi
 - Prefer structured output: `json` by default in non-interactive runs, `ndjson` for streaming reads, `text` for human TTY sessions.
 - Prefer a named auth profile for non-human sessions; examples use the
   arbitrary profile name `automation`.
+- Bound device approval waits with `auth login --timeout-seconds`; pending polls are included.
 - Use `--fields` to keep responses small.
 - Use `--page-all` only when the full dataset is truly needed.
 - Use `--dry-run` before writes.
