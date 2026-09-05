@@ -129,6 +129,65 @@ describe("makeCliRuntime", () => {
     expect(child.unref).not.toHaveBeenCalled();
   });
 
+  it("waits for stdout write completion before producing more output", async () => {
+    let complete: (() => void) | undefined;
+    vi.spyOn(process.stdout, "write").mockImplementation((_message, callback) => {
+      if (typeof callback === "function") complete = () => callback();
+      return false;
+    });
+    const fiber = Effect.runFork(makeCliRuntime().writeStdout("fixture output"));
+    expect(fiber.pollUnsafe()).toBeUndefined();
+    expect(complete).toBeDefined();
+    complete?.();
+    await Effect.runPromise(Fiber.join(fiber));
+  });
+
+  it("observes a failed write before removing its error listener", async () => {
+    const before = process.stdout.listenerCount("error");
+    const error = new Error("broken pipe");
+    vi.spyOn(process.stdout, "write").mockImplementation((_message, callback) => {
+      if (typeof callback === "function") callback(error);
+      return false;
+    });
+    const fiber = Effect.runFork(makeCliRuntime().writeStdout("fixture output"));
+    process.stdout.emit("error", error);
+    const exit = await Effect.runPromise(Fiber.await(fiber));
+    expect(exit._tag).toBe("Failure");
+    expect(process.stdout.listenerCount("error")).toBe(before);
+  });
+
+  it("finishes callback-only failures after stdout has already closed", async () => {
+    const before = process.stdout.listenerCount("error");
+    const error = Object.assign(new Error("Cannot call write after a stream was destroyed"), {
+      code: "ERR_STREAM_DESTROYED",
+    });
+    vi.spyOn(process.stdout, "write").mockImplementation((_message, callback) => {
+      if (typeof callback === "function") callback(error);
+      return false;
+    });
+    const fiber = Effect.runFork(makeCliRuntime().writeStdout("fixture output"));
+    await vi.runAllTimersAsync();
+    expect(fiber.pollUnsafe()).toBeDefined();
+    const exit = await Effect.runPromise(Fiber.await(fiber));
+    expect(exit._tag).toBe("Failure");
+    expect(process.stdout.listenerCount("error")).toBe(before);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("interrupts the wait without destroying stdout and cleans up when its write settles", async () => {
+    let complete: (() => void) | undefined;
+    const before = process.stdout.listenerCount("error");
+    vi.spyOn(process.stdout, "write").mockImplementation((_message, callback) => {
+      if (typeof callback === "function") complete = () => callback();
+      return false;
+    });
+    const fiber = Effect.runFork(makeCliRuntime().writeStdout("fixture output"));
+    await Effect.runPromise(Fiber.interrupt(fiber));
+    expect(process.stdout.destroyed).toBe(false);
+    complete?.();
+    expect(process.stdout.listenerCount("error")).toBe(before);
+  });
+
   it("starts and stops a spinner and clears the terminal line", async () => {
     spawnMock.mockReturnValue({ unref: vi.fn() });
     const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);

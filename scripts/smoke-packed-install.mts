@@ -57,7 +57,20 @@ const execFile = promisify(execFileCallback);
 const mockApiSource = `
 import { createServer } from "node:http";
 
+let streamPages = 0;
 const server = createServer((request, response) => {
+  if (request.url === "/fixture/stream-count") {
+    response.end(String(streamPages));
+    return;
+  }
+  if (request.url?.startsWith("/v2/transfers/list") && request.url.includes("per_page=999")) {
+    if (request.method === "GET") streamPages = 0;
+    request.resume();
+    streamPages++;
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ status: "OK", total: 0, transfers: [], cursor: streamPages < 64 ? String(streamPages) + "x".repeat(131072) : null }));
+    return;
+  }
   if (request.url?.startsWith("/v2/oauth2/oob/code?")) {
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({ status: "OK", code: "fixture-code", qr_code_url: "https://example.invalid/qr" }));
@@ -225,6 +238,82 @@ const runPutioFailure = (
 
   const output = result.stdout.trim().length > 0 ? result.stdout : result.stderr;
   return readFailureMessage(JSON.parse(output));
+};
+
+const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
+  const args = ["transfers", "list", "--page-all", "--per-page", "999", "--output", "ndjson"];
+  const env = {
+    ...process.env,
+    PUTIO_CLI_CONFIG_PATH: configPath,
+    PUTIO_CLI_API_BASE_URL: apiBaseUrl,
+    PUTIO_CLI_TOKEN: "packed-smoke-token",
+  };
+  const child = spawn(binaryPath, args, {
+    cwd: installDir,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const deadline = setTimeout(() => child.kill("SIGKILL"), 15_000);
+  let stderr = "";
+  child.stderr.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+  const completed = new Promise<number | null>((resolveExit, reject) => {
+    child.once("error", reject);
+    child.once("close", resolveExit);
+  });
+  try {
+    const startedAt = Date.now();
+    while (Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text()) === 0) {
+      assert(Date.now() - startedAt < 5_000, "Streaming CLI never requested its first page.");
+      await new Promise((resolveWait) => setTimeout(resolveWait, 20));
+    }
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
+    const pausedPages = Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text());
+    assert(
+      pausedPages < 64,
+      `Slow reader did not constrain page production: ${pausedPages}/64 pages produced while stdout was paused.`,
+    );
+    let output = "";
+    child.stdout.on("data", (chunk) => {
+      output += String(chunk);
+    });
+    assert((await completed) === 0, `Streaming CLI failed: ${stderr}`);
+    const pages = output
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    assert(
+      pages.length === 64 && pages.at(-1)?.cursor === null,
+      "Streaming CLI did not drain all 64 NDJSON pages.",
+    );
+    console.log(
+      `Packed stdout proof: ${pausedPages}/64 pages produced before reader resumed; all 64 drained.`,
+    );
+  } finally {
+    clearTimeout(deadline);
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    await completed;
+  }
+
+  const brokenPipe = spawn(binaryPath, args, {
+    cwd: installDir,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const brokenDeadline = setTimeout(() => brokenPipe.kill("SIGKILL"), 5_000);
+  brokenPipe.stderr.resume();
+  brokenPipe.stdout.once("data", () => brokenPipe.stdout.destroy());
+  try {
+    const [code, signal] = await once(brokenPipe, "close");
+    assert(
+      code === 1 && signal === null,
+      "Broken pipe did not terminate with the existing failure exit status.",
+    );
+  } finally {
+    clearTimeout(brokenDeadline);
+    if (brokenPipe.exitCode === null && brokenPipe.signalCode === null) brokenPipe.kill("SIGKILL");
+  }
 };
 
 const smokeAuthProfiles = (binaryPath: string) => {
@@ -482,6 +571,8 @@ try {
   assert(transfers.cursor === null, "Expected the SDK-backed transfer list cursor to be null.");
   assert(transfers.total === 0, "Expected the SDK-backed transfer list total to be zero.");
 
+  await smokeStdout(binaryPath, mockApiBaseUrl);
+
   const stateBeforeLogin = readFileSync(configPath, "utf8");
   const loginStartedAt = Date.now();
   const timedOutLogin = spawnSync(
@@ -543,6 +634,9 @@ try {
           "describe",
           "single-effect-runtime",
           "authenticated-sdk-request",
+          "auth-poll-deadline",
+          "stdout-backpressure",
+          "stdout-broken-pipe",
           "auth-profile-round-trip",
           "missing-auth-failure",
           "invalid-config-failure",

@@ -30,6 +30,9 @@ putio search --query movie --output ndjson
 putio transfers watch --id 7 --output ndjson
 ```
 
+Streamed pages wait for stdout writes before fetching the next page, so a slow
+pipe consumer constrains page production.
+
 Current streaming-friendly commands:
 
 - `files list`

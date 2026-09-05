@@ -196,7 +196,7 @@ credential fields and token-bearing URLs are redacted in plans and results.
 ## Tips
 
 - Use `--output json` when you want a stable machine-readable contract for scripts, agents, and automation.
-- Use `--output ndjson` for large or continuous read workflows.
+- Use `--output ndjson` for large or continuous read workflows. Page production waits for stdout writes, so slow pipe readers apply backpressure.
 - Use `--fields` to keep structured responses small.
 - Use `--dry-run` before mutating commands.
 - Set `PUTIO_CLI_TOKEN` for headless auth; it overrides persisted auth and selected profiles.

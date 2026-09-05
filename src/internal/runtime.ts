@@ -74,6 +74,49 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
   });
 };
 
+const writeStdout = (message: string): Effect.Effect<void> =>
+  Effect.callback<void>((resume) => {
+    let interrupted = false;
+    let settled = false;
+    let failureFallback: ReturnType<typeof setImmediate> | undefined;
+    const cleanup = () => {
+      clearImmediate(failureFallback);
+      process.stdout.removeListener("error", onError);
+      process.stdout.removeListener("close", onClose);
+    };
+    const onError = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (!interrupted) resume(Effect.die(error));
+    };
+    const onClose = () => onError(new Error("Standard output closed before the write completed"));
+    process.stdout.once("error", onError);
+    process.stdout.once("close", onClose);
+    try {
+      process.stdout.write(message, (error) => {
+        if (settled) return;
+        if (error) {
+          // Allow Node's error event first; writes to an already closed stream
+          // can fail through the callback alone.
+          failureFallback = setImmediate(() => onError(error));
+          return;
+        }
+        settled = true;
+        cleanup();
+        if (!interrupted) resume(Effect.void);
+      });
+    } catch (error) {
+      cleanup();
+      resume(Effect.die(error));
+    }
+    return Effect.sync(() => {
+      // A queued stdout write cannot be cancelled without destroying shared stdout.
+      // Observe its eventual error/completion even after its waiting fiber stops.
+      interrupted = true;
+    });
+  });
+
 export const makeCliRuntime = (
   options: {
     readonly argv?: ReadonlyArray<string>;
@@ -101,14 +144,9 @@ export const makeCliRuntime = (
         process.exitCode = code;
       }),
     writeStdout: (message) =>
-      Effect.sync(() => {
-        if (options.writeStdout) {
-          options.writeStdout(message);
-          return;
-        }
-
-        process.stdout.write(message);
-      }),
+      options.writeStdout
+        ? Effect.sync(() => options.writeStdout?.(message))
+        : writeStdout(message),
     writeStderr: (message) =>
       Effect.sync(() => {
         if (options.writeStderr) {
