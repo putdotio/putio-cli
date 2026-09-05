@@ -47,7 +47,7 @@
     "test": "vp test",
     "prepublishOnly": "npm run build",
     "verify:sea": "node ./scripts/verify-sea.mjs",
-    "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run skills:lint && vp run smoke:pack && vp test && vp test run --coverage"
+    "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run skills:lint && vp run smoke:pack && vp test run --coverage"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.0-rc.109",
