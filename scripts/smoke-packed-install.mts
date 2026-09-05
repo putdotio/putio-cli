@@ -63,6 +63,11 @@ const server = createServer((request, response) => {
     response.end(String(streamPages));
     return;
   }
+  if (request.url?.startsWith("/v2/transfers/list") && request.url.includes("per_page=998")) {
+    response.writeHead(429, { "content-type": "application/json", "retry-after": "42" });
+    response.end("{");
+    return;
+  }
   if (request.url?.startsWith("/v2/transfers/list") && request.url.includes("per_page=999")) {
     if (request.method === "GET") streamPages = 0;
     request.resume();
@@ -238,6 +243,85 @@ const runPutioFailure = (
 
   const output = result.stdout.trim().length > 0 ? result.stdout : result.stderr;
   return readFailureMessage(JSON.parse(output));
+};
+
+// The installed CLI's existing login deadline interrupts a response body without
+// terminating the process first. Observe fetch cancellation, not just process exit.
+const sdkBodyFetchSource = `
+import { writeFileSync } from "node:fs";
+const statePath = process.env.PUTIO_SDK_BODY_STATE_PATH;
+globalThis.fetch = async (input, options) => {
+  const url = new URL(typeof input === "string" ? input : input.url);
+  if (url.pathname === "/v2/oauth2/oob/code") {
+    return new Response(JSON.stringify({ status: "OK", code: "sdk-body-code", qr_code_url: "https://example.invalid/qr" }));
+  }
+  if (url.pathname !== "/v2/oauth2/oob/code/sdk-body-code") throw new Error("Unexpected SDK body fixture request");
+  let controller;
+  const body = new ReadableStream({ start(value) { controller = value; value.enqueue(new TextEncoder().encode("{")); } });
+  options.signal.addEventListener("abort", () => {
+    writeFileSync(statePath, "aborted");
+    controller.error(new Error("Synthetic body interruption"));
+  }, { once: true });
+  const response = new Response(body, { headers: { "content-type": "application/json" } });
+  const json = response.json.bind(response);
+  response.json = () => { writeFileSync(statePath, "reading"); return json(); };
+  return response;
+};
+`;
+
+const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
+  const env = {
+    ...process.env,
+    PUTIO_CLI_CONFIG_PATH: configPath,
+    PUTIO_CLI_API_BASE_URL: apiBaseUrl,
+    PUTIO_CLI_TOKEN: "packed-smoke-token",
+  };
+  const malformed = spawnSync(
+    binaryPath,
+    ["transfers", "list", "--per-page", "998", "--output", "json"],
+    { cwd: installDir, encoding: "utf8", env, timeout: 5_000 },
+  );
+  const malformedOutput = malformed.stdout + malformed.stderr;
+  const malformedMetadata =
+    malformed.error === undefined &&
+    malformed.status === 1 &&
+    malformedOutput.includes("Rate limited") &&
+    malformedOutput.includes("42s");
+
+  const preloadPath = join(installDir, "sdk-body-fetch.mjs");
+  const statePath = join(installDir, "sdk-body-state.txt");
+  writeFileSync(preloadPath, sdkBodyFetchSource);
+  writeFileSync(statePath, "not-started");
+  const interrupted = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      preloadPath,
+      binaryPath,
+      "auth",
+      "login",
+      "--timeout-seconds",
+      "1",
+      "--output",
+      "json",
+    ],
+    {
+      cwd: installDir,
+      encoding: "utf8",
+      env: { ...env, PUTIO_CLI_TOKEN: "", PUTIO_SDK_BODY_STATE_PATH: statePath },
+      timeout: 5_000,
+    },
+  );
+  const bodyReadAborted =
+    interrupted.error === undefined &&
+    interrupted.status === 1 &&
+    readFileSync(statePath, "utf8") === "aborted";
+  console.log(`Packed SDK proof: ${JSON.stringify({ malformedMetadata, bodyReadAborted })}`);
+  assert(
+    malformedMetadata,
+    "Malformed HTTP 429 lost its rate-limit status or retry-after metadata.",
+  );
+  assert(bodyReadAborted, "Installed CLI deadline did not abort the active SDK response body.");
 };
 
 const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
@@ -571,6 +655,7 @@ try {
   assert(transfers.cursor === null, "Expected the SDK-backed transfer list cursor to be null.");
   assert(transfers.total === 0, "Expected the SDK-backed transfer list total to be zero.");
 
+  smokeSdkTransport(binaryPath, mockApiBaseUrl);
   await smokeStdout(binaryPath, mockApiBaseUrl);
 
   const stateBeforeLogin = readFileSync(configPath, "utf8");
@@ -634,6 +719,8 @@ try {
           "describe",
           "single-effect-runtime",
           "authenticated-sdk-request",
+          "malformed-http-metadata",
+          "sdk-response-body-interruption",
           "auth-poll-deadline",
           "stdout-backpressure",
           "stdout-broken-pipe",

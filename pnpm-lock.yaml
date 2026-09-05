@@ -146,8 +146,8 @@ importers:
         specifier: 4.0.0-rc.109
         version: 4.0.0-rc.109(effect@4.0.0-rc.109)(vitest@4.1.10)
       '@putdotio/sdk':
-        specifier: 11.3.0
-        version: 11.3.0
+        specifier: 11.4.2
+        version: 11.4.2
       '@types/node':
         specifier: ^26.1.0
         version: 26.1.2
@@ -2154,8 +2154,8 @@ packages:
   '@protobufjs/utf8@1.1.2':
     resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
 
-  '@putdotio/sdk@11.3.0':
-    resolution: {integrity: sha512-+PpmlJSd31DZbtZLQc5QAsETXfYCuEldhZA+IoApvtiWZEPQrbdIfYoyUK/6UR2FaWFfG2V71iXdDj+2qwThbA==}
+  '@putdotio/sdk@11.4.2':
+    resolution: {integrity: sha512-JIibbEiw48Y2yTGLemSPiOgTEbEI2aXyYDmo+Jf7EwYa68MMJ/s0VeIoT1RuhFIKsCrM1F0YhQuAB54rwR3IPg==}
     engines: {node: '>=24.19.0'}
 
   '@redis/bloom@5.12.1':
@@ -7190,7 +7190,7 @@ snapshots:
   '@protobufjs/utf8@1.1.2':
     optional: true
 
-  '@putdotio/sdk@11.3.0':
+  '@putdotio/sdk@11.4.2':
     dependencies:
       effect: 4.0.0-rc.109
 

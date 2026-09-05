@@ -20,7 +20,7 @@ minimumReleaseAgeExclude:
   - effect@4.0.0-rc.109
   - knip@6.31.0
   - "@uinaf/skillcheck@0.4.0"
-  - "@putdotio/sdk@11.3.0"
+  - "@putdotio/sdk@11.4.2"
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@0.2.9
   vitest: 4.1.10
