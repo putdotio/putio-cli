@@ -1,3 +1,9 @@
+import {
+  isPutioApiError,
+  isPutioAuthError,
+  isPutioOperationError,
+  isPutioRateLimitError,
+} from "@putdotio/sdk";
 import { LocalizedError } from "@putdotio/sdk/utilities";
 import { Console, Context, Effect, Layer, Predicate } from "effect";
 
@@ -278,8 +284,37 @@ const toCliErrorView = (error: LocalizedError): CliTerminalErrorView => {
   };
 };
 
+type CliApiErrorMetadata = {
+  readonly httpStatusCode?: number;
+  readonly statusCode?: number;
+  readonly errorType?: string;
+};
+
+const statusCode = (value: number | undefined): number | undefined =>
+  value !== undefined && Number.isInteger(value) && value >= 100 && value <= 599
+    ? value
+    : undefined;
+
+const apiErrorMetadata = (error: unknown): CliApiErrorMetadata => {
+  if (
+    !isPutioApiError(error) &&
+    !isPutioAuthError(error) &&
+    !isPutioRateLimitError(error) &&
+    !isPutioOperationError(error)
+  ) {
+    return {};
+  }
+
+  // HTTP and envelope status can differ. Never derive either from localized prose.
+  return {
+    httpStatusCode: statusCode(error.status),
+    statusCode: statusCode(error.body.status_code),
+    errorType: error.body.error_type,
+  };
+};
+
 type CliErrorJson = {
-  readonly error: {
+  readonly error: CliApiErrorMetadata & {
     readonly title: string;
     readonly message: string;
     readonly recoverySuggestion: {
@@ -296,6 +331,7 @@ const toCliErrorJson = (error: LocalizedError): CliErrorJson => {
 
   return {
     error: {
+      ...apiErrorMetadata(error.underlyingError),
       title: error.message,
       message: error.recoverySuggestion.description,
       recoverySuggestion: {

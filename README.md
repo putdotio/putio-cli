@@ -193,6 +193,14 @@ properties. `sdk list` marks operations requiring runtime objects or binary outp
 whose positional or scalar credentials cannot be safely redacted—as unsupported. Supported keyed
 credential fields and token-bearing URLs are redacted in plans and results.
 
+With structured output, command failures exit with status 1 and write JSON to stderr.
+Recognized SDK response errors include optional `error.httpStatusCode` (HTTP response),
+`error.statusCode` (API envelope), and `error.errorType` fields alongside the existing
+human-readable message. HTTP and API status can differ; inspect both for an exact
+missing-file check. Transport, input, and unknown errors omit unavailable metadata.
+`describe.automation.structuredErrorMetadata` advertises this contract. Raw error bodies,
+request URLs, and causes are not included.
+
 ## Tips
 
 - Use `--output json` when you want a stable machine-readable contract for scripts, agents, and automation.
