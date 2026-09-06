@@ -195,9 +195,11 @@ credential fields and token-bearing URLs are redacted in plans and results.
 
 With structured output, command failures exit with status 1 and write JSON to stderr.
 Recognized SDK response errors include optional `error.httpStatusCode` (HTTP response),
-`error.statusCode` (API envelope), and `error.errorType` fields alongside the existing
-human-readable message. HTTP and API status can differ; inspect both for an exact
-missing-file check. Transport, input, and unknown errors omit unavailable metadata.
+`error.statusCode` (SDK-normalized envelope), and `error.errorType` fields alongside the
+existing human-readable message. Status values can differ; the SDK can also synthesize
+`statusCode` from HTTP when the error body is malformed. A missing-file check must require
+HTTP 404, normalized status 404, and a validated structured error type; two matching
+status numbers alone are insufficient. Transport, input, and unknown errors omit unavailable metadata.
 `describe.automation.structuredErrorMetadata` advertises this contract. Raw error bodies,
 request URLs, and causes are not included.
 

@@ -305,10 +305,11 @@ const apiErrorMetadata = (error: unknown): CliApiErrorMetadata => {
     return {};
   }
 
-  // HTTP and envelope status can differ. Never derive either from localized prose.
+  // SDK envelope status can differ from HTTP or be synthesized for malformed bodies.
+  // Preserve the SDK value; callers need a structured errorType to identify API errors.
   return {
     httpStatusCode: statusCode(error.status),
-    statusCode: statusCode(error.body.status_code),
+    statusCode: Number.isSafeInteger(error.body.status_code) ? error.body.status_code : undefined,
     errorType: error.body.error_type,
   };
 };

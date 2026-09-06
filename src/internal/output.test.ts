@@ -326,6 +326,31 @@ describe("formatCliError", () => {
 });
 
 describe("formatCliErrorJson", () => {
+  it.each([0, -1, 1000])("preserves safe integer SDK envelope status %s", (status) => {
+    const output = JSON.parse(
+      formatCliErrorJson(
+        new PutioApiError({
+          status: 400,
+          body: { status_code: status, error_type: "FIXTURE_ERROR" },
+        }),
+      ),
+    );
+    expect(output.error).toMatchObject({ httpStatusCode: 400, statusCode: status });
+  });
+
+  it("does not supply an error type for the SDK fallback envelope", () => {
+    const output = JSON.parse(
+      formatCliErrorJson(
+        new PutioApiError({
+          status: 404,
+          body: { status_code: 404, error_message: "put.io API request failed with status 404" },
+        }),
+      ),
+    );
+    expect(output.error).toMatchObject({ httpStatusCode: 404, statusCode: 404 });
+    expect(output.error).not.toHaveProperty("errorType");
+  });
+
   it.each([
     new PutioApiError({ status: 404, body: { status_code: 404, error_type: "FILE_NOT_FOUND" } }),
     new PutioAuthError({ status: 401, body: { status_code: 401, error_type: "invalid_token" } }),

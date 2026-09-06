@@ -60,6 +60,11 @@ import { createServer } from "node:http";
 let streamPages = 0;
 const server = createServer((request, response) => {
   const fileStatus = Number(request.url?.split("/")[3]?.split("?")[0]);
+  if (request.url?.startsWith("/v2/files/") && [400, 405].includes(fileStatus)) {
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(fileStatus === 400 ? "{" : "not JSON");
+    return;
+  }
   if (request.url?.startsWith("/v2/files/") && [401, 403, 404, 429].includes(fileStatus)) {
     response.writeHead(fileStatus, { "content-type": "application/json" });
     response.end(JSON.stringify({
@@ -152,7 +157,9 @@ const assert = (condition: boolean, message: string) => {
 };
 
 const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
-  for (const status of [401, 403, 404, 429]) {
+  for (const status of [400, 401, 403, 404, 405, 429]) {
+    const malformed = status === 400 || status === 405;
+    const httpStatus = malformed ? 404 : status;
     const result = spawnSync(
       binaryPath,
       [
@@ -190,14 +197,19 @@ const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
     const error = parsed.error;
     if (typeof error !== "object" || error === null) throw new Error("Missing error metadata.");
     assert(
-      "httpStatusCode" in error && error.httpStatusCode === status,
+      "httpStatusCode" in error && error.httpStatusCode === httpStatus,
       "HTTP status was lost or conflated.",
     );
     assert(
-      "statusCode" in error && error.statusCode === (status === 403 ? 404 : status),
+      "statusCode" in error && error.statusCode === (status === 403 ? 404 : httpStatus),
       "API status was lost.",
     );
-    assert("errorType" in error && error.errorType === "FIXTURE_ERROR", "API error type was lost.");
+    assert(
+      malformed
+        ? !("errorType" in error)
+        : "errorType" in error && error.errorType === "FIXTURE_ERROR",
+      "API error type was lost.",
+    );
     assert(
       !("body" in error) && !result.stderr.includes("never-expose-this-payload"),
       "Raw error body leaked.",
