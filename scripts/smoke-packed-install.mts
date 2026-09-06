@@ -59,6 +59,21 @@ import { createServer } from "node:http";
 
 let streamPages = 0;
 const server = createServer((request, response) => {
+  const fileId = Number(request.url?.split("/")[3]?.split("?")[0]);
+  if (request.url?.startsWith("/v2/files/") && [400, 405].includes(fileId)) {
+    response.writeHead(404, { "content-type": "application/json" });
+    response.end(fileId === 400 ? "{" : "not JSON");
+    return;
+  }
+  if (request.url?.startsWith("/v2/files/") && [401, 403, 404, 429].includes(fileId)) {
+    response.writeHead(fileId, { "content-type": "application/json" });
+    response.end(JSON.stringify({
+      status: "ERROR", status_code: fileId === 403 ? 404 : fileId,
+      error_type: "FIXTURE_ERROR", error_message: "Synthetic request failed",
+      token: "never-expose-this-payload",
+    }));
+    return;
+  }
   if (request.url === "/fixture/stream-count") {
     response.end(String(streamPages));
     return;
@@ -138,6 +153,65 @@ const runPutioJson = <A,>(
 const assert = (condition: boolean, message: string) => {
   if (!condition) {
     throw new Error(message);
+  }
+};
+
+const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
+  for (const [id, httpStatus, apiStatus, errorType] of [
+    [400, 404, 404, undefined], // malformed JSON
+    [405, 404, 404, undefined], // non-JSON body
+    [401, 401, 401, "FIXTURE_ERROR"],
+    [403, 403, 404, "FIXTURE_ERROR"],
+    [404, 404, 404, "FIXTURE_ERROR"],
+    [429, 429, 429, "FIXTURE_ERROR"],
+  ] as const) {
+    const result = spawnSync(
+      binaryPath,
+      [
+        "sdk",
+        "call",
+        "--json",
+        JSON.stringify({ operation: "files.get", args: [{ id }] }),
+        "--execute",
+        "--output",
+        "json",
+      ],
+      {
+        cwd: installDir,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PUTIO_CLI_API_BASE_URL: apiBaseUrl,
+          PUTIO_CLI_CONFIG_PATH: configPath,
+          PUTIO_CLI_TOKEN: "packed-smoke-token",
+        },
+        timeout: commandTimeoutMs,
+      },
+    );
+    assert(
+      result.status === 1 && result.stdout === "",
+      "Expected structured failure on stderr only.",
+    );
+    const parsed: unknown = JSON.parse(result.stderr);
+    if (typeof parsed !== "object" || parsed === null || !("error" in parsed))
+      throw new Error("Missing error envelope.");
+    const error = parsed.error;
+    if (typeof error !== "object" || error === null) throw new Error("Missing error metadata.");
+    assert(
+      "httpStatusCode" in error && error.httpStatusCode === httpStatus,
+      "HTTP status was lost or conflated.",
+    );
+    assert("statusCode" in error && error.statusCode === apiStatus, "API status was lost.");
+    assert(
+      errorType === undefined
+        ? !("errorType" in error)
+        : "errorType" in error && error.errorType === errorType,
+      "API error type was lost.",
+    );
+    assert(
+      !("body" in error) && !result.stderr.includes("never-expose-this-payload"),
+      "Raw error body leaked.",
+    );
   }
 };
 
@@ -655,6 +729,7 @@ try {
   assert(transfers.cursor === null, "Expected the SDK-backed transfer list cursor to be null.");
   assert(transfers.total === 0, "Expected the SDK-backed transfer list total to be zero.");
 
+  smokeStructuredErrors(binaryPath, mockApiBaseUrl);
   smokeSdkTransport(binaryPath, mockApiBaseUrl);
   await smokeStdout(binaryPath, mockApiBaseUrl);
 
@@ -720,6 +795,7 @@ try {
           "single-effect-runtime",
           "authenticated-sdk-request",
           "malformed-http-metadata",
+          "structured-http-api-error-status",
           "sdk-response-body-interruption",
           "auth-poll-deadline",
           "stdout-backpressure",
