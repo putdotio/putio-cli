@@ -1,8 +1,8 @@
 import { PutioApiError, PutioAuthError, PutioRateLimitError } from "@putdotio/sdk";
-import { localizeCliError } from "./localize-error.js";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CliCommandInputError } from "./command.js";
+import { localizeCliError } from "./localize-error.js";
 import {
   detectOutputModeFromArgv,
   formatCliError,
@@ -380,14 +380,15 @@ describe("formatCliErrorJson", () => {
       request: { url: "https://example.invalid/?oauth_token=private-payload" },
     };
     const output = formatCliErrorJson(error);
-    expect(JSON.parse(output).error).toMatchObject({
+    const { error: metadata } = JSON.parse(output);
+    expect(metadata).toMatchObject({
       httpStatusCode: 404,
       statusCode: 404,
       errorType: "FILE_NOT_FOUND",
     });
     expect(output).not.toContain("private-payload");
-    expect(JSON.parse(output).error).not.toHaveProperty("request");
-    expect(JSON.parse(output).error).not.toHaveProperty("body");
+    expect(metadata).not.toHaveProperty("request");
+    expect(metadata).not.toHaveProperty("body");
   });
 
   it.each([NaN, Infinity, 404.5, 99, 600])("omits invalid HTTP status %s", (status) => {
@@ -426,7 +427,7 @@ describe("formatCliErrorJson", () => {
     expect(output).not.toContain("hidden-secret");
   });
 
-  it("preserves HTTP and API status separately for automated missing-file checks", () => {
+  it("preserves differing HTTP and API statuses", () => {
     const output = JSON.parse(
       formatCliErrorJson({
         _tag: "PutioApiError",

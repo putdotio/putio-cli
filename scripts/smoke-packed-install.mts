@@ -59,16 +59,16 @@ import { createServer } from "node:http";
 
 let streamPages = 0;
 const server = createServer((request, response) => {
-  const fileStatus = Number(request.url?.split("/")[3]?.split("?")[0]);
-  if (request.url?.startsWith("/v2/files/") && [400, 405].includes(fileStatus)) {
+  const fileId = Number(request.url?.split("/")[3]?.split("?")[0]);
+  if (request.url?.startsWith("/v2/files/") && [400, 405].includes(fileId)) {
     response.writeHead(404, { "content-type": "application/json" });
-    response.end(fileStatus === 400 ? "{" : "not JSON");
+    response.end(fileId === 400 ? "{" : "not JSON");
     return;
   }
-  if (request.url?.startsWith("/v2/files/") && [401, 403, 404, 429].includes(fileStatus)) {
-    response.writeHead(fileStatus, { "content-type": "application/json" });
+  if (request.url?.startsWith("/v2/files/") && [401, 403, 404, 429].includes(fileId)) {
+    response.writeHead(fileId, { "content-type": "application/json" });
     response.end(JSON.stringify({
-      status: "ERROR", status_code: fileStatus === 403 ? 404 : fileStatus,
+      status: "ERROR", status_code: fileId === 403 ? 404 : fileId,
       error_type: "FIXTURE_ERROR", error_message: "Synthetic request failed",
       token: "never-expose-this-payload",
     }));
@@ -157,16 +157,21 @@ const assert = (condition: boolean, message: string) => {
 };
 
 const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
-  for (const status of [400, 401, 403, 404, 405, 429]) {
-    const malformed = status === 400 || status === 405;
-    const httpStatus = malformed ? 404 : status;
+  for (const [id, httpStatus, apiStatus, errorType] of [
+    [400, 404, 404, undefined], // malformed JSON
+    [405, 404, 404, undefined], // non-JSON body
+    [401, 401, 401, "FIXTURE_ERROR"],
+    [403, 403, 404, "FIXTURE_ERROR"],
+    [404, 404, 404, "FIXTURE_ERROR"],
+    [429, 429, 429, "FIXTURE_ERROR"],
+  ] as const) {
     const result = spawnSync(
       binaryPath,
       [
         "sdk",
         "call",
         "--json",
-        JSON.stringify({ operation: "files.get", args: [{ id: status }] }),
+        JSON.stringify({ operation: "files.get", args: [{ id }] }),
         "--execute",
         "--output",
         "json",
@@ -188,10 +193,6 @@ const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
       "Expected structured failure on stderr only.",
     );
     const parsed: unknown = JSON.parse(result.stderr);
-    assert(
-      typeof parsed === "object" && parsed !== null && "error" in parsed,
-      "Expected error envelope.",
-    );
     if (typeof parsed !== "object" || parsed === null || !("error" in parsed))
       throw new Error("Missing error envelope.");
     const error = parsed.error;
@@ -200,14 +201,11 @@ const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
       "httpStatusCode" in error && error.httpStatusCode === httpStatus,
       "HTTP status was lost or conflated.",
     );
+    assert("statusCode" in error && error.statusCode === apiStatus, "API status was lost.");
     assert(
-      "statusCode" in error && error.statusCode === (status === 403 ? 404 : httpStatus),
-      "API status was lost.",
-    );
-    assert(
-      malformed
+      errorType === undefined
         ? !("errorType" in error)
-        : "errorType" in error && error.errorType === "FIXTURE_ERROR",
+        : "errorType" in error && error.errorType === errorType,
       "API error type was lost.",
     );
     assert(

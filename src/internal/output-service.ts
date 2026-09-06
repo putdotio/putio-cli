@@ -290,10 +290,8 @@ type CliApiErrorMetadata = {
   readonly errorType?: string;
 };
 
-const statusCode = (value: number | undefined): number | undefined =>
-  value !== undefined && Number.isInteger(value) && value >= 100 && value <= 599
-    ? value
-    : undefined;
+const httpStatusCode = (value: number): number | undefined =>
+  Number.isInteger(value) && value >= 100 && value <= 599 ? value : undefined;
 
 const apiErrorMetadata = (error: unknown): CliApiErrorMetadata => {
   if (
@@ -305,10 +303,9 @@ const apiErrorMetadata = (error: unknown): CliApiErrorMetadata => {
     return {};
   }
 
-  // SDK envelope status can differ from HTTP or be synthesized for malformed bodies.
-  // Preserve the SDK value; callers need a structured errorType to identify API errors.
+  // The SDK may synthesize envelope status from HTTP for malformed bodies.
   return {
-    httpStatusCode: statusCode(error.status),
+    httpStatusCode: httpStatusCode(error.status),
     statusCode: Number.isSafeInteger(error.body.status_code) ? error.body.status_code : undefined,
     errorType: error.body.error_type,
   };

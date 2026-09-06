@@ -193,15 +193,11 @@ properties. `sdk list` marks operations requiring runtime objects or binary outp
 whose positional or scalar credentials cannot be safely redacted—as unsupported. Supported keyed
 credential fields and token-bearing URLs are redacted in plans and results.
 
-With structured output, command failures exit with status 1 and write JSON to stderr.
-Recognized SDK response errors include optional `error.httpStatusCode` (HTTP response),
-`error.statusCode` (SDK-normalized envelope), and `error.errorType` fields alongside the
-existing human-readable message. Status values can differ; the SDK can also synthesize
-`statusCode` from HTTP when the error body is malformed. A missing-file check must require
-HTTP 404, normalized status 404, and the operation's established missing-file `errorType`;
-an unknown or unrelated error type does not prove absence. Transport, input, and unknown errors omit unavailable metadata.
-`describe.automation.structuredErrorMetadata` advertises this contract. Raw error bodies,
-request URLs, and causes are not included.
+Structured failures exit with status 1 and write JSON to stderr. SDK errors can include
+`error.httpStatusCode`, `error.statusCode` (SDK-normalized), and `error.errorType`.
+`describe.automation.structuredErrorMetadata` reports support. Raw bodies, requests,
+and causes are omitted. See [error handling](skills/putio-cli/references/guardrails.md)
+for status interpretation and missing-file checks.
 
 ## Tips
 
