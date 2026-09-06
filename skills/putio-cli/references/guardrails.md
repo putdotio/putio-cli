@@ -17,8 +17,8 @@ response, `error.statusCode` from the SDK-normalized envelope, and `error.errorT
 recognized SDK response errors. `describe.automation.structuredErrorMetadata` advertises support.
 The status values may differ. The SDK can synthesize `statusCode` from HTTP for a malformed
 error body, so matching 404 values alone do not prove an API missing-file response. Require
-HTTP 404, normalized status 404, and a validated nonempty structured `errorType` (prefer
-the operation's known missing-file type). Never infer absence from localized prose.
+HTTP 404, normalized status 404, and the operation's established missing-file `errorType`.
+An unknown, empty, or unrelated error type does not prove absence. Never infer absence from localized prose.
 Transport, input, and unknown errors omit unavailable metadata. Original bodies,
 request URLs, causes, and stacks are not serialized.
 
