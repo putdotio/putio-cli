@@ -44,7 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh 
 npm install --global @putdotio/cli
 ```
 
-Node `>=24.14`
+Node version: `engines.node` in [`package.json`](./package.json)
 
 Verify:
 
@@ -223,15 +223,10 @@ enabled; unreadable or invalid config fails closed for that process.
 The `crashReporting` object in `describe` shows the effective enabled state or disabled reason,
 flush deadline, preference commands, and captured-field allowlist.
 
-At most one synthetic event is sent per process. It contains a random event ID and timestamp, one
-of three fixed failure categories, fixed runtime labels, and the package release. It never contains
-the original error, message, or stack; credentials; config or environment contents; command names
-or arguments; request or response data; URLs; paths or filenames; full payloads; untrusted server
-text; or user and device identifiers. Reporting does not write to stdout, replace local stderr,
-change exit or signal behavior, follow redirects, retry, or make network access a command
-requirement.
-
-See [Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy) for the exact payload, process
+At most one synthetic event is sent per process: a random event ID and timestamp, one of three
+fixed failure categories, fixed runtime labels, and the package release. It never contains the
+original error, credentials, config, command arguments, request data, paths, or identifiers.
+[Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy) lists the exact payload, process
 boundary, provider ownership, retention, and removal policy. Use the private contact in
 [Security](./SECURITY.md) for sensitive reports or deletion requests.
 

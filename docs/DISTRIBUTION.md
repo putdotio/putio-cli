@@ -4,13 +4,7 @@
 
 Every merge to `main` should already be releasable.
 
-GitHub Actions owns npm publishing, GitHub Releases, release assets, and Homebrew tap updates. The pipeline runs the repo's VitePlus commands before publishing:
-
-1. `vp install`
-2. `vp run verify`
-3. `vp run smoke:pack`
-4. `vp run build`
-5. `semantic-release`
+GitHub Actions owns npm publishing, GitHub Releases, release assets, and Homebrew tap updates. [`ci.yml`](../.github/workflows/ci.yml) runs `vp run verify` (which includes `smoke:pack`) on the secretless job, then `vp run build` and `semantic-release` on the `release` job.
 
 semantic-release publishes npm, writes the version tag, and creates a draft
 GitHub Release. Binary jobs build from that exact tag and upload all six archive
@@ -74,10 +68,9 @@ the same installed Effect runtime.
 
 ## Local Checks
 
-Before changing distribution wiring, validate the repo-local guardrails the workflow depends on:
+Before changing distribution wiring, run the guardrails the workflow depends on:
 
 ```bash
 pnpm exec vp install
 pnpm exec vp run verify
-pnpm exec vp run smoke:pack
 ```

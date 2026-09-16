@@ -1,20 +1,12 @@
 # Agent Guidelines
 
-Development instructions for agents working on this repository.
-
 ## Repo
 
 - Standalone TypeScript package for the put.io CLI
-- Main code lives in `src/*`
-- Durable docs live in `docs/*`
+- Main code lives in `src/*`; layer rules in [Architecture](docs/ARCHITECTURE.md)
+- Durable docs live in `docs/*`; release wiring in [Distribution](docs/DISTRIBUTION.md)
 - Consumer-facing skills live in `skills/*`
-
-## Start Here
-
-- [Overview](README.md)
-- [Contributing](CONTRIBUTING.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Distribution](docs/DISTRIBUTION.md)
+- Contributor setup and validation in [Contributing](CONTRIBUTING.md)
 
 ## Commands
 
@@ -32,8 +24,6 @@ Focused:
 - `pnpm exec vp run skills:lint`
 - `pnpm exec vp run smoke:pack` — writes the report to `.artifacts/smoke-packed-install.json`
 - `pnpm exec vp run build:sea` then `pnpm exec vp run verify:sea`
-
-[Contributing](CONTRIBUTING.md) explains when each focused check applies.
 
 Runtime proofs:
 
@@ -65,7 +55,7 @@ touches, and search `node_modules/effect/src` for anything it does not cover.
 
 - Prefer in-process tests unless the process boundary is the behavior under test.
 - Add command-path coverage when the `@effect/cli` boundary changes.
-- Run repo guardrails before closing work, then prove important command-surface changes with the built binary.
+- Prove command-surface changes with the built binary.
 - Finish in-scope edits, guardrails, and fixes without pausing; ask before publishing, credential-bearing release or SEA builds, and live writes against shared accounts.
 
 ## Skills

@@ -6,8 +6,6 @@ If you believe you have found a security or privacy issue in this project, pleas
 
 - email: devs@put.io
 
-Private reports are preferred for security and privacy issues.
-
 If you are unsure whether something is sensitive, email first instead of opening a public issue.
 
 ## Scope
@@ -28,7 +26,7 @@ Useful reports usually include issues involving:
 
 ## Supported Versions
 
-This repository does not currently publish a formal supported-version policy. Report issues against the latest released CLI or the current `main` branch.
+Report issues against the latest released CLI or the current `main` branch.
 
 ## Disclosure
 

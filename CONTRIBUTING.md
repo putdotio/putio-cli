@@ -42,14 +42,7 @@ pnpm exec vp run verify
 Use the repo-local Vite+ binary for test-bearing commands so the runner and
 `vite-plus/test` imports share one Vitest runtime.
 
-Run focused checks when they match your change:
-
-```bash
-pnpm exec vp run check:dead-code
-pnpm exec vp run smoke:pack
-pnpm exec vp run build:sea
-pnpm exec vp run verify:sea
-```
+Focused checks are listed under [Commands in AGENTS.md](AGENTS.md#commands).
 
 ## Release Publishing
 
@@ -57,15 +50,11 @@ See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, an
 
 ## Development Notes
 
-- `verify` is the repository delivery gate.
-- `verify` enforces the production Effect runtime boundary and dead-code checks, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
+- `verify` is the delivery gate. It enforces the production Effect runtime boundary and dead-code checks, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
 - `pnpm exec vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
 - Prefer `pnpm exec vp install`, `pnpm exec vp test`, and `pnpm exec vp check` for day-to-day local loops.
 - Keep the exact Effect versions and the Effect override aligned with the pinned put.io SDK. The build bundles the SDK so installed CLIs and the SDK share one Effect runtime; if an SDK release depends on an Effect API the pinned runtime lacks, add a pnpm patch under `patches/` and register it in `pnpm-workspace.yaml`.
-- Keep top-level user docs in `README.md` and contributor workflow here.
-- Put deeper implementation detail in `docs/` instead of growing the top-level docs.
-- Keep `AGENTS.md` as repo-development guidance and `skills/*` as consumer-facing agent guidance.
-- When the public CLI surface or agent setup flow changes, update `README.md` and `skills/putio-cli/*` in the same change.
+- Doc placement rules: [Development Guidance in AGENTS.md](AGENTS.md#development-guidance).
 
 ## Pull Requests
 

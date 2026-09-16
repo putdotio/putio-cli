@@ -7,8 +7,8 @@ description: "Operate the put.io CLI as a consumer for put.io authentication, fi
 
 ## Quick Rules
 
-- Start with `putio describe --output json`.
-- Check `automation` in the describe output for the current machine-readable contract and supported safety features.
+- Start with `putio describe --output json`; it is the runtime source of truth for commands, flags, auth requirements, and `automation`. Return to it when a command shape is unclear.
+- Check `automation` in the describe output for supported safety features.
 - Prefer structured output: `json` by default in non-interactive runs, `ndjson` for streaming reads, `text` for human TTY sessions.
 - Prefer a named auth profile for non-human sessions; examples use the
   arbitrary profile name `automation`.
@@ -23,28 +23,13 @@ description: "Operate the put.io CLI as a consumer for put.io authentication, fi
 
 ## Start Here
 
-Read only the reference you need:
+Load only the one reference that matches the current task:
 
 - discovery and runtime contracts: [`references/discovery.md`](references/discovery.md)
 - auth and headless usage: [`references/auth.md`](references/auth.md)
 - read workflows, `--fields`, `--page-all`, and `ndjson`: [`references/reads.md`](references/reads.md)
 - write workflows, `--json`, and `--dry-run`: [`references/writes.md`](references/writes.md)
 - safety posture and fallback rules: [`references/guardrails.md`](references/guardrails.md)
-
-## Library Contract
-
-This skill is the router for the put.io CLI consumer skill library. The reference files are the surface guides for the CLI contract shipped by this package.
-
-- Treat `putio describe --output json` as the runtime source of truth for commands, flags, auth requirements, and `automation`.
-- Load only the one reference that matches the current task, then return to `describe` when a command shape is unclear.
-
-## First Move
-
-Inspect the live command contract before guessing:
-
-```bash
-putio describe --output json
-```
 
 ## Profile Flow
 
