@@ -189,8 +189,8 @@ putio sdk call --json '{"operation":"files.get","args":[42]}' --execute --output
 
 `sdk call` treats every operation as potentially mutating. It requires exactly one of `--dry-run`
 or `--execute`, resolves auth through the normal profile selection, and only traverses own SDK
-properties. `sdk list` marks operations requiring runtime objects or binary output—and operations
-whose positional or scalar credentials cannot be safely redacted—as unsupported. Supported keyed
+properties. `sdk list` marks as unsupported the operations that require runtime objects or binary
+output, and those whose positional or scalar credentials cannot be safely redacted. Supported keyed
 credential fields and token-bearing URLs are redacted in plans and results.
 
 Structured failures exit with status 1 and write JSON to stderr. SDK errors can include

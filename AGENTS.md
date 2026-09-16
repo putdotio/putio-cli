@@ -22,7 +22,7 @@ Focused:
 - `pnpm exec vp run coverage`
 - `pnpm exec vp run check:dead-code`
 - `pnpm exec vp run skills:lint`
-- `pnpm exec vp run smoke:pack` — writes the report to `.artifacts/smoke-packed-install.json`
+- `pnpm exec vp run smoke:pack`: writes the report to `.artifacts/smoke-packed-install.json`
 - `pnpm exec vp run build:sea` then `pnpm exec vp run verify:sea`
 
 Runtime proofs:
