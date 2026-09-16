@@ -1,3 +1,9 @@
+import {
+  isPutioApiError,
+  isPutioAuthError,
+  isPutioOperationError,
+  isPutioRateLimitError,
+} from "@putdotio/sdk";
 import { LocalizedError } from "@putdotio/sdk/utilities";
 import { Console, Context, Effect, Layer, Predicate } from "effect";
 
@@ -278,8 +284,35 @@ const toCliErrorView = (error: LocalizedError): CliTerminalErrorView => {
   };
 };
 
+type CliApiErrorMetadata = {
+  readonly httpStatusCode?: number;
+  readonly statusCode?: number;
+  readonly errorType?: string;
+};
+
+const httpStatusCode = (value: number): number | undefined =>
+  Number.isInteger(value) && value >= 100 && value <= 599 ? value : undefined;
+
+const apiErrorMetadata = (error: unknown): CliApiErrorMetadata => {
+  if (
+    !isPutioApiError(error) &&
+    !isPutioAuthError(error) &&
+    !isPutioRateLimitError(error) &&
+    !isPutioOperationError(error)
+  ) {
+    return {};
+  }
+
+  // The SDK may synthesize envelope status from HTTP for malformed bodies.
+  return {
+    httpStatusCode: httpStatusCode(error.status),
+    statusCode: Number.isSafeInteger(error.body.status_code) ? error.body.status_code : undefined,
+    errorType: error.body.error_type,
+  };
+};
+
 type CliErrorJson = {
-  readonly error: {
+  readonly error: CliApiErrorMetadata & {
     readonly title: string;
     readonly message: string;
     readonly recoverySuggestion: {
@@ -296,6 +329,7 @@ const toCliErrorJson = (error: LocalizedError): CliErrorJson => {
 
   return {
     error: {
+      ...apiErrorMetadata(error.underlyingError),
       title: error.message,
       message: error.recoverySuggestion.description,
       recoverySuggestion: {

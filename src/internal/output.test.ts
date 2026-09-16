@@ -1,6 +1,8 @@
+import { PutioApiError, PutioAuthError, PutioRateLimitError } from "@putdotio/sdk";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CliCommandInputError } from "./command.js";
+import { localizeCliError } from "./localize-error.js";
 import {
   detectOutputModeFromArgv,
   formatCliError,
@@ -324,6 +326,123 @@ describe("formatCliError", () => {
 });
 
 describe("formatCliErrorJson", () => {
+  it.each([0, -1, 1000])("preserves safe integer SDK envelope status %s", (status) => {
+    const output = JSON.parse(
+      formatCliErrorJson(
+        new PutioApiError({
+          status: 400,
+          body: { status_code: status, error_type: "FIXTURE_ERROR" },
+        }),
+      ),
+    );
+    expect(output.error).toMatchObject({ httpStatusCode: 400, statusCode: status });
+  });
+
+  it("does not supply an error type for the SDK fallback envelope", () => {
+    const output = JSON.parse(
+      formatCliErrorJson(
+        new PutioApiError({
+          status: 404,
+          body: { status_code: 404, error_message: "put.io API request failed with status 404" },
+        }),
+      ),
+    );
+    expect(output.error).toMatchObject({ httpStatusCode: 404, statusCode: 404 });
+    expect(output.error).not.toHaveProperty("errorType");
+  });
+
+  it.each([
+    new PutioApiError({ status: 404, body: { status_code: 404, error_type: "FILE_NOT_FOUND" } }),
+    new PutioAuthError({ status: 401, body: { status_code: 401, error_type: "invalid_token" } }),
+    new PutioRateLimitError({
+      status: 429,
+      body: { status_code: 429, error_type: "RATE_LIMIT_ERROR" },
+    }),
+  ])("retains typed response metadata before and after localization ($status)", (error) => {
+    for (const value of [error, localizeCliError(error)]) {
+      expect(JSON.parse(formatCliErrorJson(value)).error).toMatchObject({
+        httpStatusCode: error.status,
+        statusCode: error.body.status_code,
+        errorType: error.body.error_type,
+      });
+    }
+  });
+
+  it("retains operation errors without serializing their request or body", () => {
+    const error = {
+      _tag: "PutioOperationError",
+      status: 404,
+      domain: "files",
+      operation: "get",
+      contract: { statusCode: 404 },
+      reason: { kind: "status_code", statusCode: 404 },
+      body: { status_code: 404, error_type: "FILE_NOT_FOUND", token: "private-payload" },
+      request: { url: "https://example.invalid/?oauth_token=private-payload" },
+    };
+    const output = formatCliErrorJson(error);
+    const { error: metadata } = JSON.parse(output);
+    expect(metadata).toMatchObject({
+      httpStatusCode: 404,
+      statusCode: 404,
+      errorType: "FILE_NOT_FOUND",
+    });
+    expect(output).not.toContain("private-payload");
+    expect(metadata).not.toHaveProperty("request");
+    expect(metadata).not.toHaveProperty("body");
+  });
+
+  it.each([NaN, Infinity, 404.5, 99, 600])("omits invalid HTTP status %s", (status) => {
+    const output = JSON.parse(
+      formatCliErrorJson({
+        _tag: "PutioApiError",
+        status,
+        body: { status_code: 404 },
+      }),
+    );
+    expect(output.error).not.toHaveProperty("httpStatusCode");
+  });
+
+  it.each([
+    { _tag: "PutioTransportError", cause: new Error("HTTP 404") },
+    { _tag: "PutioApiError", status: "404", body: { status_code: 404 } },
+    { _tag: "OtherError", status: 404, body: { status_code: 404 } },
+    new Error("404 FILE_NOT_FOUND"),
+    new CliCommandInputError({ message: "404" }),
+  ])("does not infer response metadata for unrecognized errors", (error) => {
+    const output = JSON.parse(formatCliErrorJson(error));
+    expect(output.error).not.toHaveProperty("httpStatusCode");
+    expect(output.error).not.toHaveProperty("statusCode");
+    expect(output.error).not.toHaveProperty("errorType");
+  });
+
+  it("does not invent an envelope status or expose token-bearing error types", () => {
+    const output = formatCliErrorJson(
+      new PutioApiError({
+        status: 404,
+        body: { error_type: "https://example.invalid/?oauth_token=hidden-secret" },
+      }),
+    );
+    expect(JSON.parse(output).error).toHaveProperty("httpStatusCode", 404);
+    expect(JSON.parse(output).error).not.toHaveProperty("statusCode");
+    expect(output).not.toContain("hidden-secret");
+  });
+
+  it("preserves differing HTTP and API statuses", () => {
+    const output = JSON.parse(
+      formatCliErrorJson({
+        _tag: "PutioApiError",
+        status: 403,
+        body: { status_code: 404, error_type: "FILE_NOT_FOUND", error_message: "Not found" },
+      }),
+    );
+    expect(output.error).toMatchObject({
+      httpStatusCode: 403,
+      statusCode: 404,
+      errorType: "FILE_NOT_FOUND",
+    });
+    expect(output.error).not.toHaveProperty("body");
+  });
+
   it("renders localized errors as structured json", () => {
     const output = formatCliErrorJson({
       _tag: "PutioAuthError",

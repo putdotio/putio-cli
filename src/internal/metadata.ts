@@ -44,6 +44,7 @@ const AutomationContractSchema = Schema.Struct({
   rawJsonInputForWrites: Schema.Boolean,
   schemaIntrospection: Schema.Boolean,
   secretRedaction: Schema.Boolean,
+  structuredErrorMetadata: Schema.Boolean,
   streamingReadCommands: Schema.Array(NonEmptyStringSchema),
   supportedOutputModes: Schema.Array(SupportedOutputModeSchema),
   untrustedTextAnnotations: Schema.Boolean,
@@ -114,6 +115,7 @@ const makeAutomationContract = (): Schema.Schema.Type<typeof AutomationContractS
     rawJsonInputForWrites: writeCommands.every((command) => command.capabilities.rawJsonInput),
     schemaIntrospection: true,
     secretRedaction: true,
+    structuredErrorMetadata: true,
     streamingReadCommands: commandCatalog
       .filter((command) => command.capabilities.streaming)
       .map((command) => command.command),

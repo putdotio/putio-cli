@@ -56,6 +56,7 @@ describe("describeCli", () => {
       rawJsonInputForWrites: true,
       schemaIntrospection: true,
       secretRedaction: true,
+      structuredErrorMetadata: true,
       supportedOutputModes: ["json", "text", "ndjson"],
       untrustedTextAnnotations: true,
     });

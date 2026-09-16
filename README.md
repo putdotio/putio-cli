@@ -193,6 +193,12 @@ properties. `sdk list` marks operations requiring runtime objects or binary outp
 whose positional or scalar credentials cannot be safely redacted—as unsupported. Supported keyed
 credential fields and token-bearing URLs are redacted in plans and results.
 
+Structured failures exit with status 1 and write JSON to stderr. SDK errors can include
+`error.httpStatusCode`, `error.statusCode` (SDK-normalized), and `error.errorType`.
+`describe.automation.structuredErrorMetadata` reports support. Raw bodies, requests,
+and causes are omitted. See [error handling](skills/putio-cli/references/guardrails.md)
+for status interpretation and missing-file checks.
+
 ## Tips
 
 - Use `--output json` when you want a stable machine-readable contract for scripts, agents, and automation.
