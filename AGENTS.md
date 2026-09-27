@@ -10,20 +10,10 @@
 
 ## Commands
 
-Primary:
-
-- `pnpm exec vp run verify`
-
-Focused:
-
-- `pnpm exec vp run check`
-- `pnpm exec vp run build`
-- `pnpm exec vp run test`
-- `pnpm exec vp run coverage`
-- `pnpm exec vp run check:dead-code`
-- `pnpm exec vp run skills:lint`
-- `pnpm exec vp run smoke:pack`: writes the report to `.artifacts/smoke-packed-install.json`
-- `pnpm exec vp run build:sea` then `pnpm exec vp run verify:sea`
+- `pnpm exec vp run verify`: the gate; pre-push and CI run it
+- Focused checks are the `scripts` in [package.json](package.json); run them as `pnpm exec vp run <script>`
+- `smoke:pack` writes its report to `.artifacts/smoke-packed-install.json`
+- `verify:sea` needs `build:sea` first
 
 Runtime proofs:
 
@@ -54,7 +44,7 @@ touches, and search `node_modules/effect/src` for anything it does not cover.
 ## Testing
 
 - Prefer in-process tests unless the process boundary is the behavior under test.
-- Add command-path coverage when the `@effect/cli` boundary changes.
+- Add command-path coverage when the `effect/unstable/cli` command boundary changes.
 - Prove command-surface changes with the built binary.
 - Finish in-scope edits, guardrails, and fixes without pausing; ask before publishing, credential-bearing release or SEA builds, and live writes against shared accounts.
 

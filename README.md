@@ -212,9 +212,8 @@ for status interpretation and missing-file checks.
 
 ## Crash Reporting and Diagnostics
 
-Official releases enable privacy-safe crash reporting by default for unexpected CLI failures. It
-does not collect usage analytics, command results, or original error data. Manage the persisted
-preference with:
+Official releases send privacy-safe crash reports for unexpected CLI failures by default. There is
+no usage analytics. Manage the persisted preference with:
 
 ```bash
 putio telemetry disable
@@ -222,19 +221,16 @@ putio telemetry status
 putio telemetry enable
 ```
 
-The preference lives in the normal private CLI config and applies to interactive, CI, agent, and
-other non-interactive runs. `DO_NOT_TRACK` does not override it. Missing config keeps reporting
-enabled; unreadable or invalid config fails closed for that process.
+The preference lives in the private CLI config and applies to interactive, CI, and agent runs alike;
+`DO_NOT_TRACK` does not override it. Missing config keeps reporting enabled; unreadable or invalid
+config disables it for that process. The `crashReporting` object in `describe` shows the effective
+state, flush deadline, and captured-field allowlist.
 
-The `crashReporting` object in `describe` shows the effective enabled state or disabled reason,
-flush deadline, preference commands, and captured-field allowlist.
-
-At most one synthetic event is sent per process: a random event ID and timestamp, one of three
-fixed failure categories, fixed runtime labels, and the package release. It never contains the
-original error, credentials, config, command arguments, request data, paths, or identifiers.
-[Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy) lists the exact payload, process
-boundary, provider ownership, retention, and removal policy. Use the private contact in
-[Security](./SECURITY.md) for sensitive reports or deletion requests.
+A process sends at most one synthetic event: a random ID, timestamp, one of three fixed failure
+categories, fixed runtime labels, and the package release. It never contains the original error,
+credentials, config, command arguments, request data, paths, or identifiers.
+[Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy) has the full policy. Use the private
+contact in [Security](./SECURITY.md) for sensitive reports or deletion requests.
 
 ## Docs
 
