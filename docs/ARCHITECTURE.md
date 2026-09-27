@@ -120,7 +120,7 @@ Sensitive reports and deletion requests go to the private security contact.
 ## Agent-First Contract
 
 - Schema-backed `describe` metadata covers command purpose, capabilities, flags, raw JSON payload shapes, and neutral `automation` metadata for output, dry-run, raw JSON input, field selection, streaming, and safety features, so agents do not depend on prose docs.
-- Every command has structured output.
+- Every leaf command catalogued by `describe` has structured output; the root and group commands such as `putio auth` print plain help text.
 - Mutating commands accept raw `--json` input and `--dry-run`.
 - Agent-relevant read commands accept `--fields`; `files list`, `files search`, `search`, and `transfers list` also accept cursor-backed `--page-all`.
 - Field selectors and identifier-like inputs are hardened before API calls.
