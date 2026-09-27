@@ -1,8 +1,8 @@
 # CLI Architecture
 
-This repository is being refactored toward an agent-first, deeply Effect-native CLI.
+The CLI is agent-first and Effect-native.
 
-## North Star
+## Principles
 
 - Thin Effect CLI command adapters from `effect/unstable/cli`
 - Explicit services and layers for runtime, output, config, state, SDK access, and workflows
@@ -119,25 +119,11 @@ Sensitive reports and deletion requests go to the private security contact.
 
 ## Agent-First Contract
 
-- Every command should have structured output.
-- Mutating commands should grow raw JSON payload input and dry-run support.
-- Read commands should grow field-selection and pagination controls.
-- Machine-readable introspection should describe command purpose and capabilities without relying on prose docs.
-- Structured renderers should redact sensitive values and mark prompt-injection-like API text as untrusted data.
-- Repo docs should explain the architecture and guardrails in formats agents can consume quickly.
-
-## Current Phase
-
-The current CLI contract already includes:
-
-- schema-backed `describe` metadata for command purpose, capabilities, flags, and raw JSON payload shapes
-- neutral automation metadata in `describe` for supported output, dry-run, raw JSON input, field-selection, streaming, and safety features
-- raw `--json` input and `--dry-run` on mutating commands
-- named auth profiles with env/default-profile selection and legacy single-token fallback
-- `--fields` on agent-relevant read commands
-- cursor-backed `--page-all` on `files list`, `files search`, `search`, and `transfers list`
-- shared hardening for field selectors and identifier-like inputs before API calls
-- structured output redaction plus `_meta.agentSafety.untrustedTextPaths` annotations for prompt-injection-like API text
-- a versioned consumer skill library in `skills/putio-cli` with surface guides for discovery, auth/device approval, reads, writes, guardrails, and OpenAI/Codex picker metadata
-
-Next architectural work can keep extracting deeper services and workflows without losing the agent-first CLI surface.
+- Schema-backed `describe` metadata covers command purpose, capabilities, flags, raw JSON payload shapes, and neutral `automation` metadata for output, dry-run, raw JSON input, field selection, streaming, and safety features, so agents do not depend on prose docs.
+- Every command has structured output.
+- Mutating commands accept raw `--json` input and `--dry-run`.
+- Agent-relevant read commands accept `--fields`; `files list`, `files search`, `search`, and `transfers list` also accept cursor-backed `--page-all`.
+- Field selectors and identifier-like inputs are hardened before API calls.
+- Named auth profiles support env and default-profile selection, with the legacy single-token config as fallback.
+- Structured renderers redact sensitive values and mark prompt-injection-like API text in `_meta.agentSafety.untrustedTextPaths`.
+- [`skills/putio-cli`](../skills/putio-cli/SKILL.md) is the versioned consumer skill, with references for discovery, auth and device approval, reads, writes, and guardrails, plus OpenAI/Codex picker metadata.
