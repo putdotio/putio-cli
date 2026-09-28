@@ -1,4 +1,4 @@
-import { Flag } from "effect/unstable/cli";
+import { Flag } from "effect/cli";
 import { Data, Effect, Option, Schema } from "effect";
 
 import type { ResolvedAuthState } from "./state.js";
@@ -23,13 +23,13 @@ import { CliRuntime } from "./runtime.js";
 import { CliSdk, sdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
 
-export const outputOption = Flag.choice("output", ["json", "text", "ndjson"] as const).pipe(
+export const outputOption = Flag.Literals("output", ["json", "text", "ndjson"] as const).pipe(
   Flag.optional,
 );
-export const dryRunOption = Flag.boolean("dry-run").pipe(Flag.withDefault(false));
-export const fieldsOption = Flag.string("fields").pipe(Flag.optional);
-export const jsonOption = Flag.string("json").pipe(Flag.optional);
-export const pageAllOption = Flag.boolean("page-all").pipe(Flag.withDefault(false));
+export const dryRunOption = Flag.Boolean("dry-run").pipe(Flag.withDefault(false));
+export const fieldsOption = Flag.String("fields").pipe(Flag.optional);
+export const jsonOption = Flag.String("json").pipe(Flag.optional);
+export const pageAllOption = Flag.Boolean("page-all").pipe(Flag.withDefault(false));
 
 export const defineBooleanOption = (
   name: string,
@@ -40,8 +40,8 @@ export const defineBooleanOption = (
 ) => {
   const option =
     options.defaultValue === undefined
-      ? Flag.boolean(name)
-      : Flag.boolean(name).pipe(Flag.withDefault(options.defaultValue));
+      ? Flag.Boolean(name)
+      : Flag.Boolean(name).pipe(Flag.withDefault(options.defaultValue));
 
   return {
     flag: booleanFlag(name, options),
@@ -87,11 +87,11 @@ export function defineIntegerOption(
   return options.optional === true
     ? {
         flag,
-        option: Flag.integer(name).pipe(Flag.optional),
+        option: Flag.Int(name).pipe(Flag.optional),
       }
     : {
         flag,
-        option: Flag.integer(name),
+        option: Flag.Int(name),
       };
 }
 
@@ -149,18 +149,18 @@ export function defineTextOption(
   if (options.defaultValue !== undefined) {
     return {
       flag,
-      option: Flag.string(name).pipe(Flag.withDefault(options.defaultValue)),
+      option: Flag.String(name).pipe(Flag.withDefault(options.defaultValue)),
     };
   }
 
   return options.optional === true
     ? {
         flag,
-        option: Flag.string(name).pipe(Flag.optional),
+        option: Flag.String(name).pipe(Flag.optional),
       }
     : {
         flag,
-        option: Flag.string(name),
+        option: Flag.String(name),
       };
 }
 
@@ -205,11 +205,11 @@ export function defineChoiceOption<const A extends ReadonlyArray<string>>(
   return options.optional === true
     ? {
         flag,
-        option: Flag.choice(name, choices).pipe(Flag.optional),
+        option: Flag.Literals(name, choices).pipe(Flag.optional),
       }
     : {
         flag,
-        option: Flag.choice(name, choices),
+        option: Flag.Literals(name, choices),
       };
 }
 
@@ -403,7 +403,7 @@ export const parseRepeatedIntegers = (
 };
 
 const parseRepeatedIntegerOption = (name: string) =>
-  Flag.string(name).pipe(
+  Flag.String(name).pipe(
     Flag.atLeast(0),
     Flag.filterMap(parseRepeatedIntegers, () => `Expected \`--${name}\` values to be integers.`),
   );
@@ -427,7 +427,7 @@ export const defineRepeatedTextOption = (
   } = {},
 ) => ({
   flag: repeatedStringFlag(name, options),
-  option: Flag.string(name).pipe(Flag.atLeast(0)),
+  option: Flag.String(name).pipe(Flag.atLeast(0)),
 });
 
 const mapInputError = (error: unknown, fallbackMessage: string) =>

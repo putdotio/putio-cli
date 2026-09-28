@@ -44,7 +44,7 @@ touches, and search `node_modules/effect/src` for anything it does not cover.
 ## Testing
 
 - Prefer in-process tests unless the process boundary is the behavior under test.
-- Add command-path coverage when the `effect/unstable/cli` command boundary changes.
+- Add command-path coverage when the `effect/cli` command boundary changes.
 - Prove command-surface changes with the built binary.
 - Finish in-scope edits, guardrails, and fixes without pausing; ask before publishing, credential-bearing release or SEA builds, and live writes against shared accounts.
 

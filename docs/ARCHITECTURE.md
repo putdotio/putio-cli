@@ -4,7 +4,7 @@ The CLI is agent-first and Effect-native.
 
 ## Principles
 
-- Thin Effect CLI command adapters from `effect/unstable/cli`
+- Thin Effect CLI command adapters from `effect/cli`
 - Explicit services and layers for runtime, output, config, state, SDK access, and workflows
 - Schema-backed request and response boundaries
 - Tagged errors for recoverable failures

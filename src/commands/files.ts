@@ -1,4 +1,4 @@
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command } from "effect/cli";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -97,10 +97,10 @@ const optionalFileIdOption = optionalFileIdConfig.option;
 const optionalFileNameOption = optionalFileNameConfig.option;
 const uploadPathOption = uploadPathConfig.option;
 const uploadFileNameOption = uploadFileNameConfig.option;
-const hlsFileIdArgument = Argument.integer("file-id");
-const startFromFileIdArgument = Argument.integer("file-id");
+const hlsFileIdArgument = Argument.Int("file-id");
+const startFromFileIdArgument = Argument.Int("file-id");
 const optionalStartFromFileIdArgument = startFromFileIdArgument.pipe(Argument.optional);
-const optionalStartFromTimeArgument = Argument.integer("seconds").pipe(Argument.optional);
+const optionalStartFromTimeArgument = Argument.Int("seconds").pipe(Argument.optional);
 
 const NonBlankStringSchema = Schema.String.check(
   Schema.makeFilter((value) =>
