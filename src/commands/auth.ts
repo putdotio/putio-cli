@@ -1,4 +1,4 @@
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command } from "effect/cli";
 import * as Terminal from "effect/Terminal";
 import { Cause, Console, Effect, Fiber, Option, Queue, Schema } from "effect";
 
@@ -69,8 +69,8 @@ const openOption = openConfig.option;
 const timeoutSecondsOption = timeoutSecondsConfig.option;
 const previewCodeOption = previewCodeConfig.option;
 const profileOption = profileConfig.option;
-const profileArgument = Argument.string("profile");
-const approveCodeArgument = Argument.string("code").pipe(Argument.optional);
+const profileArgument = Argument.String("profile");
+const approveCodeArgument = Argument.String("code").pipe(Argument.optional);
 const profileCommandArgument = stringArgument("profile", {
   description: AUTH_PROFILE_NAME_DESCRIPTION,
   required: true,

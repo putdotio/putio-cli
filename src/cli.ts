@@ -1,4 +1,4 @@
-import { CliError, Command } from "effect/unstable/cli";
+import { CliError, Command } from "effect/cli";
 import { Console, Effect, Result } from "effect";
 import packageJson from "../package.json";
 

@@ -60,7 +60,7 @@ export class CliConfig extends Context.Service<CliConfig, CliConfigService>()(
 ) {}
 
 const optionalTrimmedString = (name: string) =>
-  Config.option(Config.string(name)).pipe(
+  Config.option(Config.String(name)).pipe(
     Config.map((value) =>
       Option.flatMap(value, (raw) => {
         const trimmed = raw.trim();

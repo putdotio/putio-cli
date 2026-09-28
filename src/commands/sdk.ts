@@ -1,4 +1,4 @@
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { Console, Effect, Schema } from "effect";
 
 import { translate } from "../i18n/index.js";
