@@ -53,7 +53,7 @@ See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, an
 - `verify` is the delivery gate. It enforces the production Effect runtime boundary and dead-code checks, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
 - `pnpm exec vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
 - Prefer `pnpm exec vp install`, `pnpm exec vp test`, and `pnpm exec vp check` for day-to-day local loops.
-- Keep the exact Effect versions and the Effect override aligned with the pinned put.io SDK. The build bundles the SDK so installed CLIs and the SDK share one Effect runtime; if an SDK release depends on an Effect API the pinned runtime lacks, add a pnpm patch under `patches/` and register it in `pnpm-workspace.yaml`.
+- Keep the exact Effect versions aligned with the `effect` version the pinned put.io SDK depends on; `smoke:pack` fails if the packed install resolves more than one. The build bundles the SDK so installed CLIs and the SDK share one Effect runtime; if an SDK release depends on an Effect API the pinned runtime lacks, add a pnpm patch under `patches/` and register it in `pnpm-workspace.yaml`.
 - Doc placement rules: [Development Guidance in AGENTS.md](AGENTS.md#development-guidance).
 
 ## Pull Requests

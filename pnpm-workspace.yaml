@@ -1,5 +1,4 @@
 overrides:
-  effect: 4.0.0
   vite: "catalog:"
   vitest: "catalog:"
 
@@ -20,7 +19,7 @@ minimumReleaseAgeExclude:
   - effect@4.0.0
   - knip@6.31.0
   - "@uinaf/skillcheck@0.4.0"
-  - "@putdotio/sdk@11.4.2"
+  - "@putdotio/sdk@11.5.1"
   - "@voidzero-dev/vite-plus-core@1.0.0"
   - "@voidzero-dev/vite-plus-darwin-arm64@1.0.0"
   - "@voidzero-dev/vite-plus-darwin-x64@1.0.0"
