@@ -172,7 +172,6 @@ catalogs:
       version: 1.0.0
 
 overrides:
-  effect: 4.0.0
   vite: npm:@voidzero-dev/vite-plus-core@1.0.0
   vitest: 5.0.1
 
@@ -203,8 +202,8 @@ importers:
         specifier: 4.0.0
         version: 4.0.0(effect@4.0.0)(vitest@5.0.1)
       '@putdotio/sdk':
-        specifier: 11.4.2
-        version: 11.4.2
+        specifier: 11.5.1
+        version: 11.5.1
       '@types/node':
         specifier: ^26.1.0
         version: 26.1.2
@@ -625,19 +624,19 @@ packages:
     resolution: {integrity: sha512-VBXHJU9UXVZPdQGGDRjGXpo+TpOzRwZuMrdKAtIxi1qwcRftmacZ1zTgIrzBa0Z2RA2KVkoOecQUsTlt/nJZhw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: 4.0.0
+      effect: ^4.0.0
 
   '@effect/platform-node@4.0.0':
     resolution: {integrity: sha512-/L+4MUbl8FejPKLHLROYSOebvHnfixkP8KiblSD/DE5uH5xENZBHaux4nH6XMnRP+lr8ajpEJFS8sUrmmxFJeQ==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: 4.0.0
+      effect: ^4.0.0
       redis: '>=5.0.0 <7.0.0'
 
   '@effect/vitest@4.0.0':
     resolution: {integrity: sha512-kGElCPFGtP+CgMCwV/HjJWqtE3zYo6I1+8MSA54l+EI24lPU9p2Efa+TBp1jfkg9j711KKzEqgSAy3VzTsb76Q==}
     peerDependencies:
-      effect: 4.0.0
+      effect: ^4.0.0
       vitest: 5.0.1
 
   '@emnapi/core@1.11.2':
@@ -2181,8 +2180,8 @@ packages:
   '@protobufjs/utf8@1.1.2':
     resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
 
-  '@putdotio/sdk@11.4.2':
-    resolution: {integrity: sha512-JIibbEiw48Y2yTGLemSPiOgTEbEI2aXyYDmo+Jf7EwYa68MMJ/s0VeIoT1RuhFIKsCrM1F0YhQuAB54rwR3IPg==}
+  '@putdotio/sdk@11.5.1':
+    resolution: {integrity: sha512-k8095J88hrhMSYcQmXq3eemQYzKvGBUmO/zQscoulaPcobNE0z28mvaJTv8fh1K0TRPOj2WLpcm/DO1U96XNjQ==}
     engines: {node: '>=24.19.0'}
 
   '@redis/bloom@5.12.1':
@@ -7188,7 +7187,7 @@ snapshots:
   '@protobufjs/utf8@1.1.2':
     optional: true
 
-  '@putdotio/sdk@11.4.2':
+  '@putdotio/sdk@11.5.1':
     dependencies:
       effect: 4.0.0
 
