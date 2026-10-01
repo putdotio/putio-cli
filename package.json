@@ -52,7 +52,7 @@
   "dependencies": {
     "@effect/platform-node": "4.0.0",
     "@effect/platform-node-shared": "4.0.0",
-    "@sentry/core": "10.70.0",
+    "@sentry/core": "11.1.0",
     "cli-table3": "^0.6.5",
     "effect": "4.0.0",
     "i18next": "^26.3.4"
@@ -61,7 +61,7 @@
     "@effect/vitest": "4.0.0",
     "@putdotio/sdk": "11.5.1",
     "@types/node": "^26.1.0",
-    "@uinaf/skillcheck": "0.4.0",
+    "@uinaf/skillcheck": "1.5.0",
     "@vitest/coverage-v8": "catalog:",
     "esbuild": "^0.28.1",
     "knip": "6.31.0",
