@@ -32,6 +32,7 @@ const parseJsonOutput = (value: string) => JSON.parse(value) as Record<string, u
 type CliRunOptions = {
   readonly configContents?: string;
   readonly env?: Record<string, string>;
+  readonly isSingleExecutable?: boolean;
 };
 
 const runProcessArgv = async (
@@ -71,6 +72,7 @@ const runProcessArgv = async (
                 makeCliRuntime({
                   argv: processArgv,
                   homeDirectory: configDir,
+                  isSingleExecutable: options.isSingleExecutable,
                   writeStdout: (message) => {
                     stdoutChunks.push(message.trim());
                   },
@@ -157,6 +159,16 @@ describe("cli argv parsing", () => {
 
     expect(result._tag).toBe("Success");
     expect(stdout).toBe(`putio v${packageJson.version}`);
+  });
+
+  it("accepts SEA argv regardless of the executable name", async () => {
+    const { result, stdout } = await runProcessArgv(
+      ["/opt/putio/bin/putio-darwin-arm64", "./putio-darwin-arm64", "version", "--output", "json"],
+      { isSingleExecutable: true },
+    );
+
+    expect(result._tag).toBe("Success");
+    expect(parseJsonOutput(stdout)).toMatchObject({ version: packageJson.version });
   });
 
   it("renders describe as machine-readable json", async () => {

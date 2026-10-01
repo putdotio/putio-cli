@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { homedir, hostname } from "node:os";
 import { dirname, join } from "node:path";
+import { isSea } from "node:sea";
 
 import { Context, Effect, Layer } from "effect";
 
@@ -11,6 +12,7 @@ type CliSpinner = {
 export type CliRuntimeService = {
   readonly argv: ReadonlyArray<string>;
   readonly isInteractiveTerminal: boolean;
+  readonly isSingleExecutable: boolean;
   readonly setExitCode: (code: number) => Effect.Effect<void>;
   readonly writeStdout: (message: string) => Effect.Effect<void>;
   readonly writeStderr: (message: string) => Effect.Effect<void>;
@@ -121,6 +123,7 @@ export const makeCliRuntime = (
   options: {
     readonly argv?: ReadonlyArray<string>;
     readonly isInteractiveTerminal?: boolean;
+    readonly isSingleExecutable?: boolean;
     readonly platform?: NodeJS.Platform;
     readonly homeDirectory?: string;
     readonly hostName?: string;
@@ -134,11 +137,13 @@ export const makeCliRuntime = (
   const hostName = options.hostName ?? hostname();
   const isInteractiveTerminal =
     options.isInteractiveTerminal ?? Boolean(process.stdout.isTTY && process.stdin.isTTY);
+  const isSingleExecutable = options.isSingleExecutable ?? isSea();
   const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
   return {
     argv,
     isInteractiveTerminal,
+    isSingleExecutable,
     setExitCode: (code) =>
       Effect.sync(() => {
         process.exitCode = code;

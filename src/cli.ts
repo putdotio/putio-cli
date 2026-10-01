@@ -127,14 +127,15 @@ const stripLeadingPutioExecutables = (args: ReadonlyArray<string>) => {
   return args.slice(start);
 };
 
-const commandArgsFromArgv = (args: ReadonlyArray<string>) => {
+const commandArgsFromArgv = (args: ReadonlyArray<string>, isSingleExecutable: boolean) => {
   const [first] = args;
 
   if (first === undefined) {
     return args;
   }
 
-  if (isNodeExecutable(first)) {
+  // A single executable application puts its own path in argv[0] and the invoked name in argv[1].
+  if (isSingleExecutable || isNodeExecutable(first)) {
     return stripLeadingPutioExecutables(args.slice(2));
   }
 
@@ -160,7 +161,7 @@ export const runCli: (
   });
   const runtime = yield* CliRuntime;
   const outputMode = detectOutputModeFromArgv(args, runtime.isInteractiveTerminal);
-  const commandArgs = commandArgsFromArgv(args);
+  const commandArgs = commandArgsFromArgv(args, runtime.isSingleExecutable);
 
   yield* Effect.annotateCurrentSpan({
     "cli.command": commandArgs[0] ?? "root",
