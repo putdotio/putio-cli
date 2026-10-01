@@ -18,6 +18,7 @@ const mockRuntime: CliRuntimeService = {
   getHomeDirectory: Effect.succeed("/tmp"),
   getHostname: Effect.succeed("putio-host"),
   isInteractiveTerminal: false,
+  isSingleExecutable: false,
   joinPath: (...segments) => segments.join("/"),
   openExternal: (_url) => Effect.succeed(true),
   setExitCode: (_code) => Effect.void,
