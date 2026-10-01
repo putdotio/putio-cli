@@ -49,6 +49,11 @@ type NpmPackageInventoryEntry = {
 
 const root = process.cwd();
 const artifactsDir = join(root, ".artifacts");
+const expectedEffectVersion = (
+  JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+    readonly dependencies: { readonly effect: string };
+  }
+).dependencies.effect;
 let installDir: string;
 let configPath: string;
 const commandTimeoutMs = 120_000;
@@ -702,8 +707,8 @@ try {
     entry.version === undefined ? [] : [entry.version],
   );
   assert(
-    effectVersions.length === 1 && effectVersions[0] === "4.0.0",
-    `Expected the package to install one Effect 4.0.0 runtime, received ${effectVersions.join(", ")}.`,
+    effectVersions.length === 1 && effectVersions[0] === expectedEffectVersion,
+    `Expected the package to install one Effect ${expectedEffectVersion} runtime, received ${effectVersions.join(", ")}.`,
   );
 
   const mockApi = startMockApi();
