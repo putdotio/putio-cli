@@ -109,8 +109,10 @@ fail when that value is missing or invalid. The DSN remains a public project-rou
 the resulting artifacts; Sentry auth and admin tokens remain outside the repository and release
 artifacts. The `frontend` team owns the project and manual support path. Events inherit the put.io
 Sentry organization's current retention contract and are used only for debugging, not product
-analysis. Removal requests go through the private contact in SECURITY.md; `putio telemetry disable`
-prevents future events but does not itself delete an already delivered event.
+analysis. Removal requests go through the private contact in the
+[put.io security policy](https://github.com/putdotio/.github/blob/main/SECURITY.md);
+`putio telemetry disable` prevents future events but does not itself delete an already delivered
+event.
 
 Local diagnosis should use the CLI version, installation method, operating-system name,
 interactive/CI/non-interactive context, command name and output mode, and the smallest useful

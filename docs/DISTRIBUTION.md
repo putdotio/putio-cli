@@ -58,7 +58,7 @@ publication.
 ## Package Contents
 
 The npm package includes `dist`, `README.md`, `docs`, `skills`, `AGENTS.md`,
-`CONTRIBUTING.md`, and `SECURITY.md`. The distributed `skills/putio-cli`
+and `CONTRIBUTING.md`. The distributed `skills/putio-cli`
 library is part of the public package contract so consuming repos and agents can
 install the same guidance that maintainers use from git.
 
