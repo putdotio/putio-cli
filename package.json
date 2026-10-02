@@ -20,7 +20,6 @@
     "CONTRIBUTING.md",
     "dist",
     "docs",
-    "SECURITY.md",
     "skills"
   ],
   "type": "module",
