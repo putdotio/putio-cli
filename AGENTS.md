@@ -44,11 +44,11 @@ touches, and search `node_modules/effect/src` for anything it does not cover.
 
 ## Hazards
 
-- The built binary uses the real auth in `~/.config/putio/config.json` (or under `XDG_CONFIG_HOME`). `describe` and `whoami` only read; file, transfer, and upload commands change that real account. Point `PUTIO_CLI_CONFIG_PATH` at a scratch file for isolated state.
+- The built binary authenticates with `PUTIO_CLI_TOKEN` when it is set, otherwise with the profile in `~/.config/putio/config.json` (or under `XDG_CONFIG_HOME`). `describe` and `whoami` only read; file, transfer, and upload commands change that real account. For isolated state, unset `PUTIO_CLI_TOKEN` and point `PUTIO_CLI_CONFIG_PATH` at a scratch file.
 
 ## Delivery
 
-Pull requests squash-merge to `main`. A push to `main` runs `verify`; when the commits since the last release include `feat`, `fix`, `perf`, or a breaking change, semantic-release publishes `@putdotio/cli` to npm, attaches the standalone binaries to the GitHub Release, and updates the `putdotio/homebrew-tap` formula. `docs`, `chore`, `test`, and `ci` release nothing. `install.sh` on `main` is the live installer that `curl | sh` users fetch, so a merge changes it at once. Partial-release recovery: [Distribution](docs/DISTRIBUTION.md#recover).
+Pull requests squash-merge to `main`. A push to `main` runs `verify`; when the commits since the last release include `feat`, `fix`, `perf`, a revert, or a breaking change, semantic-release publishes `@putdotio/cli` to npm, attaches the standalone binaries to the GitHub Release, and updates the `putdotio/homebrew-tap` formula. `docs`, `chore`, `test`, and `ci` release nothing. `install.sh` on `main` is the live installer that `curl | sh` users fetch, so a merge changes it at once. Partial-release recovery: [Distribution](docs/DISTRIBUTION.md#recover).
 
 ## Skills
 
