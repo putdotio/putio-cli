@@ -242,8 +242,10 @@ jobs:
 
       - name: Package release assets
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
         run: |
-          $version = "${{ needs.release.outputs.release_version }}"
+          $version = $env:RELEASE_VERSION
           $assetBase = "putio-cli-$version-${{ matrix.asset_os }}-${{ matrix.asset_arch }}"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -322,8 +324,10 @@ jobs:
 
       - name: Package release assets
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
         run: |
-          $version = "${{ needs.release.outputs.release_version }}"
+          $version = $env:RELEASE_VERSION
           $assetBase = "putio-cli-$version-windows-amd64"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
