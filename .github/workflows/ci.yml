@@ -265,13 +265,11 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
-        with:
-          token: ${{ steps.release-bot.outputs.token }}
-          tag_name: ${{ needs.release.outputs.release_tag }}
-          draft: true
-          files: |
-            .artifacts/release/*
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.release-bot.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" .artifacts/release/* --repo "$GITHUB_REPOSITORY" --clobber
 
   build-windows-binary:
     if: needs.release.outputs.release_state == 'draft'
@@ -342,13 +340,11 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
-        with:
-          token: ${{ steps.release-bot.outputs.token }}
-          tag_name: ${{ needs.release.outputs.release_tag }}
-          draft: true
-          files: |
-            .artifacts/release/*
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.release-bot.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" .artifacts/release/* --repo "$GITHUB_REPOSITORY" --clobber
 
   finalize-release:
     if: >-
