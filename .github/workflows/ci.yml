@@ -79,8 +79,8 @@ jobs:
         id: release-bot
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          client-id: ${{ vars.PUTIO_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PUTIO_CI_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-issues: write
           permission-pull-requests: write
@@ -215,8 +215,8 @@ jobs:
         id: release-bot
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          client-id: ${{ vars.PUTIO_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PUTIO_CI_APP_PRIVATE_KEY }}
           permission-contents: write
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -292,8 +292,8 @@ jobs:
         id: release-bot
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          client-id: ${{ vars.PUTIO_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PUTIO_CI_APP_PRIVATE_KEY }}
           permission-contents: write
       - name: Preserve LF patch files
         shell: pwsh
@@ -381,8 +381,8 @@ jobs:
         id: release-bot
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          client-id: ${{ vars.PUTIO_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PUTIO_CI_APP_PRIVATE_KEY }}
           permission-contents: write
 
       - name: Verify asset manifest and finalize release
@@ -428,8 +428,8 @@ jobs:
         id: homebrew-release-bot
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          client-id: ${{ vars.PUTIO_RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.PUTIO_RELEASE_BOT_PRIVATE_KEY }}
+          client-id: ${{ vars.PUTIO_CI_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PUTIO_CI_APP_PRIVATE_KEY }}
           owner: putdotio
           repositories: |
             putio-cli
