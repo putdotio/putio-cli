@@ -242,8 +242,10 @@ jobs:
 
       - name: Package release assets
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
         run: |
-          $version = "${{ needs.release.outputs.release_version }}"
+          $version = $env:RELEASE_VERSION
           $assetBase = "putio-cli-$version-${{ matrix.asset_os }}-${{ matrix.asset_arch }}"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -263,13 +265,11 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
-        with:
-          token: ${{ steps.release-bot.outputs.token }}
-          tag_name: ${{ needs.release.outputs.release_tag }}
-          draft: true
-          files: |
-            .artifacts/release/*
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.release-bot.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" .artifacts/release/* --repo "$GITHUB_REPOSITORY" --clobber
 
   build-windows-binary:
     if: needs.release.outputs.release_state == 'draft'
@@ -322,8 +322,10 @@ jobs:
 
       - name: Package release assets
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ needs.release.outputs.release_version }}
         run: |
-          $version = "${{ needs.release.outputs.release_version }}"
+          $version = $env:RELEASE_VERSION
           $assetBase = "putio-cli-$version-windows-amd64"
           $releaseDir = ".artifacts/release"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -338,13 +340,11 @@ jobs:
         run: Get-ChildItem .artifacts/release
 
       - name: Upload binary assets to the GitHub release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
-        with:
-          token: ${{ steps.release-bot.outputs.token }}
-          tag_name: ${{ needs.release.outputs.release_tag }}
-          draft: true
-          files: |
-            .artifacts/release/*
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.release-bot.outputs.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" .artifacts/release/* --repo "$GITHUB_REPOSITORY" --clobber
 
   finalize-release:
     if: >-
@@ -452,7 +452,7 @@ jobs:
           echo "user_id=${user_id}" >> "$GITHUB_OUTPUT"
 
       - name: Release to Homebrew tap
-        uses: Justintime50/homebrew-releaser@454cc0d45a99949c9ea0bd9f03e6309df1617628 # v3
+        uses: Justintime50/homebrew-releaser@454cc0d45a99949c9ea0bd9f03e6309df1617628 # v4.0.0
         with:
           homebrew_owner: putdotio
           homebrew_tap: homebrew-tap

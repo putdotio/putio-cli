@@ -1,0 +1,6 @@
+# RFC 6238 TOTP test-vector secret ("12345678901234567890" in base32), published in the RFC.
+5fd541504783ecb5c77b405777af09a67fb3d3ce:src/internal/totp.test.ts:generic-api-key:6
+5fd541504783ecb5c77b405777af09a67fb3d3ce:src/internal/totp.test.ts:generic-api-key:36
+
+# Placeholder Sentry key (0-9a-f twice) in the fixture DSN for org o1, project 123.
+17cf2fe9eb269a6d11d97e80cc50603a3bafae1f:src/internal/crash-reporting.test.ts:generic-api-key:477
