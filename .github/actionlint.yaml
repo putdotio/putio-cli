@@ -3,3 +3,6 @@ paths:
     ignore:
       # actionlint 1.7.12 predates the `queue` concurrency key.
       - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/backfill-release-assets.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'
