@@ -12,9 +12,14 @@ on:
         required: false
         type: string
 
+# Pull request runs cancel superseded runs. Push and dispatch runs share one
+# group so release jobs never overlap, and queue every pending run instead of
+# replacing it, so each pushed range is scanned. GitHub rejects `queue: max`
+# with `cancel-in-progress: true`, so both follow the event.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  queue: ${{ github.event_name == 'pull_request' && 'single' || 'max' }}
 
 permissions: {}
 
@@ -31,7 +36,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Vite+
