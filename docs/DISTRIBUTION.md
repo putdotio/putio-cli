@@ -57,7 +57,8 @@ GitHub Release state:
 
 An unavailable expected Release fails closed. Use the manual `Backfill Release
 Assets` workflow only for an older published release created before draft-first
-publication.
+publication. It shares CI's concurrency group on `main`, so it never runs
+alongside a push or dispatch run there.
 
 ## Package Contents
 

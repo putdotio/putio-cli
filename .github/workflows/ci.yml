@@ -15,7 +15,8 @@ on:
 # Pull request runs cancel superseded runs. Push and dispatch runs share one
 # group so release jobs never overlap, and queue every pending run instead of
 # replacing it, so each pushed range is scanned. GitHub rejects `queue: max`
-# with `cancel-in-progress: true`, so both follow the event.
+# with `cancel-in-progress: true`, so both follow the event. Backfill Release
+# Assets joins the main group by name; keep the two in step.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

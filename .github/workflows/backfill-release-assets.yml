@@ -8,6 +8,14 @@ on:
         required: true
         type: string
 
+# Join CI's push and dispatch group on main, so a backfill never uploads while
+# a release run builds, uploads, or reconciles the Homebrew tap. Queue like
+# those runs, so neither side replaces the other's pending run.
+concurrency:
+  group: ci-CI-refs/heads/main
+  cancel-in-progress: false
+  queue: max
+
 permissions: {}
 
 jobs:
