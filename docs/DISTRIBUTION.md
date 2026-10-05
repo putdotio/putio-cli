@@ -44,8 +44,10 @@ The release-bot remote is configured only after dependencies are installed and t
 ## Recover
 
 After a partial release failure, dispatch `CI` from current `main` with the
-exact existing tag. The release job validates that tag against `main` and reads
-its exact GitHub Release state:
+exact existing tag. Before it mints the release bot token, the release job
+checks that the tag is on `main` and not older than the newest stable release,
+so recovery cannot roll the Homebrew formula back. It then reads the tag's exact
+GitHub Release state:
 
 - a draft rebuilds and replaces its binary assets, verifies all six names, and
   publishes once

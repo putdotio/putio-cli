@@ -84,6 +84,37 @@ jobs:
       release_version: ${{ steps.release-target.outputs.version }}
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate requested release tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          tag="$REQUESTED_RELEASE_TAG"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "unsupported release tag: $tag" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "refs/tags/$tag" HEAD; then
+            echo "release tag is not on main: $tag" >&2
+            exit 1
+          fi
+
+          # The Homebrew job writes this tag to the tap, so only the newest
+          # stable release or a newer draft may pass.
+          newest="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases -L1 --json tagName --jq '.[0].tagName // empty')"
+          if [[ -n "$newest" && "$tag" != "$newest" && "$(printf '%s\n' "$newest" "$tag" | sort -V | tail -n1)" != "$tag" ]]; then
+            echo "release tag $tag is older than the newest stable release $newest" >&2
+            exit 1
+          fi
+
       - name: Create release bot token
         id: release-bot
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -107,11 +138,6 @@ jobs:
             exit 1
           fi
           echo "user_id=${user_id}" >> "$GITHUB_OUTPUT"
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: Set up Vite+
         uses: ./.github/actions/setup-vp
