@@ -6,6 +6,8 @@ Every merge to `main` should already be releasable.
 
 GitHub Actions owns npm publishing, GitHub Releases, release assets, and Homebrew tap updates. [`ci.yml`](../.github/workflows/ci.yml) runs `vp run verify` (which includes `smoke:pack`) on the secretless job, then `vp run build` and `semantic-release` on the `release` job.
 
+The `verify` job ends with the shared [links and scan actions](https://github.com/putdotio/.github#actionsscan): an offline check of relative Markdown links and anchors on every run, and Actionlint and Zizmor when a push to `main` changes `.github/`. GitHub secret scanning and push protection cover secrets in this public repository. Dispatch `CI` without a tag to verify and lint every workflow without touching a release.
+
 semantic-release publishes npm, writes the version tag, and creates a draft
 GitHub Release. Binary jobs build from that exact tag and upload all six archive
 and checksum assets while the Release is mutable. A final job verifies the exact
