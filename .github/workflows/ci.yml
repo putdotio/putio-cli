@@ -39,7 +39,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: ./.github/actions/setup-vp
+        uses: ./.github/actions/setup-vp # zizmor: ignore[self-repository]
         with:
           node-version-file: ".node-version"
           cache: true
@@ -140,7 +140,7 @@ jobs:
           echo "user_id=${user_id}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Vite+
-        uses: ./.github/actions/setup-vp
+        uses: ./.github/actions/setup-vp # zizmor: ignore[self-repository]
         with:
           node-version-file: ".node-version"
           cache: false
@@ -261,7 +261,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: ./.github/actions/setup-vp
+        uses: ./.github/actions/setup-vp # zizmor: ignore[self-repository]
         with:
           node-version-file: ".node-version"
           cache: false
@@ -341,7 +341,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Vite+
-        uses: ./.github/actions/setup-vp
+        uses: ./.github/actions/setup-vp # zizmor: ignore[self-repository]
         with:
           node-version-file: ".node-version"
           cache: false
