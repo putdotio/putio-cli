@@ -1,6 +1,7 @@
 overrides:
   vite: "catalog:"
   vitest: "catalog:"
+  "@putdotio/sdk>effect": "$effect"
 
 allowBuilds:
   "@parcel/watcher": true
@@ -18,8 +19,8 @@ minimumReleaseAgeExclude:
   - "@putdotio/sdk@13.0.0"
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.1.0
-  vitest: 5.0.4
-  "@vitest/coverage-v8": 5.0.4
+  vitest: 5.0.3
+  "@vitest/coverage-v8": 5.0.3
   vite-plus: 1.1.0
 peerDependencyRules:
   allowAny:
