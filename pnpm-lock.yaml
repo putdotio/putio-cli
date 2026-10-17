@@ -197,14 +197,14 @@ importers:
         version: 4.0.4
       i18next:
         specifier: ^26.3.4
-        version: 26.4.4(typescript@7.0.2)
+        version: 26.4.5(typescript@7.0.2)
     devDependencies:
       '@effect/vitest':
         specifier: 4.0.4
         version: 4.0.4(effect@4.0.4)(vitest@5.0.4)
       '@putdotio/sdk':
-        specifier: 13.0.0
-        version: 13.0.0
+        specifier: 13.1.0
+        version: 13.1.0
       '@types/node':
         specifier: ^26.1.0
         version: 26.6.5
@@ -2176,8 +2176,8 @@ packages:
   '@protobufjs/utf8@1.1.2':
     resolution: {integrity: sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==}
 
-  '@putdotio/sdk@13.0.0':
-    resolution: {integrity: sha512-APpYeGYEXg+IQlD61Npt2hlOQObovIB1ytBEcgJ8i1XgjuhO/nvo/9TLmadujqeX3sAo54kEf66Y3eC93aa5YA==}
+  '@putdotio/sdk@13.1.0':
+    resolution: {integrity: sha512-OrtH9FUlDJeTRVA8UWNopr+JGqB4aXngmNWOkTWhsRi9NdmvLD/wtskDnV+fh5xrThQeeMJldz6PbIA8xC6nQw==}
     engines: {node: '>=24.19.0'}
 
   '@redis/bloom@5.12.1':
@@ -3831,8 +3831,8 @@ packages:
     resolution: {integrity: sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ==}
     engines: {node: '>=18.18.0'}
 
-  i18next@26.4.4:
-    resolution: {integrity: sha512-O+rqmQUi54OwAgnZ4SAwO6aRrbXZt36VZXWt6zvq0FpC3vJbH46oQRs6u4Uwm1vf8ZI7UqOXQiJhQVTor7vRiQ==}
+  i18next@26.4.5:
+    resolution: {integrity: sha512-CY9xqbWNQ+eLGDhFX3eNl1kDO1amJixszVKjC4Nd0tvfxUFLKqarN0VUHRt+2b88U7bkNIhnL84dRKQ5mFI+fg==}
     peerDependencies:
       typescript: ^5 || ^6 || ^7
     peerDependenciesMeta:
@@ -7183,7 +7183,7 @@ snapshots:
   '@protobufjs/utf8@1.1.2':
     optional: true
 
-  '@putdotio/sdk@13.0.0':
+  '@putdotio/sdk@13.1.0':
     dependencies:
       effect: 4.0.4
 
@@ -8858,7 +8858,7 @@ snapshots:
   human-signals@8.0.1:
     optional: true
 
-  i18next@26.4.4(typescript@7.0.2):
+  i18next@26.4.5(typescript@7.0.2):
     optionalDependencies:
       typescript: 7.0.2
 
