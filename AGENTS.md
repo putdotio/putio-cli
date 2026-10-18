@@ -3,8 +3,8 @@
 ## Repo
 
 - Standalone TypeScript package for the put.io CLI, `@putdotio/cli` with the `putio` binary; people and agents use it from npm, Homebrew, and standalone binaries
-- Main code lives in `src/*`; layer rules in [Architecture](docs/ARCHITECTURE.md)
-- Durable docs live in `docs/*`; release wiring in [Distribution](docs/DISTRIBUTION.md)
+- Main code lives in `src/*`; layer rules in [Architecture](docs/architecture.md)
+- Durable docs live in `docs/*`; release wiring in [Distribution](docs/distribution.md)
 - Consumer-facing skills live in `skills/*`
 - Contributor setup and validation in [Contributing](CONTRIBUTING.md)
 
@@ -48,7 +48,7 @@ touches, and search `node_modules/effect/src` for anything it does not cover.
 
 ## Delivery
 
-Pull requests squash-merge to `main`. A push to `main` runs `verify`; when the commits since the last release include `feat`, `fix`, `perf`, a revert, or a breaking change, semantic-release publishes `@putdotio/cli` to npm, attaches the standalone binaries to the GitHub Release, and updates the `putdotio/homebrew-tap` formula. `docs`, `chore`, `test`, and `ci` release nothing. `install.sh` on `main` is the live installer that `curl | sh` users fetch, so a merge changes it at once. Partial-release recovery: [Distribution](docs/DISTRIBUTION.md#recover).
+Pull requests squash-merge to `main`. A push to `main` runs `verify`; when the commits since the last release include `feat`, `fix`, `perf`, a revert, or a breaking change, semantic-release publishes `@putdotio/cli` to npm, attaches the standalone binaries to the GitHub Release, and updates the `putdotio/homebrew-tap` formula. `docs`, `chore`, `test`, and `ci` release nothing. `install.sh` on `main` is the live installer that `curl | sh` users fetch, so a merge changes it at once. Partial-release recovery: [Distribution](docs/distribution.md#recover).
 
 ## Skills
 

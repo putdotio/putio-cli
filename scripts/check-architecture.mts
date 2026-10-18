@@ -22,7 +22,7 @@ for (const file of files) {
     process.stderr.write(
       `${file}:${index + 1}: Effect.run* is forbidden in production modules. ` +
         "Return the Effect and execute it through NodeRuntime.runMain in src/bin.ts or src/sea.ts. " +
-        "See docs/ARCHITECTURE.md.\n",
+        "See docs/architecture.md.\n",
     );
   }
 }

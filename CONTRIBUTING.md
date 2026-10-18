@@ -46,7 +46,7 @@ Focused checks are listed under [Commands in AGENTS.md](AGENTS.md#commands).
 
 ## Release Publishing
 
-See [Distribution](docs/DISTRIBUTION.md) for release automation, credentials, and binary asset publishing.
+See [Distribution](docs/distribution.md) for release automation, credentials, and binary asset publishing.
 
 ## Development Notes
 

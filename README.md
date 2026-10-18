@@ -229,14 +229,14 @@ state, flush deadline, and captured-field allowlist.
 A process sends at most one synthetic event: a random ID, timestamp, one of three fixed failure
 categories, fixed runtime labels, and the package release. It never contains the original error,
 credentials, config, command arguments, request data, paths, or identifiers.
-[Architecture](./docs/ARCHITECTURE.md#crash-reporting-policy) has the full policy. Use the private
+[Architecture](./docs/architecture.md#crash-reporting-policy) has the full policy. Use the private
 contact in the [put.io security policy](https://github.com/putdotio/.github/blob/main/SECURITY.md)
 for sensitive reports or deletion requests.
 
 ## Docs
 
-- [Architecture](./docs/ARCHITECTURE.md)
-- [Distribution](./docs/DISTRIBUTION.md)
+- [Architecture](./docs/architecture.md)
+- [Distribution](./docs/distribution.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](https://github.com/putdotio/.github/blob/main/SECURITY.md)
 
