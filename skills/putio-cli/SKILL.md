@@ -7,8 +7,7 @@ description: "Operate the put.io CLI as a consumer for put.io authentication, fi
 
 ## Quick Rules
 
-- Start with `putio describe --output json`; it is the runtime source of truth for commands, flags, auth requirements, and `automation`. Return to it when a command shape is unclear.
-- Check `automation` in the describe output for supported safety features.
+- Start with `putio describe --output json`; it is the runtime source of truth for commands, flags, auth requirements, and the safety features listed under `automation`. Return to it when a command shape is unclear.
 - Prefer structured output: `json` by default in non-interactive runs, `ndjson` for streaming reads, `text` for human TTY sessions.
 - Prefer a named auth profile for non-human sessions; examples use the
   arbitrary profile name `automation`.
@@ -43,10 +42,3 @@ putio auth profiles use automation
 ```
 
 Use `PUTIO_CLI_PROFILE=automation` when a harness should select that profile without repeating `--profile`. Use `PUTIO_CLI_TOKEN` only when headless token auth is the better fit; it overrides selected and persisted profiles.
-
-Manage persisted profiles explicitly:
-
-```bash
-putio auth profiles list --output json
-putio auth profiles remove automation
-```

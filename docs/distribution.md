@@ -23,7 +23,7 @@ Environment entries:
 - secrets: `PUTIO_CI_APP_PRIVATE_KEY`
 - variables: `PUTIO_CI_APP_CLIENT_ID`, `PUTIO_CLI_SENTRY_DSN`
 - approval: none; releases are continuous after the `main` gate passes
-- refs: release branch/tag policy constrains what can publish
+- refs: only `main` can use it
 - deployment records: disabled with `deployment: false` because this is package publishing, not an app deploy
 
 `PUTIO_CLI_SENTRY_DSN` is a public routing key rather than an administration secret. The workflow
@@ -62,20 +62,10 @@ alongside a push or dispatch run there.
 
 ## Package Contents
 
-The npm package includes `dist`, `README.md`, `docs`, `skills`, `AGENTS.md`,
-and `CONTRIBUTING.md`. The distributed `skills/putio-cli`
-library is part of the public package contract so consuming repos and agents can
-install the same guidance that maintainers use from git.
+The `files` list in [`package.json`](../package.json) sets the npm package
+contents. `skills/putio-cli` ships in it on purpose: consuming repos and agents
+install the same guidance maintainers use from git.
 
 The build bundles the pinned put.io SDK into `dist`.
 Effect remains a package dependency so the CLI and its bundled SDK execute on
 the same installed Effect runtime.
-
-## Local Checks
-
-Before changing distribution wiring, run the guardrails the workflow depends on:
-
-```bash
-pnpm exec vp install
-pnpm exec vp run verify
-```

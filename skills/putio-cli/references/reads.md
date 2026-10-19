@@ -43,7 +43,6 @@ Current streaming-friendly commands:
 
 Notes:
 
-- `--fields` is only for top-level response keys.
 - `--fields` requires structured output.
 - `events list` supports `--fields`, but not `--page-all`.
 - `files start-from get` returns `file_id` and `start_from` in seconds.

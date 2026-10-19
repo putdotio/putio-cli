@@ -1,7 +1,5 @@
 # Contributing
 
-Thanks for contributing to `putio-cli`.
-
 ## Setup
 
 Use the Node version required by [`package.json`](./package.json), then install dependencies:
@@ -10,7 +8,7 @@ Use the Node version required by [`package.json`](./package.json), then install 
 pnpm exec vp install
 ```
 
-Then install the stock VitePlus hook wiring for this clone:
+Install the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI:
 
 ```bash
 pnpm exec vp config
@@ -39,8 +37,8 @@ Run the main repository gate before opening or updating a pull request:
 pnpm exec vp run verify
 ```
 
-Use the repo-local Vite+ binary for test-bearing commands so the runner and
-`vite-plus/test` imports share one Vitest runtime.
+Run tests through the repo-local Vite+ binary (`pnpm exec vp test`) so the
+runner and `vite-plus/test` imports share one Vitest runtime.
 
 Focused checks are listed under [Commands in AGENTS.md](AGENTS.md#commands).
 
@@ -51,8 +49,6 @@ See [Distribution](docs/distribution.md) for release automation, credentials, an
 ## Development Notes
 
 - `verify` is the delivery gate. It enforces the production Effect runtime boundary and dead-code checks, exercises the packed CLI through success and failure paths, and writes the smoke report to `.artifacts/smoke-packed-install.json`.
-- `pnpm exec vp config` installs the tracked pre-commit and pre-push hooks; pre-push runs the same `verify` gate as CI.
-- Prefer `pnpm exec vp install`, `pnpm exec vp test`, and `pnpm exec vp check` for day-to-day local loops.
 - Keep the exact Effect versions aligned with the `effect` version the pinned put.io SDK depends on; `smoke:pack` fails if the packed install resolves more than one. The build bundles the SDK so installed CLIs and the SDK share one Effect runtime; if an SDK release depends on an Effect API the pinned runtime lacks, add a pnpm patch under `patches/` and register it in `pnpm-workspace.yaml`.
 - Doc placement rules: [Development Guidance in AGENTS.md](AGENTS.md#development-guidance).
 

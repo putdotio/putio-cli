@@ -1,12 +1,7 @@
 # Auth
 
-Check auth state first:
-
-```bash
-putio auth status --profile automation --output json
-```
-
-For the selected default profile or legacy token state:
+Check auth state first. Without `--profile`, `auth status` reports the default
+profile or legacy token state:
 
 ```bash
 putio auth status --output json
