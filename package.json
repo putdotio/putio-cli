@@ -49,15 +49,15 @@
     "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run skills:lint && vp run smoke:pack && vp test run --coverage"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.4",
-    "@effect/platform-node-shared": "4.0.4",
+    "@effect/platform-node": "4.0.5",
+    "@effect/platform-node-shared": "4.0.5",
     "@sentry/core": "10.76.2",
     "cli-table3": "^0.6.5",
-    "effect": "4.0.4",
+    "effect": "4.0.5",
     "i18next": "^26.3.4"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.4",
+    "@effect/vitest": "4.0.5",
     "@putdotio/sdk": "13.1.0",
     "@types/node": "^26.1.0",
     "@uinaf/skillcheck": "0.5.4",
@@ -73,7 +73,7 @@
   "engines": {
     "node": ">=24.19.0"
   },
-  "packageManager": "pnpm@12.13.0",
+  "packageManager": "pnpm@12.14.0",
   "inlinedDependencies": {
     "@putdotio/sdk": "13.1.0"
   }
