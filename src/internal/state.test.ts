@@ -1,11 +1,11 @@
-import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import { Cause, ConfigProvider, Effect, Exit, Option } from "effect";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { makeCliAppLayer } from "./app-layer.js";
 import { buildConfigPath } from "./config.js";
@@ -24,6 +24,22 @@ import {
   setTelemetryEnabled,
   useProfile,
 } from "./state.js";
+
+const tempDirectories = new Set<string>();
+
+const makeTempDirectory = async () => {
+  const directory = await mkdtemp(join(tmpdir(), "putio-cli-"));
+  tempDirectories.add(directory);
+  return directory;
+};
+
+afterEach(async () => {
+  const directories = [...tempDirectories];
+  tempDirectories.clear();
+  await Promise.all(
+    directories.map((directory) => rm(directory, { force: true, recursive: true })),
+  );
+});
 
 const makeRuntimeLayer = (homeDirectory = "/Users/tester") =>
   Effect.provide(makeCliAppLayer(makeCliRuntime({ homeDirectory })));
@@ -78,7 +94,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("writes config files with private permissions", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await Effect.runPromise(
@@ -103,7 +119,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("persists and clears the telemetry opt-out without changing auth state", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
     await writeFile(
       configPath,
@@ -179,7 +195,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("exposes persisted-state operations through the CliState service", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     const result = await Effect.runPromise(
@@ -233,7 +249,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("returns null when no persisted config exists", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "missing.json");
 
     const state = await Effect.runPromise(loadPersistedState(configPath).pipe(makeRuntimeLayer()));
@@ -242,7 +258,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("fails when persisted config is not valid JSON", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(configPath, "{ definitely not json", "utf8");
@@ -261,7 +277,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("fails when persisted config does not match the schema", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(configPath, JSON.stringify({ api_base_url: "" }), "utf8");
@@ -280,7 +296,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("preserves a custom api base url when clearing persisted auth state", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -305,7 +321,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("reuses a persisted custom api base url when saving a new token", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -332,7 +348,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("saves named profiles without rewriting the legacy token", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -369,7 +385,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("uses the configured default profile when no profile is specified", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -409,7 +425,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("uses PUTIO_CLI_PROFILE to select a named profile", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -448,7 +464,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("keeps PUTIO_CLI_TOKEN as an override when a persisted profile is selected", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -515,7 +531,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("lists profiles without token material", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -559,7 +575,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("marks the PUTIO_CLI_PROFILE selection as the current listed profile", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -609,7 +625,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("rejects invalid PUTIO_CLI_PROFILE values when listing profiles", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -648,7 +664,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("sets and removes the default profile", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -726,7 +742,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("clears only the selected profile on profile logout", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -767,7 +783,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("does not create a profile when logging out of a missing profile", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -805,7 +821,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("removes the persisted config when clearing the default api base url", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -823,7 +839,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("resolves auth state from persisted config when no env token is set", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await Effect.runPromise(
@@ -859,7 +875,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("reports auth status from persisted config when a token is stored", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(
@@ -895,7 +911,7 @@ describe("resolveConfigPath", () => {
   });
 
   it("reports unauthenticated config status when the persisted token is missing", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "putio-cli-"));
+    const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
 
     await writeFile(

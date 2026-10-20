@@ -1,8 +1,8 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import { bootstrapCrashReporting } from "./crash-bootstrap.js";
 import type { CrashBoundaryRuntime } from "./crash-boundary.js";
@@ -15,6 +15,7 @@ afterEach(() => {
 describe("bootstrapCrashReporting", () => {
   it("does not initialize Sentry or install handlers after a persisted opt-out", async () => {
     const configDirectory = await mkdtemp(join(tmpdir(), "putio-cli-crash-bootstrap-"));
+    onTestFinished(() => rm(configDirectory, { force: true, recursive: true }));
     const configPath = join(configDirectory, "config.json");
     await writeFile(
       configPath,
