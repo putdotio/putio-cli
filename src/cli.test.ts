@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { ConfigProvider, Effect, Result } from "effect";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import packageJson from "../package.json";
 import { runCli as executeCli } from "./cli.js";
@@ -40,6 +40,7 @@ const runProcessArgv = async (
   options: CliRunOptions = {},
 ): Promise<CliExecution & { readonly configPath: string }> => {
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-parser-"));
+  onTestFinished(() => rm(configDir, { force: true, recursive: true }));
   const configPath = join(configDir, "config.json");
   const stdoutChunks: string[] = [];
   const stderrChunks: string[] = [];
