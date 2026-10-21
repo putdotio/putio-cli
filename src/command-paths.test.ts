@@ -835,6 +835,48 @@ describe("files upload", () => {
     ]);
   });
 
+  it("refuses to upload through a custom API base without an upload base", async () => {
+    const { path } = await makeUploadFixture();
+
+    expectFailure(
+      await runPutio(api, ["files", "upload", "--path", path, "--output", "json"], {
+        env: { PUTIO_CLI_UPLOAD_BASE_URL: undefined },
+      }),
+      `Set PUTIO_CLI_UPLOAD_BASE_URL to upload while the API base URL is ${api.baseUrl}.`,
+    );
+    expect(api.requests).toEqual([]);
+    expect(api.blocked).toEqual([]);
+  });
+
+  it("refuses to upload through a persisted API base that is not a URL", async () => {
+    const { path } = await makeUploadFixture();
+
+    expectFailure(
+      await runPutio(api, ["files", "upload", "--path", path, "--output", "json"], {
+        configContents: JSON.stringify({ api_base_url: "not a url", auth_token: "legacy-token" }),
+        env: {
+          PUTIO_CLI_API_BASE_URL: undefined,
+          PUTIO_CLI_TOKEN: undefined,
+          PUTIO_CLI_UPLOAD_BASE_URL: undefined,
+        },
+      }),
+      "Set PUTIO_CLI_UPLOAD_BASE_URL to upload while the API base URL is not a url.",
+    );
+    expect(api.requests).toEqual([]);
+    expect(api.blocked).toEqual([]);
+  });
+
+  it("uploads to upload.put.io when the API base is the default", async () => {
+    const { path } = await makeUploadFixture();
+
+    const run = await runPutio(api, ["files", "upload", "--path", path, "--output", "json"], {
+      env: { PUTIO_CLI_API_BASE_URL: undefined, PUTIO_CLI_UPLOAD_BASE_URL: undefined },
+    });
+
+    expect(run.exitCode).toBe(1);
+    expect(api.blocked).toEqual(["https://upload.put.io"]);
+  });
+
   it("previews a local file upload from raw json without calling the API", async () => {
     const { path } = await makeUploadFixture();
 

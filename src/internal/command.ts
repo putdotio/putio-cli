@@ -1,3 +1,4 @@
+import { DEFAULT_PUTIO_API_BASE_URL, DEFAULT_PUTIO_UPLOAD_BASE_URL } from "@putdotio/sdk";
 import { Flag } from "effect/cli";
 import { Data, Effect, Option, Schema } from "effect";
 
@@ -19,6 +20,8 @@ import {
   type OutputMode,
   type RequestedOutputMode,
 } from "./output-service.js";
+import { resolveCliRuntimeConfig } from "./config.js";
+import { ENV_UPLOAD_BASE_URL } from "./env.js";
 import { CliRuntime } from "./runtime.js";
 import { CliSdk, sdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
@@ -764,24 +767,56 @@ export const writeDryRunPlan = <A>(command: string, request: A, output: Requeste
     renderDryRunPlanTerminal,
   );
 
-export const withAuthedSdk = <A, E, R>(
-  program: (context: {
-    readonly auth: ResolvedAuthState;
-    readonly sdk: typeof sdk;
-  }) => Effect.Effect<A, E, R>,
-) =>
-  Effect.gen(function* () {
-    const auth = yield* resolveAuthState();
-    const cliSdk = yield* CliSdk;
+type AuthedSdkProgram<A, E, R> = (context: {
+  readonly auth: ResolvedAuthState;
+  readonly sdk: typeof sdk;
+}) => Effect.Effect<A, E, R>;
 
-    return yield* cliSdk.provide(
+const provideAuthedSdk = <A, E, R>(
+  auth: ResolvedAuthState,
+  uploadBaseUrl: string | undefined,
+  program: AuthedSdkProgram<A, E, R>,
+) =>
+  Effect.flatMap(CliSdk, (cliSdk) =>
+    cliSdk.provide(
       {
         token: auth.token,
         apiBaseUrl: auth.apiBaseUrl,
+        uploadBaseUrl,
       },
       program({
         auth,
         sdk: cliSdk.client,
       }),
+    ),
+  );
+
+export const withAuthedSdk = <A, E, R>(program: AuthedSdkProgram<A, E, R>) =>
+  Effect.flatMap(resolveAuthState(), (auth) => provideAuthedSdk(auth, undefined, program));
+
+// A persisted base that is not a URL is never the default, so upload refuses it.
+const isDefaultApiBaseUrl = (apiBaseUrl: string) =>
+  URL.canParse(apiBaseUrl) && new URL(apiBaseUrl).href === new URL(DEFAULT_PUTIO_API_BASE_URL).href;
+
+// Uploads go to their own host. A custom API base needs an explicit upload base,
+// so its token is never sent to the production upload host.
+export const withAuthedUploadSdk = <A, E, R>(program: AuthedSdkProgram<A, E, R>) =>
+  Effect.gen(function* () {
+    const auth = yield* resolveAuthState();
+    const runtime = yield* resolveCliRuntimeConfig().pipe(
+      Effect.mapError((error) => new CliCommandInputError({ message: error.message })),
     );
+    const uploadBaseUrl =
+      runtime.uploadBaseUrl ??
+      (isDefaultApiBaseUrl(auth.apiBaseUrl) ? DEFAULT_PUTIO_UPLOAD_BASE_URL : undefined);
+
+    if (uploadBaseUrl === undefined) {
+      return yield* Effect.fail(
+        new CliCommandInputError({
+          message: `Set ${ENV_UPLOAD_BASE_URL} to upload while the API base URL is ${auth.apiBaseUrl}.`,
+        }),
+      );
+    }
+
+    return yield* provideAuthedSdk(auth, uploadBaseUrl, program);
   });

@@ -9,6 +9,7 @@ import {
   ENV_CLI_PROFILE,
   ENV_CLI_TOKEN,
   ENV_CLI_WEB_APP_URL,
+  ENV_UPLOAD_BASE_URL,
   ENV_XDG_CONFIG_HOME,
 } from "./env.js";
 import { CliRuntime, type CliRuntimeService } from "./runtime.js";
@@ -41,6 +42,7 @@ const CliRuntimeConfigSchema = Schema.Struct({
   configPath: NonEmptyStringSchema,
   profile: Schema.optional(NonEmptyStringSchema),
   token: Schema.optional(NonEmptyStringSchema),
+  uploadBaseUrl: Schema.optional(UrlStringSchema),
 });
 
 type CliRuntimeConfig = Schema.Schema.Type<typeof CliRuntimeConfigSchema>;
@@ -133,6 +135,7 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
       Config.map((value) => Option.getOrElse(value, () => DEFAULT_PUTIO_API_BASE_URL)),
     );
     const token = yield* optionalTrimmedString(ENV_CLI_TOKEN);
+    const uploadBaseUrl = yield* optionalTrimmedString(ENV_UPLOAD_BASE_URL);
     const profile = yield* optionalTrimmedString(ENV_CLI_PROFILE);
     const configPath = yield* resolveConfigPath(runtime);
 
@@ -143,6 +146,7 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
           configPath,
           profile: Option.getOrUndefined(profile),
           token: Option.getOrUndefined(token),
+          uploadBaseUrl: Option.getOrUndefined(uploadBaseUrl),
         }),
       catch: mapCliConfigError("Unable to resolve the CLI runtime configuration."),
     });

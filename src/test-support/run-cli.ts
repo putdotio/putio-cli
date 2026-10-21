@@ -13,8 +13,6 @@ import { makeCliRuntime } from "../internal/runtime.js";
 
 export const FIXTURE_TOKEN = "fixture-token";
 
-const UPLOAD_ORIGIN = "https://upload.put.io";
-
 type RecordedRequest = {
   readonly authorization: string | undefined;
   readonly body: Record<string, string>;
@@ -65,13 +63,14 @@ const readBody = async (request: IncomingMessage) => {
 
 /**
  * A local put.io API stand-in. Routes answer with synthetic responses shaped
- * like the API's; every request is recorded. Fetches to any other host fail,
- * except the upload host, which the SDK does not derive from the API base URL
- * and is redirected here.
+ * like the API's; every request is recorded. It answers on two origins, one for
+ * the API and one for uploads; fetches to any other origin fail and are recorded
+ * in `blocked`.
  */
 export const startFixtureApi = async () => {
   const routes = new Map<string, FixtureRoute>();
   const requests: RecordedRequest[] = [];
+  const blocked: string[] = [];
   const server = createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://fixture.invalid");
@@ -79,7 +78,7 @@ export const startFixtureApi = async () => {
         authorization: request.headers.authorization,
         body: await readBody(request),
         method: request.method ?? "GET",
-        origin: String(request.headers["x-fixture-origin"] ?? "api"),
+        origin: request.headers.host?.startsWith("localhost:") ? "upload" : "api",
         path: url.pathname,
         query: Object.fromEntries(url.searchParams),
       };
@@ -95,23 +94,23 @@ export const startFixtureApi = async () => {
   });
 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const port = (server.address() as AddressInfo).port;
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const uploadBaseUrl = `http://localhost:${port}`;
   const realFetch = globalThis.fetch;
 
   globalThis.fetch = (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
 
-    if (url.origin === baseUrl) return realFetch(input, init);
-    if (url.origin === UPLOAD_ORIGIN) {
-      const headers = new Headers(init?.headers);
-      headers.set("x-fixture-origin", "upload");
-      return realFetch(`${baseUrl}${url.pathname}${url.search}`, { ...init, headers });
-    }
+    if (url.origin === baseUrl || url.origin === uploadBaseUrl) return realFetch(input, init);
+    blocked.push(url.origin);
     return Promise.reject(new Error(`Fixture API blocks network access to ${url.origin}`));
   };
 
   return {
     baseUrl,
+    blocked,
+    uploadBaseUrl,
     close: () =>
       new Promise<void>((resolve, reject) => {
         globalThis.fetch = realFetch;
@@ -121,6 +120,7 @@ export const startFixtureApi = async () => {
     reset: () => {
       routes.clear();
       requests.length = 0;
+      blocked.length = 0;
     },
     /** Answer `METHOD /path`; a list answers successive requests in order, repeating the last. */
     route: (
@@ -151,7 +151,7 @@ export type CliRun = {
 
 /**
  * Runs the CLI entry the way `bin.ts` composes it, with captured streams,
- * a scratch config, and the API base URL pointed at the fixture API.
+ * a scratch config, and the API and upload base URLs pointed at the fixture API.
  */
 export const runPutio = async (
   api: FixtureApi,
@@ -174,6 +174,7 @@ export const runPutio = async (
       PUTIO_CLI_API_BASE_URL: api.baseUrl,
       PUTIO_CLI_CONFIG_PATH: configPath,
       PUTIO_CLI_TOKEN: FIXTURE_TOKEN,
+      PUTIO_CLI_UPLOAD_BASE_URL: api.uploadBaseUrl,
       XDG_CONFIG_HOME: configDir,
       ...options.env,
     }).filter((entry): entry is [string, string] => entry[1] !== undefined),
