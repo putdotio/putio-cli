@@ -19,6 +19,7 @@ import {
   ENV_CLI_PROFILE,
   ENV_CLI_TOKEN,
   ENV_CLI_WEB_APP_URL,
+  ENV_UPLOAD_BASE_URL,
 } from "./env.js";
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 
@@ -54,6 +55,7 @@ const CliMetadataSchema = Schema.Struct({
   automation: AutomationContractSchema,
   auth: Schema.Struct({
     apiBaseUrlEnv: NonEmptyStringSchema,
+    uploadBaseUrlEnv: NonEmptyStringSchema,
     envPrecedence: Schema.Array(NonEmptyStringSchema),
     loginAppId: NonEmptyStringSchema,
     loginClientNameEnv: NonEmptyStringSchema,
@@ -131,6 +133,7 @@ export const describeCli = (
     automation: makeAutomationContract(),
     auth: {
       apiBaseUrlEnv: ENV_API_BASE_URL,
+      uploadBaseUrlEnv: ENV_UPLOAD_BASE_URL,
       envPrecedence: [ENV_CLI_TOKEN],
       loginAppId: PUTIO_CLI_APP_ID,
       loginClientNameEnv: ENV_CLI_CLIENT_NAME,

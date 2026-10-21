@@ -23,6 +23,10 @@ describe("describeCli", () => {
     );
 
     expect(metadata.binary).toBe("putio");
+    expect(metadata.auth).toMatchObject({
+      apiBaseUrlEnv: "PUTIO_CLI_API_BASE_URL",
+      uploadBaseUrlEnv: "PUTIO_CLI_UPLOAD_BASE_URL",
+    });
     expect(metadata.crashReporting).toEqual({
       capturedFields: [
         "event_id",
