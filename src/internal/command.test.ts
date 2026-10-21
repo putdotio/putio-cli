@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { Effect, Option, Schema } from "effect";
+import fc from "fast-check";
 
 import {
   CliCommandInputError,
@@ -10,7 +11,9 @@ import {
   selectTopLevelFields,
   validateNameLikeInput,
   validateResourceIdentifier,
+  writeReadPages,
 } from "./command.js";
+import { CliOutputLive } from "./output-service.js";
 import { makeCliRuntime, CliRuntime } from "./runtime.js";
 
 const provideRuntime = <A, E, R>(effect: Effect.Effect<A, E, R>, isInteractiveTerminal = true) =>
@@ -274,92 +277,107 @@ describe("selectTopLevelFields", () => {
 });
 
 describe("collectAllCursorPages", () => {
-  it("concatenates paged list responses until the cursor is exhausted", async () => {
-    const continueWithCursor = (cursor: string) =>
-      Effect.succeed(
-        cursor === "cursor-1"
-          ? {
-              cursor: "cursor-2",
-              files: [{ id: 2 }],
-              total: 3,
-            }
-          : {
-              cursor: null,
-              files: [{ id: 3 }],
-              total: 3,
-            },
-      );
+  // A page chain: the initial page plus continuation pages, each naming the next cursor.
+  type Page = { readonly cursor: string | null; readonly files: ReadonlyArray<number> };
+  const MAX_ITEMS = 100_000;
 
-    await expect(
-      Effect.runPromise(
-        collectAllCursorPages({
-          command: "files list",
-          continueWithCursor,
-          initial: {
-            cursor: "cursor-1",
-            files: [{ id: 1 }],
-            total: 3,
-          },
-          itemKey: "files",
-          pageAll: true,
-        }),
-      ),
-    ).resolves.toEqual({
-      cursor: null,
-      files: [{ id: 1 }, { id: 2 }, { id: 3 }],
-      total: 3,
+  const collect = (pages: ReadonlyArray<Page>) => {
+    const requested: string[] = [];
+    const byCursor = new Map<string, Page>();
+    pages.forEach((page, index) => {
+      const previous = pages[index - 1];
+      if (previous?.cursor) byCursor.set(previous.cursor, page);
     });
-  });
+    const effect = collectAllCursorPages({
+      command: "files list",
+      continueWithCursor: (cursor: string) => {
+        requested.push(cursor);
+        const page = byCursor.get(cursor);
+        return page ? Effect.succeed(page) : Effect.die(new Error(`unexpected cursor ${cursor}`));
+      },
+      initial: { ...pages[0]!, total: 7 },
+      itemKey: "files",
+      pageAll: true,
+    });
+    return { effect, requested };
+  };
 
-  it("rejects repeated cursors", async () => {
-    const continueWithCursor = () =>
-      Effect.succeed({
-        cursor: "cursor-1",
-        files: [{ id: 2 }],
-        total: 2,
+  const pageChain = (pageSizes: fc.Arbitrary<number>) =>
+    fc
+      .uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), { maxLength: 6 })
+      .chain((cursors) =>
+        fc.tuple(
+          fc.constant(cursors),
+          fc.array(pageSizes, { minLength: cursors.length + 1, maxLength: cursors.length + 1 }),
+        ),
+      )
+      .map(([cursors, sizes]) => {
+        let next = 0;
+        return sizes.map((size, index) => ({
+          cursor: cursors[index] ?? null,
+          files: Array.from({ length: size }, () => next++),
+        }));
       });
 
-    const exit = await Effect.runPromiseExit(
-      collectAllCursorPages({
-        command: "files list",
-        continueWithCursor,
-        initial: {
-          cursor: "cursor-1",
-          files: [{ id: 1 }],
-          total: 2,
-        },
-        itemKey: "files",
-        pageAll: true,
+  it("concatenates pages in order and stops at the null cursor", async () => {
+    await fc.assert(
+      fc.asyncProperty(pageChain(fc.nat({ max: 5 })), async (pages) => {
+        const { effect, requested } = collect(pages);
+        const result = await Effect.runPromise(effect);
+
+        expect(result).toEqual({
+          cursor: null,
+          files: pages.flatMap((page) => page.files),
+          total: 7,
+        });
+        expect(requested).toEqual(pages.flatMap((page) => (page.cursor ? [page.cursor] : [])));
       }),
     );
-
-    expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
-      expect(String(exit.cause)).toContain("pagination returned a repeated cursor");
-    }
   });
 
-  it("surfaces pagination validation through the typed error channel", async () => {
-    const failure = await Effect.runPromise(
-      Effect.flip(
-        collectAllCursorPages({
-          command: "files list",
-          continueWithCursor: () =>
-            Effect.succeed({
-              cursor: "cursor-1",
-              files: [{ id: 2 }],
-            }),
-          initial: {
-            cursor: "cursor-1",
-            files: [{ id: 1 }],
-          },
-          itemKey: "files",
-          pageAll: true,
-        }),
+  it("fails on a repeated cursor without requesting it twice", async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        pageChain(fc.nat({ max: 3 })).filter((pages) => pages.length > 1),
+        fc.nat(),
+        async (pages, pick) => {
+          const cursors = pages.flatMap((page) => (page.cursor ? [page.cursor] : []));
+          const repeated = cursors[pick % cursors.length]!;
+          const last = pages.length - 1;
+          const looping = pages.map((page, index) =>
+            index === last ? { ...page, cursor: repeated } : page,
+          );
+          const { effect, requested } = collect(looping);
+          const failure = await Effect.runPromise(Effect.flip(effect));
+
+          expect(failure).toBeInstanceOf(CliCommandInputError);
+          expect(failure).toMatchObject({
+            message: "`files list` pagination returned a repeated cursor.",
+          });
+          expect(new Set(requested).size).toBe(requested.length);
+        },
       ),
     );
+  });
 
-    expect(failure).toBeInstanceOf(CliCommandInputError);
+  it("fails once the collected items exceed the item cap", async () => {
+    await fc.assert(
+      fc.asyncProperty(pageChain(fc.nat({ max: 40_000 })), async (pages) => {
+        const { effect } = collect(pages);
+        const exit = await Effect.runPromiseExit(effect);
+        const total = pages.reduce((sum, page) => sum + page.files.length, 0);
+
+        if (total <= MAX_ITEMS) {
+          expect(exit._tag).toBe("Success");
+          return;
+        }
+        expect(exit._tag).toBe("Failure");
+        expect(String(exit._tag === "Failure" ? exit.cause : "")).toContain(
+          "`files list` pagination exceeded 100000 items.",
+        );
+      }),
+      { numRuns: 40 },
+    );
   });
 
   it("preserves continuation failures for their owning error boundary", async () => {
@@ -380,6 +398,42 @@ describe("collectAllCursorPages", () => {
     );
 
     expect(failure).toBe(upstreamError);
+  });
+});
+
+describe("writeReadPages", () => {
+  it("stops streaming once the item total exceeds the cap", async () => {
+    const lines: string[] = [];
+    const page = (length: number, cursor: string | null) => ({
+      cursor,
+      files: Array.from({ length }, (_value, index) => index),
+    });
+    const exit = await Effect.runPromiseExit(
+      writeReadPages({
+        command: "files list",
+        continueWithCursor: () => Effect.succeed(page(50_001, null)),
+        controls: {
+          output: "ndjson",
+          outputMode: "ndjson",
+          pageAll: true,
+          requestedFields: undefined,
+        },
+        initial: page(60_000, "cursor-1"),
+        itemKey: "files",
+        renderTerminalValue: () => "",
+      }).pipe(
+        Effect.provide(CliOutputLive),
+        Effect.provideService(
+          CliRuntime,
+          makeCliRuntime({ argv: ["node", "putio"], writeStdout: (line) => lines.push(line) }),
+        ),
+      ),
+    );
+
+    expect(lines).toHaveLength(1);
+    expect(String(exit._tag === "Failure" ? exit.cause : "")).toContain(
+      "`files list` pagination exceeded 100000 items.",
+    );
   });
 });
 
