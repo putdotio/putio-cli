@@ -2,1442 +2,1023 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { Effect } from "effect";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import { resetCommandPathMocks } from "./test-support/command-path-mocks.js";
-import { runCliInTest } from "./test-support/run-cli.js";
+import {
+  FIXTURE_TOKEN,
+  runPutio,
+  startFixtureApi,
+  stderrJson,
+  stdoutJson,
+  stdoutLines,
+  type CliRun,
+  type FixtureApi,
+} from "./test-support/run-cli.js";
 
-const uploadFixtureDirectories = new Set<string>();
+// Request shapes follow the put.io API routes the SDK documents; response
+// bodies are synthetic but satisfy the SDK's response schemas.
 
-const makeUploadFixtureDirectory = async () => {
-  const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
-  uploadFixtureDirectories.add(directory);
-  return directory;
-};
+const AUTHORIZATION = `Token ${FIXTURE_TOKEN}`;
+const TIMESTAMP = "2026-03-15T12:00:00Z";
 
-afterEach(async () => {
-  const directories = [...uploadFixtureDirectories];
-  uploadFixtureDirectories.clear();
-  await Promise.all(
-    directories.map((directory) => rm(directory, { force: true, recursive: true })),
-  );
+const file = (id: number, name: string, fields: Record<string, unknown> = {}) => ({
+  content_type: null,
+  created_at: TIMESTAMP,
+  crc32: null,
+  extension: null,
+  file_type: "FOLDER",
+  first_accessed_at: null,
+  folder_type: "REGULAR",
+  icon: null,
+  id,
+  is_hidden: false,
+  is_mp4_available: false,
+  is_shared: false,
+  name,
+  opensubtitles_hash: null,
+  parent_id: 0,
+  screenshot: null,
+  size: 0,
+  updated_at: TIMESTAMP,
+  ...fields,
 });
 
-const mocks = vi.hoisted(() => {
-  type FileListItem = {
-    readonly file_type?: string;
-    readonly id: number;
-    readonly name?: string;
-    readonly size?: number;
-  };
-  type FileListPage = {
-    readonly cursor: string | null;
-    readonly files: ReadonlyArray<FileListItem>;
-    readonly total?: number;
-  };
-  type TransferListItem = {
-    readonly id: number;
-    readonly name: string;
-    readonly percent_done?: number;
-    readonly status?: string;
-  };
-  type TransferListPage = {
-    readonly cursor: string | null;
-    readonly transfers: ReadonlyArray<TransferListItem>;
-  };
-  const emptyFileListPage: FileListPage = {
-    cursor: null,
-    files: [],
-    total: 1,
-  };
-  const emptyTransferListPage: TransferListPage = {
-    cursor: null,
-    transfers: [],
-  };
-  const defaultFileListPage: FileListPage = {
-    cursor: null,
-    files: [
-      {
-        file_type: "FOLDER",
-        id: 1,
-        name: "Movies",
-        size: 0,
-      },
-    ],
-    total: 1,
-  };
-  const defaultSearchFilesPage: FileListPage = {
-    cursor: null,
-    files: [
-      {
-        file_type: "VIDEO",
-        id: 2,
-        name: "movie.mkv",
-        size: 42,
-      },
-    ],
-  };
-  const defaultTransferListPage: TransferListPage = {
-    cursor: null,
-    transfers: [
-      {
-        id: 7,
-        name: "ubuntu.iso",
-        percent_done: 50,
-        status: "DOWNLOADING",
-      },
-    ],
-  };
-  const writeOutputMock = vi.fn(() => Effect.void);
-  const withTerminalLoaderMock = vi.fn((_options, program) => program);
-  const withAuthedSdkMock = vi.fn((program) =>
-    program({
-      auth: {
-        apiBaseUrl: "https://api.put.io",
-        configPath: "/tmp/putio-cli.json",
-        source: "env",
-        token: "token-123",
-      },
-      sdk: fakeSdk,
-    }),
-  );
-  const provideSdkMock = vi.fn((_config, program) => program);
-  const getCodeMock = vi.fn(() => Effect.succeed({ code: "PUTIO1" }));
-  const checkCodeMatchMock = vi.fn(() => Effect.succeed("token-123"));
-  const linkDeviceMock = vi.fn(() =>
-    Effect.succeed({
-      description: "Living room TV",
-      has_icon: false,
-      id: 77,
-      name: "put.io TV",
-      website: "https://put.io",
-    }),
-  );
-  const continueTransfersMock = vi.fn((_cursor?: string) => Effect.succeed(emptyTransferListPage));
-  const listTransfersMock = vi.fn(() => Effect.succeed(defaultTransferListPage));
-  const addTransfersMock = vi.fn(() =>
-    Effect.succeed({
-      errors: [],
-      transfers: [
-        {
-          id: 7,
-          name: "ubuntu.iso",
-          percent_done: 0,
-          status: "WAITING",
-        },
-      ],
-    }),
-  );
-  const cancelTransfersMock = vi.fn(() => Effect.succeed({}));
-  const retryTransferMock = vi.fn(() =>
-    Effect.succeed({
-      id: 7,
-      name: "ubuntu.iso",
-      percent_done: 0,
-      status: "WAITING",
-    }),
-  );
-  const reannounceTransferMock = vi.fn(() => Effect.void);
-  const getTransferMock = vi.fn(() =>
-    Effect.succeed({
-      id: 7,
-      name: "ubuntu.iso",
-      percent_done: 100,
-      status: "COMPLETED",
-    }),
-  );
-  const createFolderMock = vi.fn(() =>
-    Effect.succeed({
-      id: 42,
-      name: "Projects",
-      parent_id: 9,
-    }),
-  );
-  const moveFilesMock = vi.fn(() => Effect.succeed([]));
-  const renameFileMock = vi.fn(() => Effect.void);
-  const deleteFilesMock = vi.fn(() => Effect.succeed({ skipped: 1 }));
-  const continueFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
-  const continueSearchFilesMock = vi.fn((_cursor?: string) => Effect.succeed(emptyFileListPage));
-  const listFilesMock = vi.fn(() => Effect.succeed(defaultFileListPage));
-  const searchFilesMock = vi.fn(() => Effect.succeed(defaultSearchFilesPage));
-  const uploadFileMock = vi.fn(() =>
-    Effect.succeed({
-      file: { id: 88, name: "movie.mp4" },
-      type: "file" as const,
-    }),
-  );
-  const getHlsMasterPlaylistMock = vi.fn(() =>
-    Effect.succeed(
-      [
-        "#EXTM3U",
-        '#EXT-X-STREAM-INF:BANDWIDTH=2376462,CODECS="avc1.42c01e,mp4a.40.2",VIDEO-RANGE=PQ',
-        "https://api.put.io/hls/playlist/abc/index-v1-a1.m3u8?oauth_token=token-123",
-      ].join("\n"),
-    ),
-  );
-  const getStartFromMock = vi.fn(() => Effect.succeed(90));
-  const setStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
-  const resetStartFromMock = vi.fn(() => Effect.succeed({ status: "OK" }));
-  const getAccountInfoMock = vi.fn(() =>
-    Effect.succeed({
-      account_status: "ACTIVE",
-      disk: {
-        avail: 700,
-        size: 1_000,
-        used: 300,
-      },
-      family_owner: null,
-      is_sub_account: false,
-      mail: "user@example.com",
-      settings: {
-        theme: "system",
-        two_factor_enabled: true,
-      },
-      trash_size: 25,
-      username: "example-user",
-    }),
-  );
-  const listEventsMock = vi.fn(() =>
-    Effect.succeed({
+const transfer = (id: number, name: string, status = "DOWNLOADING") => ({
+  availability: null,
+  callback_url: null,
+  client_ip: null,
+  completion_percent: null,
+  created_at: TIMESTAMP,
+  created_torrent: false,
+  current_ratio: null,
+  down_speed: null,
+  download_id: null,
+  downloaded: null,
+  error_message: null,
+  estimated_time: null,
+  file_id: null,
+  finished_at: null,
+  hash: null,
+  id,
+  is_private: false,
+  name,
+  peers_connected: null,
+  peers_getting_from_us: null,
+  peers_sending_to_us: null,
+  percent_done: status === "COMPLETED" ? 100 : 50,
+  save_parent_id: 0,
+  seconds_seeding: null,
+  simulated: false,
+  size: null,
+  source: `https://example.com/${name}.torrent`,
+  started_at: null,
+  status,
+  subscription_id: null,
+  torrent_link: null,
+  tracker: null,
+  tracker_message: null,
+  type: "URL",
+  up_speed: null,
+  uploaded: null,
+});
+
+const accountInfo = {
+  account_status: "active",
+  avatar_url: "https://example.invalid/avatar.png",
+  can_create_sub_account: false,
+  disk: { avail: 700, size: 1_000, used: 300 },
+  files_will_be_deleted_at: null,
+  is_eligible_for_friend_invitation: false,
+  is_sub_account: false,
+  mail: "user@example.com",
+  monthly_bandwidth_usage: 0,
+  password_last_changed_at: null,
+  private_download_host_ip: null,
+  settings: {
+    beta_user: false,
+    callback_url: null,
+    dark_theme: false,
+    default_download_folder: 0,
+    diagnostics_enabled: false,
+    dont_autoselect_subtitles: false,
+    fluid_layout: false,
+    hide_subtitles: false,
+    history_enabled: true,
+    is_invisible: false,
+    locale: null,
+    login_mails_enabled: false,
+    next_episode: false,
+    product_analytics_enabled: false,
+    pushover_token: null,
+    show_optimistic_usage: false,
+    sort_by: "NAME_ASC",
+    start_from: false,
+    subtitle_languages: [],
+    theater_mode: false,
+    theme: "auto",
+    transfer_sort_by: null,
+    trash_enabled: true,
+    tunnel_route_name: null,
+    two_factor_enabled: true,
+    use_private_download_ip: false,
+    use_start_from: false,
+    video_player: null,
+  },
+  trash_size: 25,
+  user_id: 1,
+  username: "example-user",
+  warnings: {},
+};
+
+const hlsManifest = [
+  "#EXTM3U",
+  '#EXT-X-STREAM-INF:BANDWIDTH=2376462,CODECS="avc1.42c01e,mp4a.40.2",VIDEO-RANGE=PQ',
+  `https://api.put.io/hls/playlist/abc/index-v1-a1.m3u8?oauth_token=${FIXTURE_TOKEN}`,
+].join("\n");
+
+const ok = (body: Record<string, unknown> = {}) => ({ body: { status: "OK", ...body } });
+
+const routeReads = (api: FixtureApi) => {
+  api.route("GET /v2/account/info", ok({ info: accountInfo }));
+  api.route(
+    "GET /v2/events/list",
+    ok({
       events: [
         {
-          created_at: "2026-03-15T12:00:00Z",
+          created_at: TIMESTAMP,
+          file_id: 5,
           id: 101,
+          source: "https://example.com/ubuntu.torrent",
           transfer_name: "ubuntu.iso",
+          transfer_size: 42,
           type: "transfer_completed",
+          user_id: 1,
         },
         {
-          created_at: "2026-03-15T12:05:00Z",
+          created_at: TIMESTAMP,
+          file_id: 6,
           file_name: "movie.mkv",
+          file_size: 42,
           id: 102,
           type: "upload",
+          user_id: 1,
         },
       ],
+      has_more: false,
     }),
   );
-  const createDownloadLinksMock = vi.fn(() => Effect.succeed({ id: 55 }));
-  const getDownloadLinksMock = vi.fn(() =>
-    Effect.succeed({
+  api.route(
+    "GET /v2/download_links/55",
+    ok({
       error_msg: null,
-      id: 55,
       links: {
         download_links: ["https://download.put.io/file-1"],
         media_links: ["https://media.put.io/file-1"],
         mp4_links: [],
       },
-      links_status: "COMPLETED",
+      links_status: "DONE",
     }),
   );
-  const cleanTransfersMock = vi.fn(() => Effect.succeed({ deleted_ids: [8, 9] }));
-  const getAuthStatusMock = vi.fn(() =>
-    Effect.succeed({
-      apiBaseUrl: "https://api.put.io",
-      authenticated: false,
-      configPath: "/tmp/putio-cli.json",
-      defaultProfile: null,
+  api.route(
+    "GET /v2/files/list",
+    ok({ cursor: null, files: [file(1, "Movies")], parent: file(0, "Your Files"), total: 1 }),
+  );
+  api.route(
+    "GET /v2/files/search",
+    ok({ cursor: null, files: [file(2, "movie.mkv", { file_type: "VIDEO", size: 42 })], total: 1 }),
+  );
+  api.route("GET /v2/transfers/list", ok({ cursor: null, transfers: [transfer(7, "ubuntu.iso")] }));
+  api.route("GET /v2/transfers/7", ok({ transfer: transfer(7, "ubuntu.iso", "COMPLETED") }));
+};
+
+const expectFailure = (run: CliRun, message: string | RegExp) => {
+  expect(run.exitCode).toBe(1);
+  expect(run.stdout).toBe("");
+  expect(stderrJson(run).error).toMatchObject({
+    message: typeof message === "string" ? message : expect.stringMatching(message),
+  });
+};
+
+let api: FixtureApi;
+const putio = (...args: ReadonlyArray<string>) => runPutio(api, args);
+const requestsTo = (method: string, path: string) =>
+  api.requests.filter((request) => request.method === method && request.path === path);
+
+const fixtureDirectories: string[] = [];
+const makeUploadFixture = async (name = "movie.mp4", mode?: number) => {
+  const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
+  fixtureDirectories.push(directory);
+  const path = join(directory, name);
+  await writeFile(path, "video fixture", mode === undefined ? undefined : { mode });
+  return { directory, path };
+};
+
+beforeAll(async () => {
+  api = await startFixtureApi();
+});
+
+afterEach(async () => {
+  api.reset();
+  await Promise.all(
+    fixtureDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { force: true, recursive: true })),
+  );
+});
+
+afterAll(() => api.close());
+
+describe("auth", () => {
+  const routeDeviceLink = () => {
+    api.route(
+      "GET /v2/oauth2/oob/code",
+      ok({ code: "PUTIO1", qr_code_url: "https://example.invalid/qr" }),
+    );
+    api.route("GET /v2/oauth2/oob/code/PUTIO1", ok({ oauth_token: "linked-token" }));
+  };
+
+  it("logs in through the device link and saves the token", async () => {
+    routeDeviceLink();
+
+    const run = await runPutio(
+      api,
+      ["auth", "login", "--output", "json", "--timeout-seconds", "1"],
+      {
+        env: { PUTIO_CLI_TOKEN: undefined },
+      },
+    );
+
+    expect(run.exitCode).toBe(0);
+    expect(run.stderr).toContain("https://app.put.io/link?code=PUTIO1");
+    expect(run.stderr).toContain("code: PUTIO1");
+    expect(stdoutJson(run)).toMatchObject({
+      apiBaseUrl: api.baseUrl,
+      authenticated: true,
+      browserOpened: false,
+      linkUrl: "https://app.put.io/link?code=PUTIO1",
       profile: null,
-      source: null,
-    }),
-  );
-  const listProfilesMock = vi.fn(() =>
-    Effect.succeed({
-      configPath: "/tmp/putio-cli.json",
-      defaultProfile: null,
-      profiles: [],
-    }),
-  );
-  const removeProfileMock = vi.fn((profile: string) =>
-    Effect.succeed({
-      configPath: "/tmp/putio-cli.json",
-      profile,
-      removed: true,
-    }),
-  );
-  const useProfileMock = vi.fn((profile: string) =>
-    Effect.succeed({
-      configPath: "/tmp/putio-cli.json",
-      profile,
-    }),
-  );
-  const savePersistedStateMock = vi.fn(
-    (_state, _configPath, selection?: { readonly profile?: string }) =>
-      Effect.succeed({
-        configPath: "/tmp/putio-cli.json",
-        profile: selection?.profile ?? null,
-        state: {
-          api_base_url: "https://api.put.io",
-          auth_token: "token-123",
-          profiles:
-            selection?.profile === undefined
-              ? undefined
-              : {
-                  [selection.profile]: {
-                    api_base_url: "https://api.put.io",
-                    auth_token: "token-123",
-                  },
-                },
-        },
-      }),
-  );
-  const clearPersistedStateMock = vi.fn((_configPath, selection?: { readonly profile?: string }) =>
-    Effect.succeed({
-      cleared: true,
-      configPath: "/tmp/putio-cli.json",
-      profile: selection?.profile ?? null,
-    }),
-  );
-  const resolveCliRuntimeConfigMock = vi.fn(() =>
-    Effect.succeed({
-      apiBaseUrl: "https://api.put.io",
-      configPath: "/tmp/putio-cli.json",
-      token: undefined,
-    }),
-  );
-  const resolveAuthFlowConfigMock = vi.fn(() =>
-    Effect.succeed({
-      appId: 8993,
-      clientName: "putio-cli-test",
-      webAppUrl: "https://app.put.io",
-    }),
-  );
-  const waitForDeviceTokenMock = vi.fn(() => Effect.succeed("token-123"));
-  const openBrowserMock = vi.fn(() => Effect.succeed(true));
-
-  const fakeSdk = {
-    account: {
-      getInfo: getAccountInfoMock,
-    },
-    auth: {
-      checkCodeMatch: checkCodeMatchMock,
-      getCode: getCodeMock,
-      linkDevice: linkDeviceMock,
-    },
-    downloadLinks: {
-      create: createDownloadLinksMock,
-      get: getDownloadLinksMock,
-    },
-    events: {
-      list: listEventsMock,
-    },
-    files: {
-      continue: continueFilesMock,
-      continueSearch: continueSearchFilesMock,
-      createFolder: createFolderMock,
-      delete: deleteFilesMock,
-      getHlsMasterPlaylist: getHlsMasterPlaylistMock,
-      getStartFrom: getStartFromMock,
-      list: listFilesMock,
-      move: moveFilesMock,
-      rename: renameFileMock,
-      resetStartFrom: resetStartFromMock,
-      search: searchFilesMock,
-      upload: uploadFileMock,
-      setStartFrom: setStartFromMock,
-    },
-    transfers: {
-      addMany: addTransfersMock,
-      cancel: cancelTransfersMock,
-      clean: cleanTransfersMock,
-      continue: continueTransfersMock,
-      get: getTransferMock,
-      list: listTransfersMock,
-      reannounce: reannounceTransferMock,
-      retry: retryTransferMock,
-    },
-  };
-
-  return {
-    addTransfersMock,
-    cancelTransfersMock,
-    cleanTransfersMock,
-    clearPersistedStateMock,
-    continueFilesMock,
-    continueSearchFilesMock,
-    continueTransfersMock,
-    createDownloadLinksMock,
-    createFolderMock,
-    deleteFilesMock,
-    fakeSdk,
-    getDownloadLinksMock,
-    getAccountInfoMock,
-    getAuthStatusMock,
-    checkCodeMatchMock,
-    getCodeMock,
-    getHlsMasterPlaylistMock,
-    getStartFromMock,
-    getTransferMock,
-    listEventsMock,
-    listFilesMock,
-    listProfilesMock,
-    listTransfersMock,
-    linkDeviceMock,
-    moveFilesMock,
-    openBrowserMock,
-    provideSdkMock,
-    renameFileMock,
-    resetStartFromMock,
-    reannounceTransferMock,
-    removeProfileMock,
-    resolveAuthFlowConfigMock,
-    resolveCliRuntimeConfigMock,
-    retryTransferMock,
-    savePersistedStateMock,
-    searchFilesMock,
-    setStartFromMock,
-    useProfileMock,
-    uploadFileMock,
-    waitForDeviceTokenMock,
-    withAuthedSdkMock,
-    withTerminalLoaderMock,
-    writeOutputMock,
-  };
-});
-
-vi.mock("./internal/output-service.js", async () => {
-  const actual = await vi.importActual<typeof import("./internal/output-service.js")>(
-    "./internal/output-service.js",
-  );
-
-  return {
-    ...actual,
-    writeOutput: mocks.writeOutputMock,
-  };
-});
-
-vi.mock("./internal/loader-service.js", () => ({
-  withTerminalLoader: mocks.withTerminalLoaderMock,
-}));
-
-vi.mock("./internal/command.js", async () => {
-  const actual =
-    await vi.importActual<typeof import("./internal/command.js")>("./internal/command.js");
-
-  return {
-    ...actual,
-    withAuthedSdk: mocks.withAuthedSdkMock,
-  };
-});
-
-vi.mock("./internal/sdk.js", async () => {
-  const actual = await vi.importActual<typeof import("./internal/sdk.js")>("./internal/sdk.js");
-
-  return {
-    ...actual,
-    provideSdk: mocks.provideSdkMock,
-    sdk: mocks.fakeSdk,
-  };
-});
-
-vi.mock("./internal/state.js", async () => {
-  const actual = await vi.importActual<typeof import("./internal/state.js")>("./internal/state.js");
-
-  return {
-    ...actual,
-    clearPersistedState: mocks.clearPersistedStateMock,
-    getAuthStatus: mocks.getAuthStatusMock,
-    listProfiles: mocks.listProfilesMock,
-    removeProfile: mocks.removeProfileMock,
-    savePersistedState: mocks.savePersistedStateMock,
-    useProfile: mocks.useProfileMock,
-  };
-});
-
-vi.mock("./internal/config.js", async () => {
-  const actual =
-    await vi.importActual<typeof import("./internal/config.js")>("./internal/config.js");
-
-  return {
-    ...actual,
-    resolveCliRuntimeConfig: mocks.resolveCliRuntimeConfigMock,
-  };
-});
-
-vi.mock("./internal/auth-flow.js", async () => {
-  const actual =
-    await vi.importActual<typeof import("./internal/auth-flow.js")>("./internal/auth-flow.js");
-
-  return {
-    ...actual,
-    openBrowser: mocks.openBrowserMock,
-    resolveAuthFlowConfig: mocks.resolveAuthFlowConfigMock,
-    waitForDeviceToken: mocks.waitForDeviceTokenMock,
-  };
-});
-
-type WriteOutputCall = readonly [
-  value: unknown,
-  output: string | undefined,
-  renderTerminalValue: (value: unknown) => string,
-];
-
-const getWriteOutputCall = (index: number): WriteOutputCall => {
-  const call = mocks.writeOutputMock.mock.calls.at(index);
-
-  if (!call) {
-    throw new Error(`Expected writeOutput mock call at index ${index}`);
-  }
-
-  return call as unknown as WriteOutputCall;
-};
-
-const renderWriteOutputValue = <T>(index: number, value: T) => {
-  const [, , renderTerminalValue] = getWriteOutputCall(index);
-
-  return renderTerminalValue(value);
-};
-
-const getWaitForDeviceTokenOptions = () => {
-  const call = mocks.waitForDeviceTokenMock.mock.calls.at(0) as unknown;
-
-  if (!Array.isArray(call) || call.length === 0 || !call[0]) {
-    throw new Error("Expected waitForDeviceToken mock call");
-  }
-
-  return call[0] as { readonly checkCodeMatch: (code: string) => Effect.Effect<string> };
-};
-
-describe("cli command paths", () => {
-  beforeEach(() => {
-    resetCommandPathMocks(mocks);
+    });
+    expect(run.stdout).not.toContain("linked-token");
+    expect(run.config).toMatchObject({ api_base_url: api.baseUrl, auth_token: "linked-token" });
+    expect(
+      api.requests.map(({ authorization, method, path, query }) => ({
+        authorization,
+        method,
+        path,
+        query,
+      })),
+    ).toEqual([
+      {
+        authorization: undefined,
+        method: "GET",
+        path: "/v2/oauth2/oob/code",
+        query: { app_id: "8993", client_name: "putio-cli@fixture-host" },
+      },
+      { authorization: undefined, method: "GET", path: "/v2/oauth2/oob/code/PUTIO1", query: {} },
+    ]);
   });
 
-  it("executes auth login through the happy path", async () => {
-    const stderrChunks: string[] = [];
+  it("opens the link and saves a named profile on login", async () => {
+    routeDeviceLink();
 
-    mocks.waitForDeviceTokenMock.mockImplementationOnce(() => {
-      expect(stderrChunks.join("")).toContain("https://app.put.io/link?code=PUTIO1");
-      expect(stderrChunks.join("")).toContain("code: PUTIO1");
+    const run = await runPutio(
+      api,
+      ["auth", "login", "--open", "--profile", "automation", "--output", "json"],
+      { env: { PUTIO_CLI_TOKEN: undefined } },
+    );
 
-      return Effect.succeed("token-123");
+    expect(run.exitCode).toBe(0);
+    expect(run.openedUrls).toEqual(["https://app.put.io/link?code=PUTIO1"]);
+    expect(stdoutJson(run)).toMatchObject({ browserOpened: true, profile: "automation" });
+    expect(run.config).toMatchObject({
+      profiles: { automation: { auth_token: "linked-token" } },
+    });
+  });
+
+  it("logs out of the legacy token without touching named profiles", async () => {
+    const run = await runPutio(api, ["auth", "logout", "--output", "json"], {
+      configContents: JSON.stringify({
+        api_base_url: "https://api.put.io",
+        auth_token: "legacy-token",
+        profiles: { automation: { auth_token: "profile-token" } },
+      }),
+      env: { PUTIO_CLI_TOKEN: undefined },
     });
 
-    await expect(
-      runCliInTest(["putio", "auth", "login", "--output", "json", "--timeout-seconds", "1"], {
-        writeStderr: (message) => {
-          stderrChunks.push(message);
-        },
-      }),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getCodeMock).toHaveBeenCalled();
-    expect(mocks.waitForDeviceTokenMock).toHaveBeenCalledWith(
-      expect.objectContaining({ code: "PUTIO1", timeoutMs: 1_000 }),
-    );
-    await Effect.runPromise(getWaitForDeviceTokenOptions().checkCodeMatch("MATCH"));
-    expect(mocks.checkCodeMatchMock).toHaveBeenCalledWith("MATCH");
-    expect(mocks.savePersistedStateMock).toHaveBeenCalledWith(
-      {
-        apiBaseUrl: "https://api.put.io",
-        token: "token-123",
-      },
-      undefined,
-      { profile: undefined },
-    );
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        authenticated: true,
-        browserOpened: false,
-      }),
-      "json",
-      expect.any(Function),
-    );
-
-    expect(
-      renderWriteOutputValue(-1, {
-        apiBaseUrl: "https://api.put.io",
-        browserOpened: false,
-        configPath: "/tmp/putio-cli.json",
-        profile: null,
-      }),
-    ).toContain("authenticated and saved token");
+    expect(stdoutJson(run)).toEqual({ cleared: true, configPath: run.configPath, profile: null });
+    expect(run.config).not.toHaveProperty("auth_token");
+    expect(run.config).toMatchObject({ profiles: { automation: { auth_token: "profile-token" } } });
+    expect(api.requests).toEqual([]);
   });
 
-  it("executes auth login with --open", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "auth",
-        "login",
-        "--open",
-        "--output",
-        "json",
-        "--timeout-seconds",
-        "1",
-      ]),
-    ).resolves.toBeUndefined();
+  it("renders text auth status for an env token", async () => {
+    const run = await putio("auth", "status", "--output", "text");
 
-    expect(mocks.openBrowserMock).toHaveBeenCalledWith("https://app.put.io/link?code=PUTIO1");
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        authenticated: true,
-        browserOpened: true,
-      }),
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes auth login for a named profile", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "auth",
-        "login",
-        "--profile",
-        "automation",
-        "--output",
-        "json",
-        "--timeout-seconds",
-        "1",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.savePersistedStateMock).toHaveBeenCalledWith(
-      {
-        apiBaseUrl: "https://api.put.io",
-        token: "token-123",
-      },
-      undefined,
-      { profile: "automation" },
-    );
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        authenticated: true,
-        configPath: "/tmp/putio-cli.json",
-        profile: "automation",
-      }),
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes auth status without a token", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "status", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getAuthStatusMock).toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        authenticated: false,
-        source: null,
-      }),
-      "json",
-      expect.any(Function),
-    );
-
-    expect(
-      renderWriteOutputValue(-1, {
-        apiBaseUrl: "https://api.put.io",
-        authenticated: true,
-        configPath: "/tmp/putio-cli.json",
-        defaultProfile: null,
-        profile: null,
-        source: "env",
-      }),
-    ).toContain("authenticated: yes");
-  });
-
-  it("executes auth status for a named profile", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "status", "--profile", "automation", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getAuthStatusMock).toHaveBeenCalledWith({ profile: "automation" });
-  });
-
-  it("executes auth preview", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "preview", "--code", "HELLO1", "--open", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        browserOpened: true,
-        code: "HELLO1",
-        linkUrl: "https://app.put.io/link?code=HELLO1",
-      },
-      "json",
-      expect.any(Function),
-    );
-
-    expect(
-      renderWriteOutputValue(-1, {
-        browserOpened: false,
-        code: "HELLO1",
-        linkUrl: "https://app.put.io/link?code=HELLO1",
-      }),
-    ).toContain("HELLO1");
+    expect(run.exitCode).toBe(0);
+    expect(run.stdout).toContain("authenticated: yes");
+    expect(run.stdout).not.toContain(FIXTURE_TOKEN);
   });
 
   it("approves a device code with the authenticated account", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "approve", "HELLO1", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.linkDeviceMock).toHaveBeenCalledWith("HELLO1");
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 77, name: "put.io TV" }),
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("previews device approval from raw json without hitting the sdk", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "auth",
-        "approve",
-        "--json",
-        '{"code":"  HELLO1  "}',
-        "--dry-run",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.linkDeviceMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "auth approve",
-        dryRun: true,
-        request: { code: "HELLO1" },
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes auth logout", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "logout", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.clearPersistedStateMock).toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        cleared: true,
-        configPath: "/tmp/putio-cli.json",
-        profile: null,
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes auth logout for a named profile", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "logout", "--profile", "automation", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.clearPersistedStateMock).toHaveBeenCalledWith(undefined, {
-      profile: "automation",
-    });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        cleared: true,
-        configPath: "/tmp/putio-cli.json",
-        profile: "automation",
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes auth profiles commands", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "profiles", "list", "--output", "json"]),
-    ).resolves.toBeUndefined();
-    expect(mocks.listProfilesMock).toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        profiles: [],
-      }),
-      "json",
-      expect.any(Function),
-    );
-
-    await expect(
-      runCliInTest(["putio", "auth", "profiles", "use", "automation", "--output", "json"]),
-    ).resolves.toBeUndefined();
-    expect(mocks.useProfileMock).toHaveBeenCalledWith("automation");
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        configPath: "/tmp/putio-cli.json",
-        profile: "automation",
-      },
-      "json",
-      expect.any(Function),
-    );
-
-    await expect(
-      runCliInTest(["putio", "auth", "profiles", "remove", "automation", "--output", "json"]),
-    ).resolves.toBeUndefined();
-    expect(mocks.removeProfileMock).toHaveBeenCalledWith("automation");
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        configPath: "/tmp/putio-cli.json",
-        profile: "automation",
-        removed: true,
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("rejects auth preview codes with query fragments", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "preview", "--code", "PUTIO1?debug=1", "--output", "json"]),
-    ).rejects.toMatchObject({
-      message: "`auth preview --code` cannot include `?` or `#` fragments.",
-    });
-
-    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects device approval codes with query fragments", async () => {
-    await expect(
-      runCliInTest(["putio", "auth", "approve", "PUTIO1?debug=1", "--output", "json"]),
-    ).rejects.toMatchObject({
-      message: "`auth approve` code cannot include `?` or `#` fragments.",
-    });
-
-    expect(mocks.linkDeviceMock).not.toHaveBeenCalled();
-  });
-
-  it("executes whoami", async () => {
-    await expect(runCliInTest(["putio", "whoami", "--output", "json"])).resolves.toBeUndefined();
-
-    expect(mocks.getAccountInfoMock).toHaveBeenCalledWith({});
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        auth: {
-          apiBaseUrl: "https://api.put.io",
-          source: "env",
+    api.route(
+      "POST /v2/oauth2/oob/code",
+      ok({
+        app: {
+          description: "Living room TV",
+          has_icon: false,
+          id: 77,
+          name: "put.io TV",
+          website: "https://put.io",
         },
-        info: expect.objectContaining({
-          mail: "user@example.com",
-          username: "example-user",
-        }),
       }),
-      "json",
-      expect.any(Function),
     );
+
+    const run = await putio("auth", "approve", "HELLO1", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({ id: 77, name: "put.io TV" });
+    expect(requestsTo("POST", "/v2/oauth2/oob/code")).toEqual([
+      expect.objectContaining({ authorization: AUTHORIZATION, body: { code: "HELLO1" } }),
+    ]);
   });
 
-  it("selects top-level whoami fields for json output", async () => {
-    await expect(
-      runCliInTest(["putio", "whoami", "--fields", "info", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        info: expect.objectContaining({
-          username: "example-user",
-        }),
-      },
+  it("previews device approval from raw json without calling the API", async () => {
+    const run = await putio(
+      "auth",
+      "approve",
+      "--json",
+      '{"code":"  HELLO1  "}',
+      "--dry-run",
+      "--output",
       "json",
-      expect.any(Function),
     );
-  });
 
-  it("executes events list with filtering", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "events",
-        "list",
-        "--before",
-        "44",
-        "--per-page",
-        "5",
-        "--type",
-        "transfer_completed",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.listEventsMock).toHaveBeenCalledWith({
-      before: 44,
-      per_page: 5,
+    expect(stdoutJson(run)).toEqual({
+      command: "auth approve",
+      dryRun: true,
+      request: { code: "HELLO1" },
     });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        events: [
-          expect.objectContaining({
-            id: 101,
-            type: "transfer_completed",
-          }),
-        ],
-      },
-      "json",
-      expect.any(Function),
-    );
+    expect(api.requests).toEqual([]);
   });
 
-  it("selects top-level event list fields for json output", async () => {
-    await expect(
-      runCliInTest(["putio", "events", "list", "--fields", "events", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        events: expect.arrayContaining([expect.objectContaining({ id: 101 })]),
-      },
-      "json",
-      expect.any(Function),
-    );
+  it.each([
+    [
+      ["auth", "preview", "--code", "PUTIO1?debug=1"],
+      "`auth preview --code` cannot include `?` or `#` fragments.",
+    ],
+    [
+      ["auth", "approve", "PUTIO1?debug=1"],
+      "`auth approve` code cannot include `?` or `#` fragments.",
+    ],
+  ])("rejects device codes with query fragments: %j", async (args, message) => {
+    expectFailure(await putio(...args, "--output", "json"), message);
+    expect(api.requests).toEqual([]);
   });
+});
 
-  it("executes download-links create", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "download-links",
-        "create",
-        "--id",
-        "1",
-        "--id",
-        "2",
-        "--exclude-id",
-        "9",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
+describe("reads", () => {
+  it("prints whoami with the auth source and without the token", async () => {
+    routeReads(api);
 
-    expect(mocks.createDownloadLinksMock).toHaveBeenCalledWith({
-      cursor: undefined,
-      excludeIds: [9],
-      ids: [1, 2],
+    const run = await putio("whoami", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({
+      auth: { apiBaseUrl: api.baseUrl, source: "env" },
+      info: { mail: "user@example.com", username: "example-user" },
     });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith({ id: 55 }, "json", expect.any(Function));
-
-    expect(renderWriteOutputValue(-1, { id: 55 })).toBe("download-links job id: 55");
-  });
-
-  it("executes download-links create dry-run from raw json without hitting the sdk", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "download-links",
-        "create",
-        "--json",
-        '{"ids":[1,2],"excludeIds":[9]}',
-        "--dry-run",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.createDownloadLinksMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "download-links create",
-        dryRun: true,
-        request: {
-          cursor: undefined,
-          excludeIds: [9],
-          ids: [1, 2],
-        },
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes download-links get", async () => {
-    await expect(
-      runCliInTest(["putio", "download-links", "get", "--id", "55", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getDownloadLinksMock).toHaveBeenCalledWith(55);
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
+    expect(run.stdout).not.toContain(FIXTURE_TOKEN);
+    expect(api.requests).toEqual([
       expect.objectContaining({
-        id: 55,
-        links_status: "COMPLETED",
+        authorization: AUTHORIZATION,
+        path: "/v2/account/info",
+        query: {},
       }),
+    ]);
+  });
+
+  it("filters events by type after paging by id", async () => {
+    routeReads(api);
+
+    const run = await putio(
+      "events",
+      "list",
+      "--before",
+      "44",
+      "--per-page",
+      "5",
+      "--type",
+      "transfer_completed",
+      "--output",
       "json",
-      expect.any(Function),
     );
 
+    expect(stdoutJson(run)).toMatchObject({
+      events: [{ id: 101, type: "transfer_completed" }],
+    });
+    expect(requestsTo("GET", "/v2/events/list")).toEqual([
+      expect.objectContaining({ query: { before: "44", per_page: "5" } }),
+    ]);
+  });
+
+  it("gets a download-links job", async () => {
+    routeReads(api);
+
+    const run = await putio("download-links", "get", "--id", "55", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({
+      links: { download_links: ["https://download.put.io/file-1"] },
+      links_status: "DONE",
+    });
+    expect(requestsTo("GET", "/v2/download_links/55")).toHaveLength(1);
+  });
+
+  it("lists files under the root with the requested page size", async () => {
+    routeReads(api);
+
+    const run = await putio("files", "list", "--per-page", "5", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({ files: [{ id: 1, name: "Movies" }], total: 1 });
+    expect(api.requests).toEqual([
+      expect.objectContaining({
+        authorization: AUTHORIZATION,
+        path: "/v2/files/list",
+        query: { parent_id: "0", per_page: "5", total: "1" },
+      }),
+    ]);
+  });
+
+  it("searches files through the top-level alias", async () => {
+    routeReads(api);
+
+    const run = await putio("search", "--query", "movie", "--per-page", "3", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({ files: [{ id: 2, name: "movie.mkv" }] });
+    expect(requestsTo("GET", "/v2/files/search")).toEqual([
+      expect.objectContaining({ query: { per_page: "3", query: "movie" } }),
+    ]);
+  });
+
+  it("lists transfers with the requested page size", async () => {
+    routeReads(api);
+
+    const run = await putio("transfers", "list", "--per-page", "5", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({ transfers: [{ id: 7, name: "ubuntu.iso" }] });
+    expect(requestsTo("GET", "/v2/transfers/list")).toEqual([
+      expect.objectContaining({ query: { per_page: "5" } }),
+    ]);
+  });
+
+  it.each([
+    ["json", (run: CliRun) => stdoutJson(run)],
+    ["ndjson", (run: CliRun) => stdoutLines(run)[0]],
+  ] as const)("watches a transfer until a terminal status in %s", async (output, parse) => {
+    routeReads(api);
+
+    const run = await putio("transfers", "watch", "--id", "7", "--output", output);
+
+    expect(parse(run)).toMatchObject({
+      timedOut: false,
+      transfer: { id: 7, status: "COMPLETED" },
+    });
+    expect(requestsTo("GET", "/v2/transfers/7")).toHaveLength(1);
+  });
+
+  it.each([
+    [["whoami"], "info"],
+    [["events", "list"], "events"],
+    [["download-links", "get", "--id", "55"], "links_status"],
+    [["files", "list"], "files,total"],
+    [["files", "search", "--query", "movie"], "files"],
+    [["search", "--query", "movie"], "files"],
+    [["transfers", "list"], "transfers"],
+    [["transfers", "watch", "--id", "7"], "transfer"],
+  ])("selects top-level fields for %j", async (command, fields) => {
+    routeReads(api);
+
+    const run = await putio(...command, "--fields", fields, "--output", "json");
+
+    expect(Object.keys(stdoutJson(run) as object).sort()).toEqual(fields.split(",").sort());
+  });
+
+  it("rejects unknown fields", async () => {
+    routeReads(api);
+
+    expectFailure(
+      await putio("files", "list", "--fields", "nope", "--output", "json"),
+      /Unknown `--fields` value for `files list`/,
+    );
+  });
+
+  it("rejects fields in interactive terminal mode before calling the API", async () => {
+    const run = await runPutio(api, ["whoami", "--fields", "info"], {
+      isInteractiveTerminal: true,
+    });
+
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain(
+      "`--fields` requires structured output (`--output json` or `--output ndjson`).",
+    );
+    expect(api.requests).toEqual([]);
+  });
+});
+
+describe("pagination", () => {
+  it.each([
+    {
+      args: ["files", "list"],
+      continuePath: "/v2/files/list/continue",
+      first: { path: "GET /v2/files/list", page: { parent: file(0, "Your Files"), total: 3 } },
+      itemKey: "files",
+      items: [file(1, "Movies"), file(2, "Shows"), file(3, "Music")],
+    },
+    {
+      args: ["files", "search", "--query", "movie"],
+      continuePath: "/v2/files/search/continue",
+      first: { path: "GET /v2/files/search", page: { total: 3 } },
+      itemKey: "files",
+      items: [file(2, "movie-1.mkv"), file(3, "movie-2.mkv"), file(4, "movie-3.mkv")],
+    },
+    {
+      args: ["transfers", "list"],
+      continuePath: "/v2/transfers/list/continue",
+      first: { path: "GET /v2/transfers/list", page: {} },
+      itemKey: "transfers",
+      items: [transfer(7, "ubuntu.iso"), transfer(8, "fedora.iso"), transfer(9, "debian.iso")],
+    },
+  ])("collects every page of $args with --page-all", async (fixture) => {
+    const [one, two, three] = fixture.items;
+    const continuationExtras = fixture.itemKey === "files" ? { total: 3 } : {};
+    api.route(
+      fixture.first.path,
+      ok({ ...fixture.first.page, cursor: "cursor-1", [fixture.itemKey]: [one] }),
+    );
+    api.route(`POST ${fixture.continuePath}`, [
+      ok({ ...continuationExtras, cursor: "cursor-2", [fixture.itemKey]: [two] }),
+      ok({ ...continuationExtras, cursor: null, [fixture.itemKey]: [three] }),
+    ]);
+
+    const run = await putio(...fixture.args, "--page-all", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({ cursor: null, [fixture.itemKey]: fixture.items });
     expect(
-      renderWriteOutputValue(-1, {
-        error_msg: null,
-        links: {
-          download_links: ["https://download.put.io/file-1"],
-          media_links: ["https://media.put.io/file-1"],
-          mp4_links: [],
-        },
-        links_status: "COMPLETED",
-      }),
-    ).toContain('"links_status": "COMPLETED"');
+      requestsTo("POST", fixture.continuePath).map(({ body, query }) => ({ body, query })),
+    ).toEqual([
+      { body: { cursor: "cursor-1" }, query: { per_page: "20" } },
+      { body: { cursor: "cursor-2" }, query: { per_page: "20" } },
+    ]);
   });
 
-  it("selects top-level download-links fields for json output", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "download-links",
-        "get",
-        "--id",
-        "55",
-        "--fields",
-        "links_status",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        links_status: "COMPLETED",
-      },
-      "json",
-      expect.any(Function),
+  it("streams each file list page as one ndjson line", async () => {
+    api.route(
+      "GET /v2/files/list",
+      ok({ cursor: "cursor-1", files: [file(1, "Movies")], parent: null, total: 2 }),
     );
+    api.route("POST /v2/files/list/continue", ok({ cursor: null, files: [file(2, "Shows")] }));
+
+    const run = await putio("files", "list", "--page-all", "--output", "ndjson");
+
+    expect(run.exitCode).toBe(0);
+    expect(stdoutLines(run)).toMatchObject([
+      { cursor: "cursor-1", files: [{ id: 1, name: "Movies" }] },
+      { cursor: null, files: [{ id: 2, name: "Shows" }] },
+    ]);
   });
 
-  it("executes brand and version commands", async () => {
-    await expect(runCliInTest(["putio", "brand", "--output", "json"])).resolves.toBeUndefined();
-    await expect(runCliInTest(["putio", "version", "--output", "json"])).resolves.toBeUndefined();
+  it("stops streaming when a page repeats a cursor", async () => {
+    api.route(
+      "GET /v2/files/list",
+      ok({ cursor: "cursor-1", files: [file(1, "Movies")], parent: null, total: 2 }),
+    );
+    api.route(
+      "POST /v2/files/list/continue",
+      ok({ cursor: "cursor-1", files: [file(2, "Shows")] }),
+    );
 
-    const brandCall = getWriteOutputCall(-2);
-    const versionCall = getWriteOutputCall(-1);
+    const run = await putio("files", "list", "--page-all", "--output", "ndjson");
 
-    expect(brandCall[0]).toEqual(
+    expect(run.exitCode).toBe(1);
+    expect(stdoutLines(run)).toHaveLength(1);
+    expect(stderrJson(run).error).toMatchObject({
+      message: "`files list` pagination returned a repeated cursor.",
+    });
+    expect(requestsTo("POST", "/v2/files/list/continue")).toHaveLength(1);
+  });
+});
+
+describe("file writes", () => {
+  it("creates a folder", async () => {
+    api.route("POST /v2/files/create-folder", ok({ file: file(42, "Projects", { parent_id: 9 }) }));
+
+    const run = await putio(
+      "files",
+      "mkdir",
+      "--name",
+      "Projects",
+      "--parent-id",
+      "9",
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toMatchObject({ id: 42, name: "Projects", parent_id: 9 });
+    expect(api.requests).toEqual([
       expect.objectContaining({
-        brand: "put.io",
+        authorization: AUTHORIZATION,
+        body: { name: "Projects", parent_id: "9" },
       }),
-    );
-    expect(versionCall[0]).toEqual(
+    ]);
+  });
+
+  it.each([
+    ["flags", ["--id", "1", "--id", "2", "--skip-trash"]],
+    ["raw json", ["--json", '{"ids":[1,2],"skip_trash":true}']],
+  ])("deletes files from %s", async (_input, args) => {
+    api.route("POST /v2/files/delete", ok({ cursor: null, skipped: 1 }));
+
+    const run = await putio("files", "delete", ...args, "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({ ids: [1, 2], skipTrash: true, skipped: 1 });
+    expect(api.requests).toEqual([
       expect.objectContaining({
-        binary: "putio",
+        body: { file_ids: "1,2" },
+        query: expect.objectContaining({ skip_trash: "true" }),
       }),
-    );
-
-    expect(brandCall[2]({})).toContain("■");
-    expect(versionCall[2]({ version: "0.0.0" })).toContain("version 0.0.0");
+    ]);
   });
 
-  it("executes files mkdir with the mocked sdk", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
+  it.each([
+    ["flags", ["--id", "42", "--name", "Projects 2026"]],
+    ["raw json", ["--json", '{"file_id":42,"name":"Projects 2026"}']],
+  ])("renames a file from %s", async (_input, args) => {
+    api.route("POST /v2/files/rename", ok());
+
+    const run = await putio("files", "rename", ...args, "--output", "json");
+
+    expect(run.exitCode).toBe(0);
+    expect(api.requests).toEqual([
+      expect.objectContaining({ body: { file_id: "42", name: "Projects 2026" } }),
+    ]);
+  });
+
+  it("rejects rename names with path traversal segments", async () => {
+    expectFailure(
+      await putio(
         "files",
-        "mkdir",
-        "--name",
-        "Projects",
-        "--parent-id",
-        "9",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.createFolderMock).toHaveBeenCalledWith({
-      name: "Projects",
-      parent_id: 9,
-    });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        id: 42,
-        name: "Projects",
-        parent_id: 9,
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("reads a file watch position", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "start-from",
-        "get",
-        "42",
-        "--fields",
-        "start_from",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getStartFromMock).toHaveBeenCalledWith(42);
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      { start_from: 90 },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("sets a file watch position", async () => {
-    await expect(
-      runCliInTest(["putio", "files", "start-from", "set", "42", "95", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.setStartFromMock).toHaveBeenCalledWith({ file_id: 42, time: 95 });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      { file_id: 42, start_from: 95, status: "OK" },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("resets a file watch position from raw json", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "start-from",
-        "reset",
+        "rename",
         "--json",
-        '{"file_id":42}',
+        '{"file_id":42,"name":"../Projects"}',
         "--output",
         "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.resetStartFromMock).toHaveBeenCalledWith(42);
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      { file_id: 42, start_from: 0, status: "OK" },
-      "json",
-      expect.any(Function),
+      ),
+      "`files rename --name` cannot contain path traversal segments like `../` or `%2e`.",
     );
+    expect(api.requests).toEqual([]);
   });
 
-  it("previews a watch-position update without hitting the sdk", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "start-from",
-        "set",
-        "--json",
-        '{"file_id":42,"time":95}',
-        "--dry-run",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
+  it.each([
+    ["flags", ["--id", "1", "--id", "2", "--parent-id", "9"]],
+    ["raw json", ["--json", '{"ids":[1,2],"parent_id":9}']],
+  ])("moves files from %s", async (_input, args) => {
+    api.route("POST /v2/files/move", ok({ errors: [] }));
 
-    expect(mocks.setStartFromMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "files start-from set",
-        dryRun: true,
-        request: { file_id: 42, time: 95 },
-      },
-      "json",
-      expect.any(Function),
-    );
+    const run = await putio("files", "move", ...args, "--output", "json");
+
+    expect(run.exitCode).toBe(0);
+    expect(api.requests).toEqual([
+      expect.objectContaining({ body: { file_ids: "1,2", parent_id: "9" } }),
+    ]);
   });
 
-  it("uploads a readable local file with the mocked sdk", async () => {
-    const directory = await makeUploadFixtureDirectory();
-    const path = join(directory, "movie.mp4");
-    await writeFile(path, "video fixture");
+  it("reads a watch position", async () => {
+    api.route("GET /v2/files/42/start-from", ok({ start_from: 90 }));
 
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "upload",
-        "--path",
-        path,
-        "--parent-id",
-        "42",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.uploadFileMock).toHaveBeenCalledWith({
-      file: expect.any(Blob),
-      fileName: "movie.mp4",
-      parentId: 42,
-    });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        file: { id: 88, name: "movie.mp4" },
-        type: "file",
-      },
+    const run = await putio(
+      "files",
+      "start-from",
+      "get",
+      "42",
+      "--fields",
+      "start_from",
+      "--output",
       "json",
-      expect.any(Function),
     );
+
+    expect(stdoutJson(run)).toEqual({ start_from: 90 });
   });
 
-  it("previews a local file upload from raw json without hitting the sdk", async () => {
-    const directory = await makeUploadFixtureDirectory();
-    const path = join(directory, "movie.mp4");
-    await writeFile(path, "video fixture");
+  it("sets a watch position", async () => {
+    api.route("POST /v2/files/42/start-from", ok());
 
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "upload",
-        "--json",
-        JSON.stringify({ file_name: "fixture.mp4", parent_id: 42, path }),
-        "--dry-run",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
+    const run = await putio("files", "start-from", "set", "42", "95", "--output", "json");
 
-    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "files upload",
-        dryRun: true,
-        request: {
-          file_name: "fixture.mp4",
-          parent_id: 42,
-          path,
-          size: 13,
-        },
-      },
-      "json",
-      expect.any(Function),
-    );
+    expect(stdoutJson(run)).toEqual({ file_id: 42, start_from: 95, status: "OK" });
+    expect(api.requests).toEqual([expect.objectContaining({ body: { time: "95" } })]);
   });
 
-  it("rejects directory paths before file upload", async () => {
-    const directory = await makeUploadFixtureDirectory();
+  it("resets a watch position from raw json", async () => {
+    api.route("POST /v2/files/42/start-from/delete", ok());
 
-    await expect(
-      runCliInTest(["putio", "files", "upload", "--path", directory, "--output", "json"]),
-    ).rejects.toMatchObject({
-      message: "Expected the upload path to point to a regular file.",
+    const run = await putio(
+      "files",
+      "start-from",
+      "reset",
+      "--json",
+      '{"file_id":42}',
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toEqual({ file_id: 42, start_from: 0, status: "OK" });
+    expect(requestsTo("POST", "/v2/files/42/start-from/delete")).toHaveLength(1);
+  });
+
+  it("fetches the MP4 HLS master playlist by default and redacts its token", async () => {
+    api.route("GET /v2/files/42/hls/media.m3u8", {
+      body: hlsManifest,
+      contentType: "application/vnd.apple.mpegurl",
     });
 
-    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+    const run = await putio("files", "hls-manifest", "42", "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({
+      file_id: 42,
+      manifest: expect.stringContaining('CODECS="avc1.42c01e,mp4a.40.2"'),
+      original: false,
+    });
+    expect(run.stdout).not.toContain(FIXTURE_TOKEN);
+    expect(api.requests).toEqual([expect.objectContaining({ query: { original: "0" } })]);
+  });
+
+  it("fetches the original HLS master playlist with subtitle options", async () => {
+    api.route("GET /v2/files/42/hls/media.m3u8", {
+      body: hlsManifest,
+      contentType: "application/vnd.apple.mpegurl",
+    });
+
+    const run = await putio(
+      "files",
+      "hls-manifest",
+      "42",
+      "--original",
+      "--max-subtitle-count",
+      "2",
+      "--subtitle-language",
+      "en",
+      "--subtitle-language",
+      "tr",
+      "--fields",
+      "manifest",
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toEqual({ manifest: expect.stringContaining("#EXTM3U") });
+    expect(api.requests).toEqual([
+      expect.objectContaining({
+        query: { max_subtitle_count: "2", original: "1", subtitle_languages: "en,tr" },
+      }),
+    ]);
+  });
+
+  it("rejects a non-positive hls-manifest file id", async () => {
+    expectFailure(
+      await putio("files", "hls-manifest", "0", "--output", "json"),
+      /positive integer/,
+    );
+    expect(api.requests).toEqual([]);
+  });
+
+  it("previews a watch-position update without calling the API", async () => {
+    const run = await putio(
+      "files",
+      "start-from",
+      "set",
+      "--json",
+      '{"file_id":42,"time":95}',
+      "--dry-run",
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toEqual({
+      command: "files start-from set",
+      dryRun: true,
+      request: { file_id: 42, time: 95 },
+    });
+    expect(api.requests).toEqual([]);
+  });
+});
+
+describe("files upload", () => {
+  it("uploads a local file to the upload host", async () => {
+    const { path } = await makeUploadFixture();
+    api.route("POST /v2/files/upload", ok({ file: file(88, "movie.mp4", { file_type: "VIDEO" }) }));
+
+    const run = await putio(
+      "files",
+      "upload",
+      "--path",
+      path,
+      "--parent-id",
+      "42",
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toMatchObject({ file: { id: 88, name: "movie.mp4" }, type: "file" });
+    expect(api.requests).toEqual([
+      expect.objectContaining({
+        body: { file: "video fixture", filename: "movie.mp4", parent_id: "42" },
+        origin: "upload",
+        query: { oauth_token: FIXTURE_TOKEN },
+      }),
+    ]);
+  });
+
+  it("previews a local file upload from raw json without calling the API", async () => {
+    const { path } = await makeUploadFixture();
+
+    const run = await putio(
+      "files",
+      "upload",
+      "--json",
+      JSON.stringify({ file_name: "fixture.mp4", parent_id: 42, path }),
+      "--dry-run",
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toEqual({
+      command: "files upload",
+      dryRun: true,
+      request: { file_name: "fixture.mp4", parent_id: 42, path, size: "video fixture".length },
+    });
+    expect(api.requests).toEqual([]);
+  });
+
+  it("reports an upload host failure", async () => {
+    const { path } = await makeUploadFixture();
+    api.route("POST /v2/files/upload", {
+      body: {
+        error_message: "upload failed",
+        error_type: "UPLOAD_FAILED",
+        status: "ERROR",
+        status_code: 500,
+      },
+      status: 500,
+    });
+
+    const run = await putio("files", "upload", "--path", path, "--output", "json");
+
+    expect(run.exitCode).toBe(1);
+    expect(stderrJson(run).error).toMatchObject({ httpStatusCode: 500 });
+  });
+
+  it("rejects a directory path before uploading", async () => {
+    const { directory } = await makeUploadFixture();
+
+    expectFailure(
+      await putio("files", "upload", "--path", directory, "--output", "json"),
+      "Expected the upload path to point to a regular file.",
+    );
+    expect(api.requests).toEqual([]);
   });
 
   it.skipIf(typeof process.getuid === "function" && process.getuid() === 0)(
-    "rejects unreadable files before previewing an upload",
+    "rejects an unreadable file before previewing an upload",
     async () => {
-      const directory = await makeUploadFixtureDirectory();
-      const path = join(directory, "private.mp4");
-      await writeFile(path, "video fixture", { mode: 0o000 });
+      const { path } = await makeUploadFixture("private.mp4", 0o000);
 
-      await expect(
-        runCliInTest(["putio", "files", "upload", "--path", path, "--dry-run", "--output", "json"]),
-      ).rejects.toMatchObject({
-        message:
-          "Unable to read the local upload file. Verify that the path exists and is readable.",
-      });
-
-      expect(mocks.uploadFileMock).not.toHaveBeenCalled();
+      expectFailure(
+        await putio("files", "upload", "--path", path, "--dry-run", "--output", "json"),
+        "Unable to read the local upload file. Verify that the path exists and is readable.",
+      );
     },
   );
 
-  it("rejects a blank upload filename before hitting the sdk", async () => {
-    const directory = await makeUploadFixtureDirectory();
-    const path = join(directory, "movie.mp4");
-    await writeFile(path, "video fixture");
+  it("rejects a blank upload filename before uploading", async () => {
+    const { path } = await makeUploadFixture();
 
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "upload",
-        "--path",
-        path,
-        "--file-name",
-        "   ",
-        "--output",
-        "json",
-      ]),
-    ).rejects.toMatchObject({
-      message: "Expected `files upload --file-name` to be a non-empty string.",
-    });
-
-    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects invalid upload options before filesystem work", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "upload",
-        "--path",
-        "/missing/upload-fixture",
-        "--file-name",
-        "../movie.mp4",
-        "--output",
-        "json",
-      ]),
-    ).rejects.toMatchObject({
-      message:
-        "`files upload --file-name` cannot contain path traversal segments like `../` or `%2e`.",
-    });
-
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "upload",
-        "--json",
-        '{"path":"/missing/upload-fixture","parent_id":-1}',
-        "--output",
-        "json",
-      ]),
-    ).rejects.toMatchObject({
-      message: "Expected `--json` to match the command input schema.",
-    });
-
-    expect(mocks.uploadFileMock).not.toHaveBeenCalled();
-  });
-
-  it("propagates sdk upload failures", async () => {
-    const directory = await makeUploadFixtureDirectory();
-    const path = join(directory, "private.mp4");
-    await writeFile(path, "video fixture");
-    mocks.uploadFileMock.mockImplementationOnce(() => Effect.fail(new Error("upload failed")));
-
-    await expect(
-      runCliInTest(["putio", "files", "upload", "--path", path, "--output", "json"]),
-    ).rejects.toThrow("upload failed");
-
-    expect(mocks.uploadFileMock).toHaveBeenCalledOnce();
-  });
-
-  it("executes files delete with repeated ids", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "delete",
-        "--id",
-        "1",
-        "--id",
-        "2",
-        "--skip-trash",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.deleteFilesMock).toHaveBeenCalledWith([1, 2], { skipTrash: true });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        ids: [1, 2],
-        skipTrash: true,
-        skipped: 1,
-      },
-      "json",
-      expect.any(Function),
+    expectFailure(
+      await putio("files", "upload", "--path", path, "--file-name", "   ", "--output", "json"),
+      "Expected `files upload --file-name` to be a non-empty string.",
     );
+    expect(api.requests).toEqual([]);
   });
 
-  it("executes files delete from raw json with api-style keys", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "delete",
-        "--json",
-        '{"ids":[1,2],"skip_trash":true}',
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
+  it.each([
+    [
+      ["--path", "/missing/upload-fixture", "--file-name", "../movie.mp4"],
+      "`files upload --file-name` cannot contain path traversal segments like `../` or `%2e`.",
+    ],
+    [
+      ["--json", '{"path":"/missing/upload-fixture","parent_id":-1}'],
+      "Expected `--json` to match the command input schema.",
+    ],
+  ])("rejects invalid upload options before filesystem work: %j", async (args, message) => {
+    expectFailure(await putio("files", "upload", ...args, "--output", "json"), message);
+    expect(api.requests).toEqual([]);
+  });
+});
 
-    expect(mocks.deleteFilesMock).toHaveBeenCalledWith([1, 2], { skipTrash: true });
+describe("download-links create", () => {
+  it("creates a job for the selected files", async () => {
+    api.route("POST /v2/download_links/create", ok({ id: 55 }));
+
+    const run = await putio(
+      "download-links",
+      "create",
+      "--id",
+      "1",
+      "--id",
+      "2",
+      "--exclude-id",
+      "9",
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toEqual({ id: 55 });
+    expect(api.requests).toEqual([
+      expect.objectContaining({ body: { exclude_ids: "9", file_ids: "1,2" } }),
+    ]);
   });
 
-  it("executes files list", async () => {
-    await expect(
-      runCliInTest(["putio", "files", "list", "--per-page", "5", "--output", "json"]),
-    ).resolves.toBeUndefined();
+  it("previews a job from raw json without calling the API", async () => {
+    const run = await putio(
+      "download-links",
+      "create",
+      "--json",
+      '{"ids":[1,2],"excludeIds":[9]}',
+      "--dry-run",
+      "--output",
+      "json",
+    );
 
-    expect(mocks.listFilesMock).toHaveBeenCalledWith(
-      0,
+    expect(stdoutJson(run)).toEqual({
+      command: "download-links create",
+      dryRun: true,
+      request: { excludeIds: [9], ids: [1, 2] },
+    });
+    expect(api.requests).toEqual([]);
+  });
+});
+
+describe("sdk call", () => {
+  it("invokes a JSON-compatible operation with explicit execution", async () => {
+    routeReads(api);
+
+    const run = await putio(
+      "sdk",
+      "call",
+      "--operation",
+      "files.list",
+      "--args",
+      '[0,{"per_page":10}]',
+      "--execute",
+      "--output",
+      "json",
+    );
+
+    expect(stdoutJson(run)).toMatchObject({ operation: "files.list", result: { total: 1 } });
+    expect(api.requests).toEqual([
       expect.objectContaining({
-        per_page: 5,
-        total: 1,
+        path: "/v2/files/list",
+        query: { parent_id: "0", per_page: "10" },
       }),
-    );
+    ]);
   });
 
-  it("invokes a JSON-compatible sdk operation with explicit execution", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "sdk",
-        "call",
-        "--operation",
-        "files.list",
-        "--args",
-        '[0,{"per_page":10}]',
-        "--execute",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.listFilesMock).toHaveBeenCalledWith(0, { per_page: 10 });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        operation: "files.list",
-        result: expect.objectContaining({ total: 1 }),
-      },
+  it("previews a raw-json operation without calling the API", async () => {
+    const run = await putio(
+      "sdk",
+      "call",
+      "--json",
+      '{"operation":"files.list","args":[0]}',
+      "--dry-run",
+      "--output",
       "json",
-      expect.any(Function),
     );
-  });
 
-  it("previews a raw-json sdk operation without authentication or invocation", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "sdk",
-        "call",
-        "--json",
-        '{"operation":"files.list","args":[0]}',
-        "--dry-run",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
-    expect(mocks.listFilesMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "sdk call",
-        dryRun: true,
-        request: {
-          args: [0],
-          operation: "files.list",
-        },
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("requires explicit sdk call execution consent", async () => {
-    await expect(
-      runCliInTest(["putio", "sdk", "call", "--operation", "files.list", "--output", "json"]),
-    ).rejects.toMatchObject({
-      message: "Choose exactly one of `sdk call --dry-run` or `sdk call --execute`.",
+    expect(stdoutJson(run)).toEqual({
+      command: "sdk call",
+      dryRun: true,
+      request: { args: [0], operation: "files.list" },
     });
-
-    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
+    expect(api.requests).toEqual([]);
   });
 
-  it("rejects secret-bearing sdk operations before dry-run output", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
+  it("requires choosing dry-run or execute", async () => {
+    expectFailure(
+      await putio("sdk", "call", "--operation", "files.list", "--output", "json"),
+      "Choose exactly one of `sdk call --dry-run` or `sdk call --execute`.",
+    );
+    expect(api.requests).toEqual([]);
+  });
+
+  it("rejects secret-bearing operations before a dry-run plan", async () => {
+    expectFailure(
+      await putio(
         "sdk",
         "call",
         "--operation",
@@ -1447,788 +1028,137 @@ describe("cli command paths", () => {
         "--dry-run",
         "--output",
         "json",
-      ]),
-    ).rejects.toMatchObject({
-      message:
-        "SDK operation `auth.validateToken` is not JSON-callable: authentication operations can expose credentials or approval codes.",
-    });
-
-    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
-    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
+      ),
+      "SDK operation `auth.validateToken` is not JSON-callable: authentication operations can expose credentials or approval codes.",
+    );
+    expect(api.requests).toEqual([]);
   });
 
-  it("strictly redacts sentinel-looking sdk secrets in dry-run plans", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "sdk",
-        "call",
-        "--operation",
-        "files.list",
-        "--args",
-        '[0,{"password":"null"}]',
-        "--dry-run",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "sdk call",
-        dryRun: true,
-        request: {
-          args: [0, { password: "[REDACTED]" }],
-          operation: "files.list",
-        },
-      },
+  it("redacts sentinel-looking secrets in dry-run plans", async () => {
+    const run = await putio(
+      "sdk",
+      "call",
+      "--operation",
+      "files.list",
+      "--args",
+      '[0,{"password":"null"}]',
+      "--dry-run",
+      "--output",
       "json",
-      expect.any(Function),
-    );
-    expect(mocks.withAuthedSdkMock).not.toHaveBeenCalled();
-  });
-
-  it("strictly redacts sentinel-looking sdk secrets in execution results", async () => {
-    mocks.listFilesMock.mockImplementationOnce(() =>
-      Effect.succeed({
-        download_token: "null",
-        files: [],
-        total: 0,
-      }),
     );
 
-    await expect(
-      runCliInTest([
-        "putio",
-        "sdk",
-        "call",
-        "--operation",
-        "files.list",
-        "--args",
-        "[0]",
-        "--execute",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        operation: "files.list",
-        result: {
-          download_token: "[REDACTED]",
-          files: [],
-          total: 0,
-        },
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("selects top-level file list fields for json output", async () => {
-    await expect(
-      runCliInTest(["putio", "files", "list", "--fields", "files,total", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        files: expect.arrayContaining([expect.objectContaining({ id: 1 })]),
-        total: 1,
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("collects all file list pages when page-all is set", async () => {
-    mocks.listFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: "cursor-1",
-        files: [{ id: 1, name: "Movies" }],
-        total: 3,
-      }),
-    );
-    mocks.continueFilesMock.mockImplementationOnce((cursor) =>
-      Effect.succeed({
-        cursor: cursor === "cursor-1" ? "cursor-2" : null,
-        files: cursor === "cursor-1" ? [{ id: 2, name: "Shows" }] : [{ id: 3, name: "Music" }],
-        total: 3,
-      }),
-    );
-    mocks.continueFilesMock.mockImplementationOnce(() =>
-      Effect.succeed({
-        cursor: null,
-        files: [{ id: 3, name: "Music" }],
-        total: 3,
-      }),
-    );
-
-    await expect(
-      runCliInTest(["putio", "files", "list", "--page-all", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.continueFilesMock).toHaveBeenCalledWith("cursor-1", { per_page: 20 });
-    expect(mocks.continueFilesMock).toHaveBeenCalledWith("cursor-2", { per_page: 20 });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        cursor: null,
-        files: [
-          { id: 1, name: "Movies" },
-          { id: 2, name: "Shows" },
-          { id: 3, name: "Music" },
-        ],
-        total: 3,
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("streams file list pages as ndjson envelopes", async () => {
-    mocks.listFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: "cursor-1",
-        files: [{ id: 1, name: "Movies" }],
-        total: 2,
-      }),
-    );
-    mocks.continueFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: null,
-        files: [{ id: 2, name: "Shows" }],
-        total: 2,
-      }),
-    );
-
-    await expect(
-      runCliInTest(["putio", "files", "list", "--page-all", "--output", "ndjson"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenNthCalledWith(
-      1,
-      {
-        cursor: "cursor-1",
-        files: [{ id: 1, name: "Movies" }],
-        total: 2,
-      },
-      "ndjson",
-      expect.any(Function),
-    );
-    expect(mocks.writeOutputMock).toHaveBeenNthCalledWith(
-      2,
-      {
-        cursor: null,
-        files: [{ id: 2, name: "Shows" }],
-        total: 2,
-      },
-      "ndjson",
-      expect.any(Function),
-    );
-  });
-
-  it("rejects repeated cursors while streaming file list pages", async () => {
-    mocks.listFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: "cursor-1",
-        files: [{ id: 1, name: "Movies" }],
-        total: 2,
-      }),
-    );
-    mocks.continueFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: "cursor-1",
-        files: [{ id: 2, name: "Shows" }],
-        total: 2,
-      }),
-    );
-
-    await expect(
-      runCliInTest(["putio", "files", "list", "--page-all", "--output", "ndjson"]),
-    ).rejects.toMatchObject({
-      message: "`files list` pagination returned a repeated cursor.",
+    expect(stdoutJson(run)).toEqual({
+      command: "sdk call",
+      dryRun: true,
+      request: { args: [0, { password: "[REDACTED]" }], operation: "files.list" },
     });
-
-    expect(mocks.continueFilesMock).toHaveBeenCalledTimes(1);
-    expect(mocks.writeOutputMock).toHaveBeenCalledTimes(1);
+    expect(api.requests).toEqual([]);
   });
 
-  it("rejects cumulative item overflow while streaming file list pages", async () => {
-    mocks.listFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: "cursor-1",
-        files: Array.from({ length: 60_000 }, (_value, id) => ({ id })),
-        total: 110_001,
-      }),
-    );
-    mocks.continueFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: null,
-        files: Array.from({ length: 50_001 }, (_value, id) => ({ id: id + 60_000 })),
-        total: 110_001,
-      }),
-    );
+  it("redacts sentinel-looking secrets in execution results", async () => {
+    api.route("GET /v2/account/info", ok({ info: { ...accountInfo, download_token: "null" } }));
 
-    await expect(
-      runCliInTest(["putio", "files", "list", "--page-all", "--output", "ndjson"]),
-    ).rejects.toMatchObject({
-      message: "`files list` pagination exceeded 100000 items.",
-    });
-
-    expect(mocks.continueFilesMock).toHaveBeenCalledTimes(1);
-    expect(mocks.writeOutputMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("executes files rename", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "rename",
-        "--id",
-        "42",
-        "--name",
-        "Projects 2026",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.renameFileMock).toHaveBeenCalledWith({
-      file_id: 42,
-      name: "Projects 2026",
-    });
-  });
-
-  it("executes files rename from raw json", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "rename",
-        "--json",
-        '{"file_id":42,"name":"Projects 2027"}',
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.renameFileMock).toHaveBeenCalledWith({
-      file_id: 42,
-      name: "Projects 2027",
-    });
-  });
-
-  it("rejects file rename names with path traversal segments", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "rename",
-        "--json",
-        '{"file_id":42,"name":"../Projects"}',
-        "--output",
-        "json",
-      ]),
-    ).rejects.toMatchObject({
-      message: "`files rename --name` cannot contain path traversal segments like `../` or `%2e`.",
-    });
-
-    expect(mocks.renameFileMock).not.toHaveBeenCalled();
-  });
-
-  it("executes files move", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "move",
-        "--id",
-        "1",
-        "--id",
-        "2",
-        "--parent-id",
-        "9",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.moveFilesMock).toHaveBeenCalledWith([1, 2], 9);
-  });
-
-  it("executes files move from raw json with api-style keys", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "move",
-        "--json",
-        '{"ids":[1,2],"parent_id":9}',
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.moveFilesMock).toHaveBeenCalledWith([1, 2], 9);
-  });
-
-  it("executes top-level search", async () => {
-    await expect(
-      runCliInTest(["putio", "search", "--query", "movie", "--per-page", "3", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.searchFilesMock).toHaveBeenCalledWith({
-      per_page: 3,
-      query: "movie",
-    });
-  });
-
-  it("fetches the served HLS master playlist for the MP4 conversion by default", async () => {
-    await expect(
-      runCliInTest(["putio", "files", "hls-manifest", "42", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getHlsMasterPlaylistMock).toHaveBeenCalledWith(42, {
-      maxSubtitleCount: undefined,
-      playOriginal: false,
-    });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        file_id: 42,
-        manifest: expect.stringContaining('CODECS="avc1.42c01e,mp4a.40.2"'),
-        original: false,
-      }),
+    const run = await putio(
+      "sdk",
+      "call",
+      "--operation",
+      "account.getInfo",
+      "--args",
+      '[{"download_token":1}]',
+      "--execute",
+      "--output",
       "json",
-      expect.any(Function),
     );
-  });
 
-  it("fetches the original HLS master playlist with subtitle options", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "hls-manifest",
-        "42",
-        "--original",
-        "--max-subtitle-count",
-        "2",
-        "--subtitle-language",
-        "en",
-        "--subtitle-language",
-        "tr",
-        "--fields",
-        "manifest",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getHlsMasterPlaylistMock).toHaveBeenCalledWith(42, {
-      maxSubtitleCount: 2,
-      playOriginal: true,
-      subtitleLanguages: ["en", "tr"],
+    expect(stdoutJson(run)).toMatchObject({
+      operation: "account.getInfo",
+      result: { download_token: "[REDACTED]" },
     });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      { manifest: expect.stringContaining("#EXTM3U") },
-      "json",
-      expect.any(Function),
-    );
+    expect(api.requests).toEqual([expect.objectContaining({ query: { download_token: "1" } })]);
   });
+});
 
-  it("rejects a non-positive hls-manifest file id", async () => {
-    await expect(
-      runCliInTest(["putio", "files", "hls-manifest", "0", "--output", "json"]),
-    ).rejects.toThrow(/positive integer/);
-    expect(mocks.getHlsMasterPlaylistMock).not.toHaveBeenCalled();
-  });
+describe("transfer writes", () => {
+  const added = ok({ errors: [], transfers: [transfer(7, "ubuntu.iso", "WAITING")] });
 
-  it("selects top-level file search fields for json output", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "search",
-        "--query",
-        "movie",
-        "--fields",
-        "files",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        files: expect.arrayContaining([expect.objectContaining({ id: 2 })]),
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("collects all file search pages when page-all is set", async () => {
-    mocks.searchFilesMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: "cursor-1",
-        files: [{ id: 2, name: "movie-1.mkv" }],
-      }),
-    );
-    mocks.continueSearchFilesMock.mockImplementationOnce((cursor) =>
-      Effect.succeed({
-        cursor: cursor === "cursor-1" ? "cursor-2" : null,
-        files:
-          cursor === "cursor-1"
-            ? [{ id: 3, name: "movie-2.mkv" }]
-            : [{ id: 4, name: "movie-3.mkv" }],
-      }),
-    );
-    mocks.continueSearchFilesMock.mockImplementationOnce(() =>
-      Effect.succeed({
-        cursor: null,
-        files: [{ id: 4, name: "movie-3.mkv" }],
-      }),
-    );
-
-    await expect(
-      runCliInTest([
-        "putio",
-        "files",
-        "search",
-        "--query",
-        "movie",
-        "--page-all",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.continueSearchFilesMock).toHaveBeenCalledWith("cursor-1", { per_page: 20 });
-    expect(mocks.continueSearchFilesMock).toHaveBeenCalledWith("cursor-2", { per_page: 20 });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        cursor: null,
-        files: [
-          { id: 2, name: "movie-1.mkv" },
-          { id: 3, name: "movie-2.mkv" },
-          { id: 4, name: "movie-3.mkv" },
-        ],
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("selects top-level search alias fields for json output", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "search",
-        "--query",
-        "movie",
-        "--fields",
-        "files",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        files: expect.arrayContaining([expect.objectContaining({ id: 2 })]),
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("rejects fields in interactive terminal mode without calling the sdk", async () => {
-    await expect(
-      runCliInTest(["putio", "whoami", "--fields", "info"], { isInteractiveTerminal: true }),
-    ).rejects.toMatchObject({
-      message: "`--fields` requires structured output (`--output json` or `--output ndjson`).",
-    });
-
-    expect(mocks.getAccountInfoMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
-  });
-
-  it("rejects unknown fields with a tagged input error", async () => {
-    await expect(
-      runCliInTest(["putio", "files", "list", "--fields", "nope", "--output", "json"]),
-    ).rejects.toMatchObject({
-      message: expect.stringContaining("Unknown `--fields` value for `files list`"),
-    });
-
-    expect(mocks.writeOutputMock).not.toHaveBeenCalled();
-  });
-
-  it("executes transfers list", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "list", "--per-page", "5", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.listTransfersMock).toHaveBeenCalledWith({ per_page: 5 });
-  });
-
-  it("selects top-level transfer list fields for json output", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "list", "--fields", "transfers", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        transfers: expect.arrayContaining([expect.objectContaining({ id: 7 })]),
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("collects all transfer pages when page-all is set", async () => {
-    mocks.listTransfersMock.mockReturnValueOnce(
-      Effect.succeed({
-        cursor: "cursor-1",
-        transfers: [{ id: 7, name: "ubuntu.iso" }],
-      }),
-    );
-    mocks.continueTransfersMock.mockImplementationOnce((cursor) =>
-      Effect.succeed({
-        cursor: cursor === "cursor-1" ? "cursor-2" : null,
-        transfers:
-          cursor === "cursor-1" ? [{ id: 8, name: "fedora.iso" }] : [{ id: 9, name: "debian.iso" }],
-      }),
-    );
-    mocks.continueTransfersMock.mockImplementationOnce(() =>
-      Effect.succeed({
-        cursor: null,
-        transfers: [{ id: 9, name: "debian.iso" }],
-      }),
-    );
-
-    await expect(
-      runCliInTest(["putio", "transfers", "list", "--page-all", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.continueTransfersMock).toHaveBeenCalledWith("cursor-1", { per_page: 20 });
-    expect(mocks.continueTransfersMock).toHaveBeenCalledWith("cursor-2", { per_page: 20 });
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        cursor: null,
-        transfers: [
-          { id: 7, name: "ubuntu.iso" },
-          { id: 8, name: "fedora.iso" },
-          { id: 9, name: "debian.iso" },
-        ],
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes transfers add", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "transfers",
-        "add",
-        "--url",
-        "https://example.com/ubuntu.torrent",
-        "--save-parent-id",
-        "9",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.addTransfersMock).toHaveBeenCalledWith([
-      {
-        callback_url: undefined,
-        save_parent_id: 9,
-        url: "https://example.com/ubuntu.torrent",
-      },
-    ]);
-  });
-
-  it("executes transfers add from raw json", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "transfers",
-        "add",
+  it.each([
+    [
+      ["--url", "https://example.com/ubuntu.torrent", "--save-parent-id", "9"],
+      [{ save_parent_id: 9, url: "https://example.com/ubuntu.torrent" }],
+    ],
+    [
+      [
         "--json",
         '[{"callback_url":"https://example.com/callback","save_parent_id":9,"url":"https://example.com/fedora.torrent"}]',
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
+      ],
+      [
+        {
+          callback_url: "https://example.com/callback",
+          save_parent_id: 9,
+          url: "https://example.com/fedora.torrent",
+        },
+      ],
+    ],
+  ])("adds transfers from %j", async (args, urls) => {
+    api.route("POST /v2/transfers/add-multi", added);
 
-    expect(mocks.addTransfersMock).toHaveBeenCalledWith([
-      {
-        callback_url: "https://example.com/callback",
-        save_parent_id: 9,
-        url: "https://example.com/fedora.torrent",
-      },
+    const run = await putio("transfers", "add", ...args, "--output", "json");
+
+    expect(stdoutJson(run)).toMatchObject({ transfers: [{ id: 7 }] });
+    expect(api.requests).toHaveLength(1);
+    expect(JSON.parse(api.requests[0]?.body.urls ?? "null")).toEqual(urls);
+  });
+
+  it("cancels transfers by repeated ids", async () => {
+    api.route("POST /v2/transfers/cancel", ok());
+
+    const run = await putio("transfers", "cancel", "--id", "8", "--id", "9", "--output", "json");
+
+    expect(run.exitCode).toBe(0);
+    expect(api.requests).toEqual([
+      expect.objectContaining({ authorization: AUTHORIZATION, body: { transfer_ids: "8,9" } }),
     ]);
   });
 
-  it("executes transfers cancel with repeated ids", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "cancel", "--id", "8", "--id", "9", "--output", "json"]),
-    ).resolves.toBeUndefined();
+  it("cleans transfers by repeated ids", async () => {
+    api.route("POST /v2/transfers/clean", ok({ deleted_ids: [8, 9] }));
 
-    expect(mocks.cancelTransfersMock).toHaveBeenCalledWith([8, 9]);
+    const run = await putio("transfers", "clean", "--id", "8", "--id", "9", "--output", "json");
+
+    expect(stdoutJson(run)).toEqual({ deleted_ids: [8, 9] });
+    expect(api.requests).toEqual([expect.objectContaining({ body: { transfer_ids: "8,9" } })]);
   });
 
-  it("executes transfers cancel dry-run without hitting the sdk", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "transfers",
-        "cancel",
-        "--json",
-        '{"ids":[8,9]}',
-        "--dry-run",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
+  it.each([
+    ["retry", "/v2/transfers/retry", ok({ transfer: transfer(7, "ubuntu.iso", "WAITING") })],
+    ["reannounce", "/v2/transfers/reannounce", ok()],
+  ])("sends %s for one transfer", async (command, path, reply) => {
+    api.route(`POST ${path}`, reply);
 
-    expect(mocks.cancelTransfersMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "transfers cancel",
-        dryRun: true,
-        request: {
-          ids: [8, 9],
-        },
-      },
-      "json",
-      expect.any(Function),
-    );
+    const run = await putio("transfers", command, "--id", "7", "--output", "json");
+
+    expect(run.exitCode).toBe(0);
+    expect(api.requests).toEqual([expect.objectContaining({ body: { id: "7" }, path })]);
   });
 
-  it("executes transfers retry", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "retry", "--id", "7", "--output", "json"]),
-    ).resolves.toBeUndefined();
+  it.each([
+    [
+      ["cancel", "--json", '{"ids":[8,9]}'],
+      { command: "transfers cancel", request: { ids: [8, 9] } },
+    ],
+    [["clean"], { command: "transfers clean", request: {} }],
+  ])("previews transfers %j without calling the API", async (args, plan) => {
+    const run = await putio("transfers", ...args, "--dry-run", "--output", "json");
 
-    expect(mocks.retryTransferMock).toHaveBeenCalledWith(7);
+    expect(stdoutJson(run)).toEqual({ ...plan, dryRun: true });
+    expect(api.requests).toEqual([]);
   });
+});
 
-  it("executes transfers clean with repeated ids", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "clean", "--id", "8", "--id", "9", "--output", "json"]),
-    ).resolves.toBeUndefined();
+describe("utility commands", () => {
+  it("prints the brand", async () => {
+    const run = await putio("brand", "--output", "json");
 
-    expect(mocks.cleanTransfersMock).toHaveBeenCalledWith([8, 9]);
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        deleted_ids: [8, 9],
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("omits absent transfers clean ids from dry-run output", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "clean", "--dry-run", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.cleanTransfersMock).not.toHaveBeenCalled();
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        command: "transfers clean",
-        dryRun: true,
-        request: {},
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("executes transfers reannounce", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "reannounce", "--id", "7", "--output", "json"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.reannounceTransferMock).toHaveBeenCalledWith(7);
-  });
-
-  it("executes transfers watch and exits on terminal status", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "transfers",
-        "watch",
-        "--id",
-        "7",
-        "--interval-seconds",
-        "1",
-        "--timeout-seconds",
-        "5",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.getTransferMock).toHaveBeenCalledWith(7);
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        timedOut: false,
-        transfer: expect.objectContaining({
-          id: 7,
-          status: "COMPLETED",
-        }),
-      },
-      "json",
-      expect.any(Function),
-    );
-  });
-
-  it("streams transfer watch observations as ndjson", async () => {
-    await expect(
-      runCliInTest(["putio", "transfers", "watch", "--id", "7", "--output", "ndjson"]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        timedOut: false,
-        transfer: expect.objectContaining({
-          id: 7,
-          status: "COMPLETED",
-        }),
-      },
-      "ndjson",
-      expect.any(Function),
-    );
-  });
-
-  it("selects top-level transfer watch fields for json output", async () => {
-    await expect(
-      runCliInTest([
-        "putio",
-        "transfers",
-        "watch",
-        "--id",
-        "7",
-        "--fields",
-        "transfer",
-        "--output",
-        "json",
-      ]),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.writeOutputMock).toHaveBeenCalledWith(
-      {
-        transfer: expect.objectContaining({
-          id: 7,
-        }),
-      },
-      "json",
-      expect.any(Function),
-    );
+    expect(stdoutJson(run)).toMatchObject({ brand: "put.io" });
   });
 });
