@@ -794,8 +794,9 @@ const provideAuthedSdk = <A, E, R>(
 export const withAuthedSdk = <A, E, R>(program: AuthedSdkProgram<A, E, R>) =>
   Effect.flatMap(resolveAuthState(), (auth) => provideAuthedSdk(auth, undefined, program));
 
+// A persisted base that is not a URL is never the default, so upload refuses it.
 const isDefaultApiBaseUrl = (apiBaseUrl: string) =>
-  new URL(apiBaseUrl).href === new URL(DEFAULT_PUTIO_API_BASE_URL).href;
+  URL.canParse(apiBaseUrl) && new URL(apiBaseUrl).href === new URL(DEFAULT_PUTIO_API_BASE_URL).href;
 
 // Uploads go to their own host. A custom API base needs an explicit upload base,
 // so its token is never sent to the production upload host.

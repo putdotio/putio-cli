@@ -208,6 +208,7 @@ for status interpretation and missing-file checks.
 - Set `PUTIO_CLI_TOKEN` for headless auth; it overrides persisted auth and selected profiles.
 - Set `PUTIO_CLI_PROFILE` to select a persisted profile for automation.
 - Use `PUTIO_CLI_CONFIG_PATH` to override the default config location and isolate test state.
+- Pointing `PUTIO_CLI_API_BASE_URL` at another API also needs `PUTIO_CLI_UPLOAD_BASE_URL` for `files upload`; without it, uploads refuse rather than send that token to upload.put.io.
 - If no profile is specified, the configured default profile is used when present; otherwise legacy single-token config remains supported.
 
 ## Crash Reporting and Diagnostics
