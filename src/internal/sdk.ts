@@ -15,6 +15,7 @@ export type CliSdkService = {
     config: {
       readonly token?: string;
       readonly apiBaseUrl?: string;
+      readonly uploadBaseUrl?: string;
     },
     program: Effect.Effect<A, E, R>,
   ) => Effect.Effect<A, E, Exclude<R, PutioSdkContext>>;
@@ -30,6 +31,7 @@ const makeCliSdk = (): CliSdkService => ({
         makePutioSdkLiveLayer({
           accessToken: config.token,
           baseUrl: config.apiBaseUrl,
+          uploadBaseUrl: config.uploadBaseUrl,
         }),
       ),
     ),

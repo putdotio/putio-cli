@@ -20,6 +20,7 @@ import {
   validateLocalPathInput,
   validateNameLikeInput,
   withAuthedSdk,
+  withAuthedUploadSdk,
   writeDryRunPlan,
   writeReadOutput,
   writeReadPages,
@@ -431,7 +432,7 @@ const filesUpload = Command.make(
           message: translate("cli.files.command.uploading", { name: resolvedFileName }),
           output: getOption(output),
         },
-        withAuthedSdk(({ sdk }) =>
+        withAuthedUploadSdk(({ sdk }) =>
           sdk.files.upload({
             file,
             fileName: resolvedFileName,
