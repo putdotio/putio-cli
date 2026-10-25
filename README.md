@@ -6,7 +6,6 @@
   <h1>putio-cli</h1>
 
   <p>Agent-first CLI for the put.io API</p>
-  <p>Built for deterministic automation first, with readable terminal output when humans are driving.</p>
 
   <p>
     <a href="https://github.com/putdotio/putio-cli/actions/workflows/ci.yml?query=branch%3Amain" style="text-decoration:none;"><img src="https://img.shields.io/github/actions/workflow/status/putdotio/putio-cli/ci.yml?branch=main&style=flat&label=ci&colorA=000000&colorB=000000" alt="CI"></a>
