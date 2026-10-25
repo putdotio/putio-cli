@@ -10,9 +10,6 @@ It lists commands, flags, auth requirements, raw JSON input shapes for writes,
 each command's capabilities, and the `automation` contract. Confirm a feature
 there before you rely on it; a missing feature is a real gap.
 
-`crashReporting` shows the effective reporting state, telemetry commands, flush
-bound, and captured-field allowlist.
-
 Output defaults to `text` at an interactive TTY and `json` when piped; an
 explicit `--output` always wins.
 

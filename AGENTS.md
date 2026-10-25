@@ -3,24 +3,16 @@
 ## Repo
 
 - `@putdotio/cli`, the `putio` binary, shipped through npm, Homebrew, and standalone binaries.
-- Code lives in `src/*`.
-- `skills/putio-cli` is the consumer skill that ships in the npm package.
-- Contributor setup is in [Contributing](CONTRIBUTING.md).
+- `README.md` is for users, [`CONTRIBUTING.md`](CONTRIBUTING.md) for contributors, `skills/putio-cli` for consumer agents; that skill ships in the npm package.
 
 ## Commands
 
+- Setup, worktrees included: `pnpm exec vp install`, then `pnpm exec vp config`.
 - `pnpm exec vp run verify`: the gate; pre-push and CI run it.
 - Focused checks are the `scripts` in [package.json](package.json); run them as `pnpm exec vp run <script>`.
-- `smoke:pack` writes its report to `.artifacts/smoke-packed-install.json`.
-
-## Worktrees
-
-Run `pnpm exec vp install`, `pnpm exec vp config`, then
-`pnpm exec vp run verify`.
 
 ## Development Guidance
 
-- `README.md` is for users, `CONTRIBUTING.md` for contributors, `skills/*` for consumer usage.
 - Keep command modules thin; shared behavior goes in Effect services and layers with `Schema` boundaries and tagged errors.
 - JSON output is the machine contract; terminal output is a separate adapter.
 - When commands, flags, output, auth, `automation`, or `describe.version` change in a way consumers need, update [`README.md`](README.md), [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md), and its references in the same change.
@@ -52,6 +44,5 @@ does not cover.
 
 ## Skills
 
-- `skills/*` holds consumer skills, not repo onboarding.
 - `skills/putio-cli/SKILL.md` routes; surface detail lives in the matching reference file.
 - `skills/putio-cli/agents/openai.yaml` is the Codex picker metadata; keep it aligned with the skill frontmatter.

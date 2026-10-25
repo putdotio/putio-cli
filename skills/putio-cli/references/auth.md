@@ -1,7 +1,6 @@
 # Auth
 
-Check auth first. Without `--profile`, `auth status` reports the default profile
-or the legacy token:
+Check auth first:
 
 ```bash
 putio auth status --output json
