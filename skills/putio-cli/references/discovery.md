@@ -6,34 +6,23 @@ Start every task with:
 putio describe --output json
 ```
 
-Use it to discover:
+It lists commands, flags, auth requirements, raw JSON input shapes for writes,
+each command's capabilities, and the `automation` contract. Confirm a feature
+there before you rely on it; a missing feature is a real gap.
 
-- available commands
-- supported flags
-- output capabilities
-- `automation` contract and safety features
-- auth requirements
-- raw JSON input shapes for write commands
-- validation notes that matter to agents
+`crashReporting` shows the effective reporting state, telemetry commands, flush
+bound, and captured-field allowlist.
 
-Structured output defaults:
+Output defaults to `text` at an interactive TTY and `json` when piped; an
+explicit `--output` always wins.
 
-- interactive TTY: `text`
-- non-interactive / piped: `json`
-- explicit `--output json`, `--output ndjson`, or `--output text` always wins
-
-Use `automation` to confirm concrete support such as dry-run on writes, raw JSON input, field selection, streaming reads, redaction, and untrusted-text annotations. Use `crashReporting` to inspect the effective reporting state, persisted telemetry commands, flush bound, and captured-field allowlist. Treat missing features as a real contract gap instead of assuming they exist.
-
-When the required API operation has no dedicated command, inspect the pinned TypeScript SDK surface:
+When no dedicated command covers the API operation, inspect the pinned SDK:
 
 ```bash
 putio sdk list --output json
 ```
 
-Only operation paths in `operations` are eligible for `sdk call`. Entries in `unsupported` need runtime values, produce binary data, or use positional or scalar credentials that cannot be safely redacted. Supported keyed credential fields and token-bearing URLs are redacted in plans and results.
-
-Use `ndjson` when:
-
-- the command advertises streaming support
-- you want one structured record per page or observation
-- a full aggregated JSON object would waste context
+Only paths under `operations` work with `sdk call`. Entries under `unsupported`
+need runtime values, return binary data, or take credentials that cannot be
+redacted safely. Keyed credential fields and token-bearing URLs are redacted in
+plans and results.

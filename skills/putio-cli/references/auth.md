@@ -1,13 +1,14 @@
 # Auth
 
-Check auth state first. Without `--profile`, `auth status` reports the default
-profile or legacy token state:
+Check auth first. Without `--profile`, `auth status` reports the default profile
+or the legacy token:
 
 ```bash
 putio auth status --output json
 ```
 
-For a stable agent or test-harness session:
+Set up a stable agent or test-harness profile. Login prints a URL and a code;
+the human opens the URL, enters the code, and approves:
 
 ```bash
 putio auth status --profile automation --output json
@@ -15,14 +16,8 @@ putio auth login --profile automation
 putio auth profiles use automation
 ```
 
-For interactive login:
-
-```bash
-putio auth login
-```
-
-Use `--timeout-seconds` to bound the authorization wait, including pending polls
-and polling delays. A timeout does not save partial auth state.
+`--timeout-seconds` bounds the wait, pending polls included. A timeout saves no
+partial auth state.
 
 Preview a device-link URL without requesting or approving a real code:
 
@@ -30,24 +25,24 @@ Preview a device-link URL without requesting or approving a real code:
 putio auth preview --code PUTIO1 --output json
 ```
 
-Approve a code displayed by another device with the authenticated account:
+Approve a code shown by another device with the signed-in account:
 
 ```bash
 putio auth approve PUTIO1 --dry-run --output json
 putio auth approve PUTIO1 --output json
 ```
 
-List or remove named profiles:
+List or remove profiles:
 
 ```bash
 putio auth profiles list --output json
 putio auth profiles remove automation
 ```
 
-Headless usage rules:
+Headless rules:
 
-- Prefer `PUTIO_CLI_TOKEN` when a browser flow is not appropriate; it overrides persisted config and selected profiles.
-- Use `PUTIO_CLI_PROFILE=automation` to select a persisted profile without passing flags.
-- Use `PUTIO_CLI_CONFIG_PATH` to isolate config for automation or tests.
-- If no profile is specified, the configured default profile is used when present; otherwise legacy single-token config remains supported.
-- Treat approval codes and URLs as sensitive operational data.
+- `PUTIO_CLI_TOKEN` skips the browser flow and overrides persisted config and profiles.
+- `PUTIO_CLI_PROFILE=automation` selects a persisted profile without `--profile`.
+- `PUTIO_CLI_CONFIG_PATH` isolates config for automation or tests.
+- Without a selected profile, the CLI uses the default profile, then the legacy single-token config.
+- Treat approval codes and URLs as sensitive.

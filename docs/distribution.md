@@ -1,71 +1,51 @@
 # Distribution
 
-## Delivery Model
+Every merge to `main` must be releasable. [`ci.yml`](../.github/workflows/ci.yml)
+runs `verify` without secrets, then semantic-release publishes npm, tags, and
+opens a draft GitHub Release. Binary jobs build from that tag and upload their
+archives and checksums. A final job checks the exact asset manifest, publishes
+the Release, and reconciles the `putdotio/homebrew-tap` formula to the same tag.
 
-Every merge to `main` should already be releasable.
+Dispatch `CI` without a tag to verify and scan without releasing.
 
-GitHub Actions owns npm publishing, GitHub Releases, release assets, and Homebrew tap updates. [`ci.yml`](../.github/workflows/ci.yml) runs `vp run verify` (which includes `smoke:pack`) on the secretless job, then `vp run build` and `semantic-release` on the `release` job.
+## Provider Setup
 
-The `verify` job ends with the shared [links and scan actions](https://github.com/putdotio/.github#actionsscan): an offline check of relative Markdown links and anchors on every event, and Actionlint and Zizmor when a push to `main` changes `.github/`. GitHub secret scanning and push protection cover secrets in this public repository. Dispatch `CI` without a tag to verify and lint every workflow without touching a release.
+These settings live outside the repository; the workflow fails without them.
 
-semantic-release publishes npm, writes the version tag, and creates a draft
-GitHub Release. Binary jobs build from that exact tag and upload all six archive
-and checksum assets while the Release is mutable. A final job verifies the exact
-asset manifest before publishing, then reconciles the Homebrew formula to the
-same tag.
+- GitHub Environment `release`: secret `PUTIO_CI_APP_PRIVATE_KEY`, variables
+  `PUTIO_CI_APP_CLIENT_ID` and `PUTIO_CLI_SENTRY_DSN`, no approval, `main` only.
+- The `putio-ci` GitHub App needs Contents read and write on `putio-cli` and
+  `homebrew-tap`. It writes the version commit, tags, Releases, asset uploads,
+  and formula commits.
+- npm Trusted Publishing for `@putdotio/cli`: owner `putdotio`, repository
+  `putio-cli`, workflow `ci.yml`, environment `release`. npm mints publish
+  credentials from the job's OIDC identity and records provenance.
 
-## Release Environment
+`PUTIO_CLI_SENTRY_DSN` is a public routing key, not an admin secret. Release
+builds fail when it is missing or invalid. Local and pull-request builds omit
+it, so they cannot send crash reports.
 
-Release jobs declare the protected GitHub Environment named `release`.
-
-Environment entries:
-
-- secrets: `PUTIO_CI_APP_PRIVATE_KEY`
-- variables: `PUTIO_CI_APP_CLIENT_ID`, `PUTIO_CLI_SENTRY_DSN`
-- approval: none; releases are continuous after the `main` gate passes
-- refs: only `main` can use it
-- deployment records: disabled with `deployment: false` because this is package publishing, not an app deploy
-
-`PUTIO_CLI_SENTRY_DSN` is a public routing key rather than an administration secret. The workflow
-validates and injects it into npm and standalone artifacts at build time, and release builds fail if
-it is absent or invalid. Local and pull-request builds intentionally omit it so verification cannot
-send crash reports.
-
-Release GitHub writes use `putio-ci` for version sync commits, `v*` tags, GitHub Releases, binary asset uploads, and Homebrew tap formula commits. The app installation grants Contents read and write access to `putio-cli` and `homebrew-tap`; the Homebrew job mints an installation token scoped to those two repositories.
-
-The npm package uses Trusted Publishing from GitHub Actions. On npm, configure owner `putdotio`, repository `putio-cli`, workflow `ci.yml`, and Environment named `release` for the package.
-
-During the `@semantic-release/npm` publish step, npm detects the GitHub OIDC identity, mints short-lived publish credentials, and publishes provenance for the release job.
-
-The workflow keeps dependency caches only on the secretless verify job. Secret-bearing release, binary asset, and Homebrew publish jobs use fresh installs or release tooling with package-manager caching disabled.
-
-The release-bot remote is configured only after dependencies are installed and the package build completes.
+Keep dependency caches off every job that holds a release credential.
 
 ## Recover
 
 After a partial release failure, dispatch `CI` from current `main` with the
-exact existing tag. Before it mints the release bot token, the release job
-checks that the tag is on `main` and not older than the newest stable release,
-so recovery cannot roll the Homebrew formula back. It then reads the tag's exact
-GitHub Release state:
+exact existing tag. The release job refuses a tag that is off `main` or older
+than the newest stable release, so recovery cannot roll the formula back. It
+then acts on the tag's GitHub Release:
 
-- a draft rebuilds and replaces its binary assets, verifies all six names, and
-  publishes once
-- a published Release skips asset mutation, verifies the complete manifest,
-  and reruns the idempotent Homebrew reconciliation
-- a push with no new semantic-release output remains a no-op
+- draft: rebuild and replace the binary assets, check the manifest, publish once
+- published: leave assets alone, check the manifest, rerun the Homebrew
+  reconciliation
+- missing: fail
 
-An unavailable expected Release fails closed. Use the manual `Backfill Release
-Assets` workflow only for an older published release created before draft-first
-publication. It shares CI's concurrency group on `main`, so it never runs
-alongside a push or dispatch run there.
+Use the manual `Backfill Release Assets` workflow only for a published release
+created before draft-first publishing.
 
 ## Package Contents
 
-The `files` list in [`package.json`](../package.json) sets the npm package
-contents. `skills/putio-cli` ships in it on purpose: consuming repos and agents
-install the same guidance maintainers use from git.
-
-The build bundles the pinned put.io SDK into `dist`.
-Effect remains a package dependency so the CLI and its bundled SDK execute on
-the same installed Effect runtime.
+The `files` list in [`package.json`](../package.json) sets the npm contents.
+`skills/putio-cli` ships on purpose, so consumers install the same guidance as
+the git source. The build bundles the pinned put.io SDK into `dist`; `effect`
+stays a runtime dependency so the CLI and the bundled SDK share one Effect
+runtime.

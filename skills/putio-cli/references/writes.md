@@ -12,9 +12,7 @@ putio files start-from set --json '{"file_id":42,"time":95}' --dry-run --output 
 putio auth approve --json '{"code":"PUTIO1"}' --dry-run --output json
 ```
 
-Execute for real only after the dry-run request shape looks correct.
-
-Examples:
+Run for real only after the dry-run request looks right:
 
 ```bash
 putio download-links create --json '{"ids":[1,2]}' --output json
@@ -28,9 +26,7 @@ putio sdk call --json '{"operation":"files.get","args":[42]}' --execute --output
 
 Rules:
 
-- Prefer `--json` over translating through many bespoke flags.
-- Prefer `--dry-run` before side effects.
-- Re-check schema-required keys in `describe` instead of guessing names.
+- Take required keys from `describe`; never guess names.
 - Treat every `sdk call` operation as potentially mutating and inspect its dry-run before `--execute`.
 - `files upload` validates that `path` resolves to a readable regular file before dry-run or execution.
 - `files upload` sends to `PUTIO_CLI_UPLOAD_BASE_URL`, or upload.put.io with the default API base. With a custom `PUTIO_CLI_API_BASE_URL` and no upload base, it fails before sending anything; set both together.
