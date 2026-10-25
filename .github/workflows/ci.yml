@@ -144,7 +144,7 @@ jobs:
         uses: ./.github/actions/setup-vp # zizmor: ignore[self-repository]
         with:
           node-version-file: ".node-version"
-          cache: false
+          cache: false # credentialed job: never share a dependency cache with pull requests
 
       - name: Install dependencies
         run: vp install
@@ -265,7 +265,7 @@ jobs:
         uses: ./.github/actions/setup-vp # zizmor: ignore[self-repository]
         with:
           node-version-file: ".node-version"
-          cache: false
+          cache: false # credentialed job: never share a dependency cache with pull requests
 
       - name: Install dependencies
         run: vp install
@@ -345,7 +345,7 @@ jobs:
         uses: ./.github/actions/setup-vp # zizmor: ignore[self-repository]
         with:
           node-version-file: ".node-version"
-          cache: false
+          cache: false # credentialed job: never share a dependency cache with pull requests
 
       - name: Install dependencies
         run: vp install
