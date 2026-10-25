@@ -2,17 +2,16 @@
 
 ## Repo
 
-- Standalone TypeScript package for the put.io CLI, `@putdotio/cli` with the `putio` binary; people and agents use it from npm, Homebrew, and standalone binaries
-- Main code lives in `src/*`; layer rules in [Architecture](docs/architecture.md)
-- Durable docs live in `docs/*`; release wiring in [Distribution](docs/distribution.md)
-- Consumer-facing skills live in `skills/*`
-- Contributor setup and validation in [Contributing](CONTRIBUTING.md)
+- `@putdotio/cli`, the `putio` binary, shipped through npm, Homebrew, and standalone binaries.
+- Code lives in `src/*`; layer rules are in [Architecture](docs/architecture.md).
+- `skills/putio-cli` is the consumer skill that ships in the npm package.
+- Contributor setup is in [Contributing](CONTRIBUTING.md).
 
 ## Commands
 
-- `pnpm exec vp run verify`: the gate; pre-push and CI run it
-- Focused checks are the `scripts` in [package.json](package.json); run them as `pnpm exec vp run <script>`
-- `smoke:pack` writes its report to `.artifacts/smoke-packed-install.json`
+- `pnpm exec vp run verify`: the gate; pre-push and CI run it.
+- Focused checks are the `scripts` in [package.json](package.json); run them as `pnpm exec vp run <script>`.
+- `smoke:pack` writes its report to `.artifacts/smoke-packed-install.json`.
 
 ## Worktrees
 
@@ -21,19 +20,16 @@ Run `pnpm exec vp install`, `pnpm exec vp config`, then
 
 ## Development Guidance
 
-- Keep `README.md` user-facing. Put contributor workflow in `CONTRIBUTING.md`, architecture in `docs/*`, and consumer usage patterns in `skills/*`.
-- Keep command modules thin and move shared behavior into internal Effect-native helpers and services.
-- Prefer `Effect`, services, layers, `Schema`, and tagged errors over ad hoc control flow.
-- Treat JSON output as the machine contract and terminal output as a separate adapter layer.
-- Update docs when flags, command behavior, or architecture boundaries change.
-- When the public CLI surface or agent-facing setup flow changes, update [`README.md`](README.md) and [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md) together so the copy-paste prompt and consumer guidance stay aligned.
-- Keep docs free of volatile metrics.
+- `README.md` is for users, `CONTRIBUTING.md` for contributors, `docs/*` for architecture, `skills/*` for consumer usage.
+- Keep command modules thin; shared behavior goes in Effect services and layers with `Schema` boundaries and tagged errors.
+- JSON output is the machine contract; terminal output is a separate adapter.
+- When commands, flags, output, auth, `automation`, or `describe.version` change in a way consumers need, update [`README.md`](README.md), [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md), and its references in the same change.
 
 ## Effect
 
-This repository uses the Effect TypeScript library. The installed version's own
-guide is `node_modules/effect/AGENTS.md`; consult it for the APIs the change
-touches, and search `node_modules/effect/src` for anything it does not cover.
+The installed version's guide is `node_modules/effect/AGENTS.md`; consult it for
+the APIs the change touches, and search `node_modules/effect/src` for anything it
+does not cover.
 
 ## Proof
 
@@ -48,11 +44,13 @@ touches, and search `node_modules/effect/src` for anything it does not cover.
 
 ## Delivery
 
-Pull requests squash-merge to `main`. A push to `main` runs `verify`; when the commits since the last release include `feat`, `fix`, `perf`, a revert, or a breaking change, semantic-release publishes `@putdotio/cli` to npm, attaches the standalone binaries to the GitHub Release, and updates the `putdotio/homebrew-tap` formula. `docs`, `chore`, `test`, and `ci` release nothing. `install.sh` on `main` is the live installer that `curl | sh` users fetch, so a merge changes it at once. Partial-release recovery: [Distribution](docs/distribution.md#recover).
+- Pull requests squash-merge to `main`; every merge must be releasable.
+- The squash commit's type decides the release ([`.releaserc.json`](.releaserc.json)); a release ships npm, binaries, and the Homebrew formula at once ([`ci.yml`](.github/workflows/ci.yml)).
+- [`install.sh`](install.sh) on `main` is the live `curl | sh` installer; a merge changes it at once.
+- Partial release: dispatch `CI` from `main` with the existing tag as `release_tag` ([`ci.yml`](.github/workflows/ci.yml)). Use [`Backfill Release Assets`](.github/workflows/backfill-release-assets.yml) only for releases published before draft-first releases.
 
 ## Skills
 
-- `skills/*` is for reusable consumer-facing skills, not repo onboarding.
-- `skills/putio-cli/SKILL.md` is the router; surface-specific detail lives in the matching reference file.
-- `skills/putio-cli/agents/openai.yaml` is the Codex picker display and default-prompt metadata; keep it aligned with the skill frontmatter.
-- Refresh the skill and its references in the same change whenever `describe.version`, commands, output, auth, or `automation` change in a way consumers need to know.
+- `skills/*` holds consumer skills, not repo onboarding.
+- `skills/putio-cli/SKILL.md` routes; surface detail lives in the matching reference file.
+- `skills/putio-cli/agents/openai.yaml` is the Codex picker metadata; keep it aligned with the skill frontmatter.

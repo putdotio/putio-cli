@@ -7,7 +7,7 @@ putio whoami --fields auth --output json
 putio files list --output json
 ```
 
-Use `--fields` with top-level keys only:
+Keep responses small with `--fields`:
 
 ```bash
 putio whoami --fields auth --output json
@@ -30,27 +30,20 @@ putio search --query movie --output ndjson
 putio transfers watch --id 7 --output ndjson
 ```
 
-Streamed pages wait for stdout writes before fetching the next page, so a slow
-pipe consumer constrains page production.
-
-Current streaming-friendly commands:
-
-- `files list`
-- `files search`
-- `search`
-- `transfers list`
-- `transfers watch`
+Streamed pages wait for each stdout write before fetching the next page, so a
+slow consumer slows page production. Commands with `capabilities.streaming` in
+`describe` support `ndjson` streaming.
 
 Notes:
 
-- `--fields` requires structured output.
-- `events list` supports `--fields`, but not `--page-all`.
+- `--fields` takes top-level keys only and needs structured output.
+- `events list` supports `--fields` but not `--page-all`.
 - `files start-from get` returns `file_id` and `start_from` in seconds.
 - `files hls-manifest <file-id>` returns `file_id`, `original`, and the raw
-  `manifest` text of the HLS master playlist. Playlist URLs inside it carry a
-  redacted token; read `CODECS` and `VIDEO-RANGE` from the
-  `#EXT-X-STREAM-INF` line to learn what a player would be served. Use
-  `--original` for the original file instead of the MP4 conversion; put.io
-  answers `INVALID_MEDIA` when the original cannot be served as HLS.
-- `files search` and `search` accept `--query` and `--per-page` only; put.io
+  `manifest` text of the HLS master playlist. Playlist URLs carry a redacted
+  token. Read `CODECS` and `VIDEO-RANGE` from the `#EXT-X-STREAM-INF` line to
+  learn what a player gets. `--original` asks for the original file instead of
+  the MP4 conversion; put.io answers `INVALID_MEDIA` when it cannot serve the
+  original as HLS.
+- `files search` and `search` accept only `--query` and `--per-page`; put.io
   does not filter search results by file type.
