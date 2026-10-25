@@ -4,7 +4,6 @@
 
 - `@putdotio/cli`, the `putio` binary, shipped through npm, Homebrew, and standalone binaries.
 - Code lives in `src/*`; layer rules are in [Architecture](docs/architecture.md).
-- Release wiring and recovery are in [Distribution](docs/distribution.md).
 - `skills/putio-cli` is the consumer skill that ships in the npm package.
 - Contributor setup is in [Contributing](CONTRIBUTING.md).
 
@@ -21,7 +20,7 @@ Run `pnpm exec vp install`, `pnpm exec vp config`, then
 
 ## Development Guidance
 
-- `README.md` is for users, `CONTRIBUTING.md` for contributors, `docs/*` for architecture and release, `skills/*` for consumer usage.
+- `README.md` is for users, `CONTRIBUTING.md` for contributors, `docs/*` for architecture, `skills/*` for consumer usage.
 - Keep command modules thin; shared behavior goes in Effect services and layers with `Schema` boundaries and tagged errors.
 - JSON output is the machine contract; terminal output is a separate adapter.
 - When commands, flags, output, auth, `automation`, or `describe.version` change in a way consumers need, update [`README.md`](README.md), [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md), and its references in the same change.
@@ -45,7 +44,10 @@ does not cover.
 
 ## Delivery
 
-Pull requests squash-merge to `main`. A push to `main` runs `verify`; when the commits since the last release include `feat`, `fix`, `perf`, a revert, or a breaking change, semantic-release publishes `@putdotio/cli` to npm, attaches the standalone binaries to the GitHub Release, and updates the `putdotio/homebrew-tap` formula. `docs`, `chore`, `test`, and `ci` release nothing. `install.sh` on `main` is the live installer that `curl | sh` users fetch, so a merge changes it at once. Partial-release recovery: [Distribution](docs/distribution.md#recover).
+- Pull requests squash-merge to `main`; every merge must be releasable.
+- The commit type decides the release: `feat`, `fix`, `perf`, reverts, and breaking changes publish npm, binaries, and the Homebrew formula through [`ci.yml`](.github/workflows/ci.yml) and [`.releaserc.json`](.releaserc.json). `docs`, `chore`, `test`, and `ci` release nothing.
+- [`install.sh`](install.sh) on `main` is the live `curl | sh` installer; a merge changes it at once.
+- Partial release: dispatch `CI` from `main` with the existing tag as `release_tag` ([`ci.yml`](.github/workflows/ci.yml)). Use [`Backfill Release Assets`](.github/workflows/backfill-release-assets.yml) only for releases published before draft-first releases.
 
 ## Skills
 

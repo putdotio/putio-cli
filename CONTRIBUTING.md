@@ -46,7 +46,11 @@ CLI and SDK share one Effect runtime. If an SDK release needs an Effect API the
 pinned runtime lacks, add a pnpm patch and register it in
 [`pnpm-workspace.yaml`](./pnpm-workspace.yaml).
 
-## Releases
+## Release Setup
 
-[Distribution](docs/distribution.md) owns release automation, credentials, and
-binary assets.
+Maintainers keep these provider settings in sync with
+[`ci.yml`](.github/workflows/ci.yml); the release fails without them.
+
+- GitHub Environment `release`: holds the credentials `ci.yml` reads, no approval, `main` only.
+- `putio-ci` GitHub App: Contents read and write on `putio-cli` and `putdotio/homebrew-tap`.
+- npm Trusted Publishing for `@putdotio/cli`: owner `putdotio`, repository `putio-cli`, workflow `ci.yml`, environment `release`.

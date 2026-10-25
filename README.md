@@ -167,7 +167,6 @@ has the details. Send deletion requests to the private contact in the
 ## Docs
 
 - [Architecture](./docs/architecture.md)
-- [Distribution](./docs/distribution.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](https://github.com/putdotio/.github/blob/main/SECURITY.md)
 
