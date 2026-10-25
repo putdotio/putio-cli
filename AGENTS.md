@@ -3,7 +3,7 @@
 ## Repo
 
 - `@putdotio/cli`, the `putio` binary, shipped through npm, Homebrew, and standalone binaries.
-- Code lives in `src/*`; layer rules are in [Architecture](docs/architecture.md).
+- Code lives in `src/*`.
 - `skills/putio-cli` is the consumer skill that ships in the npm package.
 - Contributor setup is in [Contributing](CONTRIBUTING.md).
 
@@ -20,7 +20,7 @@ Run `pnpm exec vp install`, `pnpm exec vp config`, then
 
 ## Development Guidance
 
-- `README.md` is for users, `CONTRIBUTING.md` for contributors, `docs/*` for architecture, `skills/*` for consumer usage.
+- `README.md` is for users, `CONTRIBUTING.md` for contributors, `skills/*` for consumer usage.
 - Keep command modules thin; shared behavior goes in Effect services and layers with `Schema` boundaries and tagged errors.
 - JSON output is the machine contract; terminal output is a separate adapter.
 - When commands, flags, output, auth, `automation`, or `describe.version` change in a way consumers need, update [`README.md`](README.md), [`skills/putio-cli/SKILL.md`](skills/putio-cli/SKILL.md), and its references in the same change.
@@ -41,6 +41,7 @@ does not cover.
 ## Hazards
 
 - The built binary authenticates with `PUTIO_CLI_TOKEN` when it is set, otherwise with the profile in `~/.config/putio/config.json` (or under `XDG_CONFIG_HOME`). `describe` and `whoami` only read; file, transfer, and upload commands change that real account. For isolated state, unset `PUTIO_CLI_TOKEN` and point `PUTIO_CLI_CONFIG_PATH` at a scratch file.
+- README `Crash Reporting` is a public privacy promise. Any change to what a crash event carries or when it is sent updates that section in the same change.
 
 ## Delivery
 

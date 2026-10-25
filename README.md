@@ -159,14 +159,20 @@ putio telemetry enable
 ```
 
 A report holds a random ID, timestamp, failure category, runtime labels, and the
-release. It never holds the error, credentials, config, arguments, request data,
-paths, or identifiers. The [crash-reporting policy](./docs/architecture.md#crash-reporting-policy)
-has the details. Send deletion requests to the private contact in the
-[put.io security policy](https://github.com/putdotio/.github/blob/main/SECURITY.md).
+release. It never holds the error message or stack, credentials, config,
+command arguments, request data, paths, or device or user identifiers.
+
+- Only unexpected crashes report; ordinary command errors never do.
+- One report per run at most. You still get the local error, and exit waits at
+  most 250 ms for delivery.
+- Builds from source send nothing.
+- If the config file exists but cannot be read or parsed, that run sends nothing.
+- `disable` stops future reports; it does not delete sent ones. Send deletion
+  requests to the private contact in the
+  [put.io security policy](https://github.com/putdotio/.github/blob/main/SECURITY.md).
 
 ## Docs
 
-- [Architecture](./docs/architecture.md)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](https://github.com/putdotio/.github/blob/main/SECURITY.md)
 

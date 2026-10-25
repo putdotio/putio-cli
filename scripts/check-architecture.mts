@@ -21,8 +21,7 @@ for (const file of files) {
     violationCount += 1;
     process.stderr.write(
       `${file}:${index + 1}: Effect.run* is forbidden in production modules. ` +
-        "Return the Effect and execute it through NodeRuntime.runMain in src/bin.ts or src/sea.ts. " +
-        "See docs/architecture.md.\n",
+        "Return the Effect and execute it through NodeRuntime.runMain in src/bin.ts or src/sea.ts.\n",
     );
   }
 }
