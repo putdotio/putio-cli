@@ -45,7 +45,7 @@ does not cover.
 ## Delivery
 
 - Pull requests squash-merge to `main`; every merge must be releasable.
-- The commit type decides the release: `feat`, `fix`, `perf`, reverts, and breaking changes publish npm, binaries, and the Homebrew formula through [`ci.yml`](.github/workflows/ci.yml) and [`.releaserc.json`](.releaserc.json). `docs`, `chore`, `test`, and `ci` release nothing.
+- The squash commit's type decides the release ([`.releaserc.json`](.releaserc.json)); a release ships npm, binaries, and the Homebrew formula at once ([`ci.yml`](.github/workflows/ci.yml)).
 - [`install.sh`](install.sh) on `main` is the live `curl | sh` installer; a merge changes it at once.
 - Partial release: dispatch `CI` from `main` with the existing tag as `release_tag` ([`ci.yml`](.github/workflows/ci.yml)). Use [`Backfill Release Assets`](.github/workflows/backfill-release-assets.yml) only for releases published before draft-first releases.
 
