@@ -40,8 +40,12 @@ in [AGENTS.md](AGENTS.md#proof).
 
 ## Effect Versions
 
-Pin `effect` to the version the pinned put.io SDK depends on; `smoke:pack` fails
-if the packed install resolves more than one. The build bundles the SDK, so the
+Keep `effect` and every `@effect/*` package in [`package.json`](package.json) on
+one exact version; Renovate's shared `effect` group moves them together. The
+`@putdotio/sdk>effect` override in
+[`pnpm-workspace.yaml`](https://github.com/putdotio/putio-cli/blob/main/pnpm-workspace.yaml)
+holds the SDK on that version; `smoke:pack` fails if the packed install
+resolves more than one. The build bundles the SDK, so the
 CLI and SDK share one Effect runtime. If an SDK release needs an Effect API the
 pinned runtime lacks, add a pnpm patch and register it in
 [`pnpm-workspace.yaml`](https://github.com/putdotio/putio-cli/blob/main/pnpm-workspace.yaml).
