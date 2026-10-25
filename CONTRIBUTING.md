@@ -2,7 +2,7 @@
 
 ## Setup
 
-Use the Node version in [`.node-version`](./.node-version), then install
+Use the Node version in [`.node-version`](https://github.com/putdotio/putio-cli/blob/main/.node-version), then install
 dependencies and the tracked Git hooks. Pre-push runs the same `verify` gate as
 CI.
 
@@ -44,12 +44,12 @@ Pin `effect` to the version the pinned put.io SDK depends on; `smoke:pack` fails
 if the packed install resolves more than one. The build bundles the SDK, so the
 CLI and SDK share one Effect runtime. If an SDK release needs an Effect API the
 pinned runtime lacks, add a pnpm patch and register it in
-[`pnpm-workspace.yaml`](./pnpm-workspace.yaml).
+[`pnpm-workspace.yaml`](https://github.com/putdotio/putio-cli/blob/main/pnpm-workspace.yaml).
 
 ## Release Setup
 
 Maintainers keep these provider settings in sync with
-[`ci.yml`](.github/workflows/ci.yml); the release fails without them.
+[`ci.yml`](https://github.com/putdotio/putio-cli/blob/main/.github/workflows/ci.yml); the release fails without them.
 
 - GitHub Environment `release`: holds the credentials `ci.yml` reads, no approval, `main` only.
 - `putio-ci` GitHub App: Contents read and write on `putio-cli` and `putdotio/homebrew-tap`.
