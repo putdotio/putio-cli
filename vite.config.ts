@@ -46,7 +46,7 @@ export default defineConfig({
     "*.{js,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix",
   },
   test: {
-    exclude: ["node_modules/**", "scripts/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "**/.git/**", ".claude/worktrees/**", "scripts/**/*.test.ts"],
     coverage: {
       ...coverageConfig,
       exclude: [
