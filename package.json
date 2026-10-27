@@ -76,6 +76,6 @@
   },
   "packageManager": "pnpm@12.15.0",
   "inlinedDependencies": {
-    "@putdotio/sdk": "13.1.0"
+    "@putdotio/sdk": "13.3.0"
   }
 }
