@@ -8,7 +8,7 @@
 ## Commands
 
 - Setup, worktrees included: `pnpm exec vp install`, then `pnpm exec vp config`.
-- `pnpm exec vp run verify`: the gate; pre-push and CI run it.
+- `pnpm exec vp run verify`: the gate.
 - Focused checks are the `scripts` in [package.json](package.json); run them as `pnpm exec vp run <script>`.
 
 ## Development Guidance
@@ -38,9 +38,8 @@ does not cover.
 ## Delivery
 
 - Pull requests squash-merge to `main`; every merge must be releasable.
-- The squash commit's type decides the release ([`.releaserc.json`](https://github.com/putdotio/putio-cli/blob/main/.releaserc.json)); a release ships npm, binaries, and the Homebrew formula at once ([`ci.yml`](https://github.com/putdotio/putio-cli/blob/main/.github/workflows/ci.yml)).
+- The squash commit's type decides the release ([`.releaserc.json`](https://github.com/putdotio/putio-cli/blob/main/.releaserc.json)).
 - [`install.sh`](https://github.com/putdotio/putio-cli/blob/main/install.sh) on `main` is the live `curl | sh` installer; a merge changes it at once.
-- Partial release: dispatch `CI` from `main` with the existing tag as `release_tag` ([`ci.yml`](https://github.com/putdotio/putio-cli/blob/main/.github/workflows/ci.yml)). Use [`Backfill Release Assets`](https://github.com/putdotio/putio-cli/blob/main/.github/workflows/backfill-release-assets.yml) only for releases published before draft-first releases.
 
 ## Skills
 
