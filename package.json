@@ -51,7 +51,7 @@
   "dependencies": {
     "@effect/platform-node": "4.0.6",
     "@effect/platform-node-shared": "4.0.6",
-    "@sentry/core": "10.76.2",
+    "@sentry/core": "10.77.1",
     "cli-table3": "^0.6.5",
     "effect": "4.0.6",
     "i18next": "^26.3.4"
@@ -74,7 +74,7 @@
   "engines": {
     "node": ">=24.19.0"
   },
-  "packageManager": "pnpm@12.16.0",
+  "packageManager": "pnpm@12.16.1",
   "inlinedDependencies": {
     "@putdotio/sdk": "13.3.0"
   }
