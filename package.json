@@ -58,7 +58,7 @@
   },
   "devDependencies": {
     "@effect/vitest": "4.1.2",
-    "@putdotio/sdk": "13.3.1",
+    "@putdotio/sdk": "13.3.2",
     "@types/node": "^26.1.0",
     "@uinaf/skillcheck": "0.5.4",
     "@vitest/coverage-v8": "catalog:",
