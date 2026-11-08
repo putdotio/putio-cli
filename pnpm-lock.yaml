@@ -206,8 +206,8 @@ importers:
         specifier: 1.91.0
         version: 1.91.0
       '@putdotio/sdk':
-        specifier: 13.3.2
-        version: 13.3.2
+        specifier: 14.0.0
+        version: 14.0.0
       '@types/node':
         specifier: ^26.1.0
         version: 26.6.6
@@ -1004,8 +1004,8 @@ packages:
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
-  '@putdotio/sdk@13.3.2':
-    resolution: {integrity: sha512-qRq0X68+t0N2wp5+Y4Xe+v6Uht3WsLKkagrSFW2exe8a9PfGlzDCzdNGmS+dE5syPyOnh3BwcprYtihhkEQARA==}
+  '@putdotio/sdk@14.0.0':
+    resolution: {integrity: sha512-qUg/YDRfCXHSUHhHTwqZF1ckunRBKUIF1uMOWNxi1SThwNQOqsJpXfBn6TjJGyouG6iLmQFA90er8VoZ97IHzg==}
     engines: {node: '>=24.19.0'}
 
   '@redis/bloom@6.2.1':
@@ -2390,7 +2390,7 @@ snapshots:
 
   '@polka/url@1.0.0-next.29': {}
 
-  '@putdotio/sdk@13.3.2':
+  '@putdotio/sdk@14.0.0':
     dependencies:
       effect: 4.1.2
 

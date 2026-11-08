@@ -1,4 +1,4 @@
-import { makePutioSdkLiveLayer } from "@putdotio/sdk";
+import { putioSdkLiveLayer } from "@putdotio/sdk";
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -11,7 +11,7 @@ import {
 } from "./sdk-operations.js";
 
 describe("sdk operations", () => {
-  const sdkLayer = makePutioSdkLiveLayer({});
+  const sdkLayer = putioSdkLiveLayer({});
 
   it("discovers nested own callables without invoking accessors", () => {
     let getterCalls = 0;
