@@ -1,15 +1,14 @@
 import type { PutioSdkContext } from "@putdotio/sdk";
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 
 import { CliCommandInputError } from "./command.js";
 
 export type SdkJsonValue = Schema.Schema.Type<typeof Schema.Json>;
 
-type SdkCallable = (...args: ReadonlyArray<SdkJsonValue>) => unknown;
+type DynamicSdkEffect = Effect.Effect<unknown, unknown, PutioSdkContext>;
 
 type ResolvedSdkOperation = {
-  readonly callable: SdkCallable;
-  readonly receiver: object;
+  readonly invoke: (args: ReadonlyArray<SdkJsonValue>) => DynamicSdkEffect;
 };
 
 const unsupportedOperations = new Map<string, string>([
@@ -31,24 +30,26 @@ const unsupportedNamespaces = new Map<string, string>([
 const operationSegmentPattern = /^[a-z][A-Za-z0-9]*$/u;
 const blockedOperationSegments = new Set(["__proto__", "constructor", "prototype"]);
 
-const isTraversableObject = (value: unknown): value is Record<string, unknown> => {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
+const hasPlainPrototype = <Value extends object>(value: Value) => {
   const prototype = Object.getPrototypeOf(value);
+
   return prototype === Object.prototype || prototype === null;
 };
+
+const isTraversableObject = (value: unknown): value is object =>
+  Predicate.isObjectKeyword(value) && hasPlainPrototype(value);
 
 const operationError = (message: string) => new CliCommandInputError({ message });
 
 const getUnsupportedReason = (operation: string) => {
   const exactReason = unsupportedOperations.get(operation);
+
   if (exactReason !== undefined) {
     return exactReason;
   }
 
   const [namespace] = operation.split(".");
+
   return namespace === undefined ? undefined : unsupportedNamespaces.get(namespace);
 };
 
@@ -78,13 +79,13 @@ export type SdkOperationCatalog = {
   }>;
 };
 
-export const listSdkOperations = (client: unknown): SdkOperationCatalog => {
+export const listSdkOperations = <Client extends object>(client: Client): SdkOperationCatalog => {
   const operations: Array<string> = [];
   const discoveredUnsupported: Array<{ readonly operation: string; readonly reason: string }> = [];
   const ancestors = new WeakSet<object>();
 
-  const visit = (value: unknown, path: ReadonlyArray<string>) => {
-    if (!isTraversableObject(value) || ancestors.has(value)) {
+  const visit = <Namespace extends object>(value: Namespace, path: ReadonlyArray<string>) => {
+    if (!hasPlainPrototype(value) || ancestors.has(value)) {
       return;
     }
 
@@ -96,6 +97,7 @@ export const listSdkOperations = (client: unknown): SdkOperationCatalog => {
       }
 
       const descriptor = Object.getOwnPropertyDescriptor(value, key);
+
       if (!descriptor || !("value" in descriptor)) {
         continue;
       }
@@ -103,21 +105,25 @@ export const listSdkOperations = (client: unknown): SdkOperationCatalog => {
       const operationPath = [...path, key];
       const operation = operationPath.join(".");
 
-      if (typeof descriptor.value === "function") {
+      if (Predicate.isFunction(descriptor.value)) {
         if (operationPath.length < 2) {
           continue;
         }
 
         const reason = getUnsupportedReason(operation);
+
         if (reason === undefined) {
           operations.push(operation);
         } else {
           discoveredUnsupported.push({ operation, reason });
         }
+
         continue;
       }
 
-      visit(descriptor.value, operationPath);
+      if (isTraversableObject(descriptor.value)) {
+        visit(descriptor.value, operationPath);
+      }
     }
 
     ancestors.delete(value);
@@ -133,7 +139,10 @@ export const listSdkOperations = (client: unknown): SdkOperationCatalog => {
   };
 };
 
-export const resolveSdkOperation = (client: unknown, operation: string): ResolvedSdkOperation => {
+export const resolveSdkOperation = <Client extends object>(
+  client: Client,
+  operation: string,
+): ResolvedSdkOperation => {
   const segments = validateOperationPath(operation);
   const unsupportedReason = getUnsupportedReason(operation);
 
@@ -152,6 +161,7 @@ export const resolveSdkOperation = (client: unknown, operation: string): Resolve
     }
 
     const descriptor = Object.getOwnPropertyDescriptor(current, segment);
+
     if (!descriptor || descriptor.enumerable !== true) {
       throw operationError(`Unknown SDK operation: \`${operation}\`.`);
     }
@@ -164,39 +174,37 @@ export const resolveSdkOperation = (client: unknown, operation: string): Resolve
     current = descriptor.value;
   }
 
-  if (receiver === undefined || typeof current !== "function") {
+  if (receiver === undefined || !Predicate.isFunction(current)) {
     throw operationError(`Unknown SDK operation: \`${operation}\`.`);
   }
 
+  const callable = current;
+  const callableReceiver = receiver;
+
   return {
-    callable: current as SdkCallable,
-    receiver,
+    invoke: (args) => {
+      const result: unknown = callable.apply(callableReceiver, args);
+
+      // SAFETY: every SDK client operation returns an Effect whose only requirement is PutioSdkContext, which withAuthedSdk provides.
+      return Effect.isEffect(result) ? (result as DynamicSdkEffect) : Effect.succeed(result);
+    },
   };
 };
 
-type DynamicSdkEffect = Effect.Effect<unknown, unknown, PutioSdkContext>;
-
-export const invokeSdkOperation = (
-  client: unknown,
+export const invokeSdkOperation = <Client extends object>(
+  client: Client,
   operation: string,
   args: ReadonlyArray<SdkJsonValue>,
 ): DynamicSdkEffect =>
   Effect.try({
-    try: () => {
-      const resolved = resolveSdkOperation(client, operation);
-      return Reflect.apply(resolved.callable, resolved.receiver, args);
-    },
+    try: () => resolveSdkOperation(client, operation).invoke(args),
     catch: (error) =>
       error instanceof CliCommandInputError
         ? error
         : operationError(`SDK operation \`${operation}\` rejected its arguments before execution.`),
-  }).pipe(
-    Effect.flatMap((result) =>
-      Effect.isEffect(result) ? (result as DynamicSdkEffect) : Effect.succeed(result),
-    ),
-  );
+  }).pipe(Effect.flatten);
 
-export const normalizeSdkOperationResult = (operation: string, value: unknown): SdkJsonValue => {
+export const normalizeSdkOperationResult = <A>(operation: string, value: A): SdkJsonValue => {
   if (value === undefined) {
     return null;
   }

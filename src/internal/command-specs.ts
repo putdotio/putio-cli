@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import * as SchemaAST from "effect/SchemaAST";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
@@ -8,6 +8,7 @@ const OutputModeSchema = Schema.Literals(["json", "text", "ndjson"] as const);
 const InternalRendererSchema = Schema.Literals(["json", "terminal", "ndjson"] as const);
 
 const CommandKindSchema = Schema.Literals(["utility", "auth", "read", "write"] as const);
+
 type CommandKind = Schema.Schema.Type<typeof CommandKindSchema>;
 
 const CommandOptionTypeSchema = Schema.Literals(["string", "integer", "boolean", "enum"] as const);
@@ -19,6 +20,7 @@ const JsonPrimitiveKindSchema = Schema.Literals([
   "null",
   "json",
 ] as const);
+
 const JsonScalarSchema = Schema.Struct({
   kind: JsonPrimitiveKindSchema,
 });
@@ -30,7 +32,7 @@ const JsonEnumValueSchema = Schema.Union([
   Schema.Null,
 ] as const);
 
-export type CommandJsonShape =
+export type JsonInputSpec =
   | {
       readonly kind: "string" | "integer" | "boolean" | "null" | "json";
     }
@@ -40,7 +42,7 @@ export type CommandJsonShape =
     }
   | {
       readonly kind: "array";
-      readonly items: CommandJsonShape;
+      readonly items: JsonInputSpec;
     }
   | {
       readonly kind: "object";
@@ -51,13 +53,13 @@ export type CommandJsonShape =
 type JsonProperty = {
   readonly name: string;
   readonly required: boolean;
-  readonly schema: CommandJsonShape;
+  readonly schema: JsonInputSpec;
 };
 
 const JsonPropertySchema: Schema.Codec<JsonProperty> = Schema.Struct({
   name: NonEmptyStringSchema,
   required: Schema.Boolean,
-  schema: Schema.suspend((): Schema.Codec<CommandJsonShape> => CommandJsonShapeSchema),
+  schema: Schema.suspend((): Schema.Codec<JsonInputSpec> => JsonInputSpecSchema),
 });
 
 const JsonObjectSchema = Schema.Struct({
@@ -68,7 +70,7 @@ const JsonObjectSchema = Schema.Struct({
 
 const JsonArraySchema = Schema.Struct({
   kind: Schema.Literal("array"),
-  items: Schema.suspend((): Schema.Codec<CommandJsonShape> => CommandJsonShapeSchema),
+  items: Schema.suspend((): Schema.Codec<JsonInputSpec> => JsonInputSpecSchema),
 });
 
 const JsonEnumSchema = Schema.Struct({
@@ -76,7 +78,7 @@ const JsonEnumSchema = Schema.Struct({
   values: Schema.Array(JsonEnumValueSchema),
 });
 
-const CommandJsonShapeSchema: Schema.Codec<CommandJsonShape> = Schema.Union([
+const JsonInputSpecSchema: Schema.Codec<JsonInputSpec> = Schema.Union([
   JsonScalarSchema,
   JsonEnumSchema,
   JsonObjectSchema,
@@ -110,7 +112,7 @@ export type CommandArgument = Schema.Schema.Type<typeof CommandArgumentSchema>;
 const CommandInputSchema = Schema.Struct({
   arguments: Schema.optional(Schema.Array(CommandArgumentSchema)),
   flags: Schema.Array(CommandOptionSchema),
-  json: Schema.optional(CommandJsonShapeSchema),
+  json: Schema.optional(JsonInputSpecSchema),
 });
 
 const CommandCapabilitiesSchema = Schema.Struct({
@@ -152,7 +154,7 @@ export type CommandSpec = {
   readonly input?: {
     readonly arguments?: ReadonlyArray<CommandArgument>;
     readonly flags: ReadonlyArray<CommandOption>;
-    readonly json?: CommandJsonShape;
+    readonly json?: JsonInputSpec;
   };
   readonly kind: CommandKind;
   readonly purpose: string;
@@ -212,24 +214,28 @@ const validateCommandSpecs = (specs: ReadonlyArray<CommandSpec>) => {
 export const decodeCommandSpecs = (specs: ReadonlyArray<CommandSpec>) =>
   decodeCommandCatalog(validateCommandSpecs(specs));
 
-const stringShape = (): CommandJsonShape => ({ kind: "string" });
-const integerShape = (): CommandJsonShape => ({ kind: "integer" });
-const booleanShape = (): CommandJsonShape => ({ kind: "boolean" });
-const nullShape = (): CommandJsonShape => ({ kind: "null" });
-const enumShape = (values: ReadonlyArray<string | number | boolean | null>): CommandJsonShape => ({
+const stringSpec = (): JsonInputSpec => ({ kind: "string" });
+const integerSpec = (): JsonInputSpec => ({ kind: "integer" });
+const booleanSpec = (): JsonInputSpec => ({ kind: "boolean" });
+const nullSpec = (): JsonInputSpec => ({ kind: "null" });
+
+const enumSpec = (values: ReadonlyArray<string | number | boolean | null>): JsonInputSpec => ({
   kind: "enum",
   values: [...values],
 });
-const arrayShape = (items: CommandJsonShape): CommandJsonShape => ({ kind: "array", items });
-const property = (name: string, schema: CommandJsonShape, required = true): JsonProperty => ({
+
+const arraySpec = (items: JsonInputSpec): JsonInputSpec => ({ kind: "array", items });
+
+const property = (name: string, schema: JsonInputSpec, required = true): JsonProperty => ({
   name,
   required,
   schema,
 });
-const objectShape = (
+
+const objectSpec = (
   properties: ReadonlyArray<JsonProperty>,
   rules?: ReadonlyArray<string>,
-): CommandJsonShape => ({
+): JsonInputSpec => ({
   kind: "object",
   properties,
   rules,
@@ -398,36 +404,37 @@ type SchemaAstNode = SchemaAST.AST | undefined;
 const unwrapSchemaAst = (ast: SchemaAstNode): SchemaAstNode => {
   let current = ast;
 
-  while (current && current._tag === "Suspend") {
+  while (current && SchemaAST.isSuspend(current)) {
     current = current.thunk();
   }
 
   return current;
 };
 
-const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
+const schemaAstToJsonInputSpec = (ast: SchemaAstNode): JsonInputSpec => {
   const current = unwrapSchemaAst(ast);
 
   switch (current?._tag) {
     case "String":
-      return stringShape();
+      return stringSpec();
     case "Number":
-      return integerShape();
+      return integerSpec();
     case "Boolean":
-      return booleanShape();
+      return booleanSpec();
     case "Undefined":
     case "Void":
     case "Null":
-      return nullShape();
+      return nullSpec();
     case "Literal": {
       const literal = current.literal ?? null;
 
-      if (typeof literal === "bigint") {
+      if (Predicate.isBigInt(literal)) {
         throw new Error("BigInt literals are not supported in CLI json metadata.");
       }
 
-      return enumShape([literal]);
+      return enumSpec([literal]);
     }
+
     case "Arrays": {
       const item = current.rest[0] ?? current.elements[0];
 
@@ -435,14 +442,15 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
         throw new Error("Unable to derive an array item schema from an empty tuple AST.");
       }
 
-      return arrayShape(schemaAstToJsonShape(item));
+      return arraySpec(schemaAstToJsonInputSpec(item));
     }
+
     case "Objects":
-      return objectShape(
+      return objectSpec(
         current.propertySignatures.map((propertySignature) =>
           property(
             String(propertySignature.name),
-            schemaAstToJsonShape(propertySignature.type),
+            schemaAstToJsonInputSpec(propertySignature.type),
             !SchemaAST.isOptional(propertySignature.type),
           ),
         ),
@@ -458,7 +466,7 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
         if (unwrapped?._tag === "Literal") {
           const literal = unwrapped.literal ?? null;
 
-          return typeof literal === "bigint" ? [] : [literal];
+          return Predicate.isBigInt(literal) ? [] : [literal];
         }
 
         if (unwrapped?._tag === "Null" || unwrapped?._tag === "Void") {
@@ -469,15 +477,16 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
       });
 
       if (enumValues.length === definedTypes.length && enumValues.length > 0) {
-        return enumShape(enumValues);
+        return enumSpec(enumValues);
       }
 
       if (definedTypes.length === 1) {
-        return schemaAstToJsonShape(definedTypes[0]);
+        return schemaAstToJsonInputSpec(definedTypes[0]);
       }
 
       throw new Error("Only optional unions are supported when deriving CLI json metadata.");
     }
+
     default:
       throw new Error(
         `Unsupported schema AST node for CLI json metadata: ${current?._tag ?? "unknown"}`,
@@ -485,11 +494,11 @@ const schemaAstToJsonShape = (ast: SchemaAstNode): CommandJsonShape => {
   }
 };
 
-export const jsonShapeFromSchema = <A>(
+export const jsonInputSpecFromSchema = <A>(
   schema: Schema.Codec<A>,
   rules?: ReadonlyArray<string>,
-): CommandJsonShape => {
-  const shape = schemaAstToJsonShape(schema.ast);
+): JsonInputSpec => {
+  const spec = schemaAstToJsonInputSpec(schema.ast);
 
-  return rules && shape.kind === "object" ? { ...shape, rules } : shape;
+  return rules && spec.kind === "object" ? { ...spec, rules } : spec;
 };

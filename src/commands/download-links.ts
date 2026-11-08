@@ -1,6 +1,6 @@
 import { Command } from "effect/cli";
 import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
-import { Data, Effect, Option, Schema } from "effect";
+import { Data, Effect, Option, Predicate, Schema } from "effect";
 
 import {
   defineIntegerOption,
@@ -21,7 +21,7 @@ import {
   dryRunFlag,
   fieldsFlag,
   jsonFlag,
-  jsonShapeFromSchema,
+  jsonInputSpecFromSchema,
   outputFlag,
   type CommandSpec,
 } from "../internal/command-specs.js";
@@ -51,11 +51,14 @@ export { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
 
 export type DownloadLinksCreateInput = Schema.Schema.Type<typeof DownloadLinksCreateInputSchema>;
 
+const selectionIds = (value: ReadonlyArray<number> | string | undefined) =>
+  value === undefined || Predicate.isString(value) ? [] : value;
+
 export const resolveDownloadLinksCreateInput = (input: DownloadLinksCreateInput) => {
   const normalized = {
     cursor: input.cursor,
-    excludeIds: toOptionalIds(input.excludeIds ?? []),
-    ids: toOptionalIds(input.ids ?? []),
+    excludeIds: toOptionalIds(selectionIds(input.excludeIds)),
+    ids: toOptionalIds(selectionIds(input.ids)),
   };
 
   if (!normalized.cursor && !normalized.ids) {
@@ -123,6 +126,7 @@ const downloadLinksGet = Command.make(
         fields,
         output: getOption(output),
       });
+
       const result = yield* withTerminalLoader(
         {
           message: `Loading download-links job ${id}...`,
@@ -165,7 +169,7 @@ export const downloadLinksCommandSpecs = [
         jsonFlag(),
         outputFlag(),
       ],
-      json: jsonShapeFromSchema(DownloadLinksCreateInputSchema, [
+      json: jsonInputSpecFromSchema(DownloadLinksCreateInputSchema, [
         "Provide at least one ids entry or a cursor value.",
       ]),
     },

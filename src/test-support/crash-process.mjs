@@ -5,6 +5,7 @@ const [kind, transport] = process.argv.slice(2);
 const reporter = {
   capture: async (capturedKind) => {
     process.stderr.write(`captured:${capturedKind}\n`);
+
     if (transport === "reject") {
       throw new Error("transport failed");
     }

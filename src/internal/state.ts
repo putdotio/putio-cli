@@ -1,8 +1,7 @@
 import * as FileSystem from "effect/FileSystem";
-import { PlatformError, SystemError } from "effect/PlatformError";
 
 import { DEFAULT_PUTIO_API_BASE_URL } from "@putdotio/sdk";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Context, Data, Effect, Layer, Predicate, Schema } from "effect";
 
 import { normalizeAuthProfileName } from "./auth-profile.js";
 import { CONFIG_FILE_MODE } from "./constants.js";
@@ -157,9 +156,9 @@ const decodePersistedConfig = Schema.decodeUnknownSync(PutioCliConfigSchema, {
   onExcessProperty: "error",
 });
 
-const mapFileSystemError = (error: unknown, message: string): AuthStateError =>
-  error instanceof AuthStateError
-    ? error
+const mapFileSystemError = (cause: unknown, message: string): AuthStateError =>
+  cause instanceof AuthStateError
+    ? cause
     : new AuthStateError({
         message,
       });
@@ -260,11 +259,13 @@ const selectProfileNameEffect = (input: {
 }) =>
   Effect.gen(function* () {
     const explicitProfile = yield* validateOptionalProfileNameEffect(input.explicitProfile);
+
     if (explicitProfile !== undefined) {
       return explicitProfile;
     }
 
     const runtimeProfile = yield* validateOptionalProfileNameEffect(input.runtimeProfile);
+
     if (runtimeProfile !== undefined) {
       return runtimeProfile;
     }
@@ -323,13 +324,7 @@ const loadPersistedStateEffect = (
     const effectiveConfigPath = configPath ?? (yield* resolveAuthRuntimeConfig()).configPath;
 
     const rawConfig = yield* fs.readFileString(effectiveConfigPath, "utf8").pipe(
-      Effect.catchIf(
-        (error): error is PlatformError =>
-          error instanceof PlatformError &&
-          error.reason instanceof SystemError &&
-          error.reason._tag === "NotFound",
-        () => Effect.succeed(null),
-      ),
+      Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(null)),
       Effect.mapError((error) =>
         mapFileSystemError(error, `Unable to read CLI config at ${effectiveConfigPath}.`),
       ),
@@ -371,6 +366,7 @@ const setTelemetryEnabledEffect = (
   Effect.gen(function* () {
     const configPath = yield* resolveTelemetryConfigPath();
     const state = (yield* loadPersistedStateEffect(configPath)) ?? makeEmptyState();
+
     const nextState: PutioCliConfig = {
       ...state,
       telemetry_disabled: enabled ? undefined : true,
@@ -405,21 +401,25 @@ const savePersistedStateEffect = (
     const runtime = yield* resolveAuthRuntimeConfig();
     const effectiveConfigPath = configPath ?? runtime.configPath;
     const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
+
     const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
       state: existingConfig,
     });
+
     const persistedState = existingConfig ?? makeEmptyState(state.apiBaseUrl);
 
     if (selectedProfile) {
       const existingProfiles = persistedState.profiles ?? {};
       const existingProfile = existingProfiles[selectedProfile];
+
       const nextProfile: PutioCliProfileConfig = {
         api_base_url:
           state.apiBaseUrl ?? existingProfile?.api_base_url ?? persistedState.api_base_url,
         auth_token: state.token,
       };
+
       const nextState: PutioCliConfig = {
         ...persistedState,
         profiles: {
@@ -472,6 +472,7 @@ const clearPersistedStateEffect = (
     const runtime = yield* resolveAuthRuntimeConfig();
     const effectiveConfigPath = configPath ?? runtime.configPath;
     const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
+
     const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
@@ -493,6 +494,7 @@ const clearPersistedStateEffect = (
       const nextProfile: PutioCliProfileConfig = {
         api_base_url: existingProfile.api_base_url ?? existingConfig.api_base_url,
       };
+
       const nextState: PutioCliConfig = {
         ...existingConfig,
         profiles: {
@@ -508,13 +510,14 @@ const clearPersistedStateEffect = (
       );
 
       return {
-        cleared: typeof existingProfile.auth_token === "string",
+        cleared: Predicate.isString(existingProfile.auth_token),
         configPath: effectiveConfigPath,
         profile: selectedProfile,
       };
     }
 
-    const hadLegacyToken = typeof existingConfig.auth_token === "string";
+    const hadLegacyToken = Predicate.isString(existingConfig.auth_token);
+
     const nextState: PutioCliConfig = {
       ...existingConfig,
       auth_token: undefined,
@@ -538,14 +541,16 @@ const listProfilesEffect = (): Effect.Effect<
     const runtime = yield* resolveAuthRuntimeConfig();
     const state = yield* loadPersistedStateEffect(runtime.configPath);
     const defaultProfile = state?.default_profile ?? null;
+
     const currentProfile = yield* selectProfileNameEffect({
       runtimeProfile: runtime.profile,
       state,
     });
+
     const profiles = Object.entries(state?.profiles ?? {})
       .map(([name, profile]) => ({
         apiBaseUrl: profileConfigApiBaseUrl(state ?? makeEmptyState(), profile),
-        authenticated: typeof profile.auth_token === "string",
+        authenticated: Predicate.isString(profile.auth_token),
         current: currentProfile === name,
         name,
       }))
@@ -579,6 +584,7 @@ const getAuthStatusEffect = (
     }
 
     const state = yield* loadPersistedStateEffect(runtime.configPath);
+
     const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
@@ -599,7 +605,7 @@ const getAuthStatusEffect = (
 
       const profile = state?.profiles?.[selectedProfile];
 
-      return profile === undefined || typeof profile.auth_token !== "string"
+      return profile === undefined || !Predicate.isString(profile.auth_token)
         ? {
             authenticated: false,
             source: null,
@@ -628,8 +634,8 @@ const getAuthStatusEffect = (
           profile: null,
         }
       : {
-          authenticated: typeof state.auth_token === "string",
-          source: typeof state.auth_token === "string" ? "config" : null,
+          authenticated: Predicate.isString(state.auth_token),
+          source: Predicate.isString(state.auth_token) ? "config" : null,
           apiBaseUrl: state.api_base_url,
           configPath: runtime.configPath,
           defaultProfile: state.default_profile ?? null,
@@ -658,6 +664,7 @@ const removeProfileEffect = (
     }
 
     const { [profileName]: _removed, ...remainingProfiles } = state.profiles;
+
     const nextState: PutioCliConfig = {
       ...state,
       default_profile: state.default_profile === profileName ? undefined : state.default_profile,
@@ -686,6 +693,7 @@ const resolveAuthStateEffect = (
 > =>
   Effect.gen(function* () {
     const runtime = yield* resolveAuthRuntimeConfig();
+
     const explicitOrEnvProfile =
       (yield* validateOptionalProfileNameEffect(selection.profile)) ??
       (yield* validateOptionalProfileNameEffect(runtime.profile)) ??
@@ -702,6 +710,7 @@ const resolveAuthStateEffect = (
     }
 
     const state = yield* loadPersistedStateEffect(runtime.configPath);
+
     const selectedProfile = yield* selectProfileNameEffect({
       explicitProfile: selection.profile,
       runtimeProfile: runtime.profile,
@@ -719,7 +728,7 @@ const resolveAuthStateEffect = (
 
       const profile = state?.profiles?.[selectedProfile];
 
-      if (profile === undefined || typeof profile.auth_token !== "string") {
+      if (profile === undefined || !Predicate.isString(profile.auth_token)) {
         return yield* Effect.fail(
           new AuthStateError({
             message: `No put.io token is configured for profile \`${selectedProfile}\`. Set PUTIO_CLI_TOKEN or run \`putio auth login --profile ${selectedProfile}\`.`,
@@ -736,7 +745,7 @@ const resolveAuthStateEffect = (
       };
     }
 
-    if (state === null || typeof state.auth_token !== "string") {
+    if (state === null || !Predicate.isString(state.auth_token)) {
       return yield* Effect.fail(
         new AuthStateError({
           message: "No put.io token is configured. Set PUTIO_CLI_TOKEN or run `putio auth login`.",

@@ -1,4 +1,5 @@
 export * from "./internal/metadata.js";
+
 export {
   AuthProfileListSchema,
   AuthProfileSummarySchema,

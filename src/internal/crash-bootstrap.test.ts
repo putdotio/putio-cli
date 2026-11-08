@@ -4,9 +4,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 
-import { bootstrapCrashReporting } from "./crash-bootstrap.js";
 import type { CrashBoundaryRuntime } from "./crash-boundary.js";
-import type { SentryAdapter } from "./crash-reporting.js";
+import { bootstrapCrashReporting, type SentryAdapter } from "./crash-reporting.js";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -30,6 +29,7 @@ describe("bootstrapCrashReporting", () => {
       removeUncaughtExceptionHandler: vi.fn(),
       removeUnhandledRejectionHandler: vi.fn(),
     };
+
     const sentry: SentryAdapter = {
       captureEvent: vi.fn(() => "event-id"),
       flush: vi.fn(() => Promise.resolve(true)),
@@ -51,6 +51,7 @@ describe("bootstrapCrashReporting", () => {
       removeUncaughtExceptionHandler: vi.fn(),
       removeUnhandledRejectionHandler: vi.fn(),
     };
+
     const sentry: SentryAdapter = {
       captureEvent: vi.fn(() => "event-id"),
       flush: vi.fn(() => Promise.resolve(true)),
@@ -78,6 +79,7 @@ describe("bootstrapCrashReporting", () => {
       removeUncaughtExceptionHandler: vi.fn(),
       removeUnhandledRejectionHandler: vi.fn(),
     };
+
     const sentry: SentryAdapter = {
       captureEvent: vi.fn(() => "event-id"),
       flush: vi.fn(() => Promise.resolve(true)),

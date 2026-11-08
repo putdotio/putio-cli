@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { ConfigProvider, Effect, Result } from "effect";
+import { ConfigProvider, Effect, Option, Predicate, Result, Schema } from "effect";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import packageJson from "../package.json";
@@ -10,10 +10,17 @@ import { runCli as executeCli } from "./cli.js";
 import { makeCliAppLayer } from "./internal/app-layer.js";
 import { makeCliRuntime } from "./internal/runtime.js";
 
-const errorText = (error: unknown) =>
-  typeof error === "object" && error !== null && "message" in error
-    ? String((error as { readonly message: unknown }).message)
-    : JSON.stringify(error);
+const decodeFailureMessage = Schema.decodeUnknownOption(Schema.Struct({ message: Schema.Unknown }));
+
+const failureText = (result: CliExecution["result"]) =>
+  Result.match(result, {
+    onFailure: (failure) =>
+      Option.match(decodeFailureMessage(failure), {
+        onNone: () => JSON.stringify(failure),
+        onSome: ({ message }) => String(message),
+      }),
+    onSuccess: () => "",
+  });
 
 type CliExecution = {
   readonly result: Result.Result<void, unknown>;
@@ -23,11 +30,32 @@ type CliExecution = {
 
 const parseCapturedText = (args: ReadonlyArray<unknown>) =>
   args
-    .map((value) => (typeof value === "string" ? value : JSON.stringify(value)))
+    .map((value) => (Predicate.isString(value) ? value : JSON.stringify(value)))
     .join(" ")
     .trim();
 
-const parseJsonOutput = (value: string) => JSON.parse(value) as Record<string, unknown>;
+const parseJsonOutput = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+);
+
+const DescribedCommandsSchema = Schema.Array(
+  Schema.Struct({
+    command: Schema.String,
+    input: Schema.Struct({
+      json: Schema.optional(
+        Schema.Struct({
+          properties: Schema.optional(
+            Schema.Array(Schema.Struct({ name: Schema.String, required: Schema.Boolean })),
+          ),
+        }),
+      ),
+    }),
+  }),
+);
+
+const PersistedProfileSelectionSchema = Schema.fromJsonString(
+  Schema.Struct({ default_profile: Schema.optional(Schema.String) }),
+);
 
 type CliRunOptions = {
   readonly configContents?: string;
@@ -44,9 +72,11 @@ const runProcessArgv = async (
   const configPath = join(configDir, "config.json");
   const stdoutChunks: string[] = [];
   const stderrChunks: string[] = [];
+
   const consoleLogSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
     stdoutChunks.push(parseCapturedText(args));
   });
+
   const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation((...args) => {
     stderrChunks.push(parseCapturedText(args));
   });
@@ -211,17 +241,11 @@ describe("cli argv parsing", () => {
         }),
       ]),
     );
-    const commands = parseJsonOutput(stdout).commands as ReadonlyArray<{
-      readonly command: string;
-      readonly input: {
-        readonly json?: {
-          readonly properties?: ReadonlyArray<{
-            readonly name: string;
-            readonly required: boolean;
-          }>;
-        };
-      };
-    }>;
+
+    const commands = Schema.decodeUnknownSync(DescribedCommandsSchema)(
+      parseJsonOutput(stdout).commands,
+    );
+
     const mkdir = commands.find((entry) => entry.command === "files mkdir");
     const deleteFiles = commands.find((entry) => entry.command === "files delete");
     const sdkCall = commands.find((entry) => entry.command === "sdk call");
@@ -347,9 +371,8 @@ describe("cli argv parsing", () => {
     });
 
     expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(errorText(result.failure)).toContain("Invalid auth profile `bad/name`");
-    }
+
+    expect(failureText(result)).toContain("Invalid auth profile `bad/name`");
   });
 
   it("uses and removes profiles against an isolated config path", async () => {
@@ -361,6 +384,7 @@ describe("cli argv parsing", () => {
         },
       },
     });
+
     const useResult = await runCli(
       ["putio", "auth", "profiles", "use", "automation", "--output", "json"],
       {
@@ -373,9 +397,10 @@ describe("cli argv parsing", () => {
       profile: "automation",
     });
 
-    const afterUse = JSON.parse(await readFile(useResult.configPath, "utf8")) as {
-      readonly default_profile?: string;
-    };
+    const afterUse = Schema.decodeUnknownSync(PersistedProfileSelectionSchema)(
+      await readFile(useResult.configPath, "utf8"),
+    );
+
     expect(afterUse.default_profile).toBe("automation");
 
     const removeResult = await runCli(
@@ -410,10 +435,9 @@ describe("cli argv parsing", () => {
     ]);
 
     expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(errorText(result.failure)).toContain("No put.io token is configured");
-      expect(errorText(result.failure)).not.toContain("not a integer");
-    }
+
+    expect(failureText(result)).toContain("No put.io token is configured");
+    expect(failureText(result)).not.toContain("not a integer");
   });
 
   it("accepts repeated file ids for delete and reaches auth resolution", async () => {
@@ -430,10 +454,9 @@ describe("cli argv parsing", () => {
     ]);
 
     expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(errorText(result.failure)).toContain("No put.io token is configured");
-      expect(errorText(result.failure)).not.toContain("not a integer");
-    }
+
+    expect(failureText(result)).toContain("No put.io token is configured");
+    expect(failureText(result)).not.toContain("not a integer");
   });
 
   it("accepts repeated transfer ids for cancel and reaches auth resolution", async () => {
@@ -450,10 +473,9 @@ describe("cli argv parsing", () => {
     ]);
 
     expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(errorText(result.failure)).toContain("No put.io token is configured");
-      expect(errorText(result.failure)).not.toContain("not a integer");
-    }
+
+    expect(failureText(result)).toContain("No put.io token is configured");
+    expect(failureText(result)).not.toContain("not a integer");
   });
 
   it("accepts repeated download-link ids and reaches auth resolution", async () => {
@@ -470,10 +492,9 @@ describe("cli argv parsing", () => {
     ]);
 
     expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(errorText(result.failure)).toContain("No put.io token is configured");
-      expect(errorText(result.failure)).not.toContain("not a integer");
-    }
+
+    expect(failureText(result)).toContain("No put.io token is configured");
+    expect(failureText(result)).not.toContain("not a integer");
   });
 
   it("still rejects invalid repeated integer input", async () => {
@@ -492,11 +513,10 @@ describe("cli argv parsing", () => {
     ]);
 
     expect(result._tag).toBe("Failure");
-    if (result._tag === "Failure") {
-      expect(`${stdout}\n${stderr}\n${errorText(result.failure)}`).toContain(
-        "Expected `--id` values to be integers",
-      );
-    }
+
+    expect(`${stdout}\n${stderr}\n${failureText(result)}`).toContain(
+      "Expected `--id` values to be integers",
+    );
   });
 
   it("keeps structured parser failures machine-readable", async () => {
@@ -513,10 +533,9 @@ describe("cli argv parsing", () => {
     expect(result._tag).toBe("Failure");
     expect(stdout).toBe("");
     expect(stderr).toBe("");
-    if (result._tag === "Failure") {
-      expect(errorText(result.failure)).toContain("Invalid value for flag --parent-id");
-      expect(errorText(result.failure)).not.toContain("Help requested");
-    }
+
+    expect(failureText(result)).toContain("Invalid value for flag --parent-id");
+    expect(failureText(result)).not.toContain("Help requested");
   });
 
   it("rejects whitespace-only JSON names before write dry-runs", async () => {
@@ -530,6 +549,7 @@ describe("cli argv parsing", () => {
       "--output",
       "json",
     ]);
+
     const rename = await runCli([
       "putio",
       "files",
@@ -543,11 +563,8 @@ describe("cli argv parsing", () => {
 
     expect(mkdir.result._tag).toBe("Failure");
     expect(rename.result._tag).toBe("Failure");
-    if (mkdir.result._tag === "Failure") {
-      expect(errorText(mkdir.result.failure)).toContain("Expected `--json` to match");
-    }
-    if (rename.result._tag === "Failure") {
-      expect(errorText(rename.result.failure)).toContain("Expected `--json` to match");
-    }
+
+    expect(failureText(mkdir.result)).toContain("Expected `--json` to match");
+    expect(failureText(rename.result)).toContain("Expected `--json` to match");
   });
 });

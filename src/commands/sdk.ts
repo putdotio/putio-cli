@@ -1,5 +1,5 @@
 import { Command } from "effect/cli";
-import { Console, Effect, Schema } from "effect";
+import { Console, Effect, Option, Schema } from "effect";
 
 import { translate } from "../i18n/index.js";
 import {
@@ -18,7 +18,7 @@ import {
   dryRunFlag,
   jsonFlag,
   outputFlag,
-  type CommandJsonShape,
+  type JsonInputSpec,
   type CommandSpec,
 } from "../internal/command-specs.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
@@ -52,10 +52,12 @@ const argsConfig = defineTextOption("args", {
   defaultValue: "[]",
   description: "JSON array of positional arguments passed to the SDK function.",
 });
+
 const executeConfig = defineBooleanOption("execute", {
   defaultValue: false,
   description: "Explicitly execute the selected SDK operation.",
 });
+
 const operationConfig = defineTextOption("operation", {
   description: "Dot-separated SDK function path, for example files.get.",
   optional: true,
@@ -65,24 +67,27 @@ const argsOption = argsConfig.option;
 const executeOption = executeConfig.option;
 const operationOption = operationConfig.option;
 
-const parseSdkArguments = (raw: string) => {
-  let parsed: unknown;
+const decodeJsonText = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
+const decodeJsonArray = Schema.decodeUnknownOption(Schema.Array(Schema.Json));
 
-  try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch {
+const parseSdkArguments = (raw: string) => {
+  const parsed = decodeJsonText(raw);
+
+  if (Option.isNone(parsed)) {
     throw new CliCommandInputError({
       message: "Expected `sdk call --args` to contain valid JSON.",
     });
   }
 
-  try {
-    return Schema.decodeUnknownSync(Schema.Array(Schema.Json))(parsed);
-  } catch {
+  const args = decodeJsonArray(parsed.value);
+
+  if (Option.isNone(args)) {
     throw new CliCommandInputError({
       message: "Expected `sdk call --args` to contain a JSON array.",
     });
   }
+
+  return args.value;
 };
 
 const resolveExecutionMode = (dryRun: boolean, execute: boolean) => {
@@ -102,6 +107,7 @@ const resolveInput = (input: SdkCallInput) => ({
 
 const renderSdkCatalogTerminal = (catalog: ReturnType<typeof listSdkOperations>) => {
   const supported = catalog.operations.map((operation) => `  ${operation}`);
+
   const unsupported = catalog.unsupported.map(
     ({ operation, reason }) => `  ${operation} — ${reason}`,
   );
@@ -135,6 +141,7 @@ const sdkCall = Command.make(
         try: () => resolveExecutionMode(dryRun, execute),
         catch: (error) => error,
       });
+
       const input = yield* resolveMutationInput({
         buildFromFlags: () => ({
           args: parseSdkArguments(args),
@@ -175,6 +182,7 @@ const sdkCall = Command.make(
           invokeSdkOperation(authedSdk, input.operation, input.args),
         ),
       );
+
       const normalized = yield* Effect.try({
         try: () => normalizeSdkOperationResult(input.operation, result),
         catch: (error) => error,
@@ -195,7 +203,7 @@ export const sdkCommand = Command.make("sdk", {}, () =>
   Console.log(translate("cli.sdk.chooseSubcommand")),
 ).pipe(Command.withSubcommands([sdkList, sdkCall]));
 
-const sdkCallJsonShape = {
+const sdkCallJsonInputSpec = {
   kind: "object",
   properties: [
     {
@@ -213,7 +221,7 @@ const sdkCallJsonShape = {
     "`operation` must be an own, JSON-callable SDK function path returned by `sdk list`.",
     "Exactly one of `--dry-run` or `--execute` is required.",
   ],
-} satisfies CommandJsonShape;
+} satisfies JsonInputSpec;
 
 export const sdkCommandSpecs = [
   {
@@ -247,7 +255,7 @@ export const sdkCommandSpecs = [
         operationConfig.flag,
         outputFlag(),
       ],
-      json: sdkCallJsonShape,
+      json: sdkCallJsonInputSpec,
     },
     kind: "write",
     purpose: translate("cli.metadata.sdkCall"),

@@ -1,8 +1,4 @@
-import {
-  createPutioSdkEffectClient,
-  makePutioSdkLiveLayer,
-  type PutioSdkContext,
-} from "@putdotio/sdk";
+import { createPutioSdkEffectClient, putioSdkLiveLayer, type PutioSdkContext } from "@putdotio/sdk";
 import { Context, Effect, Layer } from "effect";
 
 type CliSdkClient = ReturnType<typeof createPutioSdkEffectClient>;
@@ -28,7 +24,7 @@ const makeCliSdk = (): CliSdkService => ({
   provide: (config, program) =>
     program.pipe(
       Effect.provide(
-        makePutioSdkLiveLayer({
+        putioSdkLiveLayer({
           accessToken: config.token,
           baseUrl: config.apiBaseUrl,
           uploadBaseUrl: config.uploadBaseUrl,

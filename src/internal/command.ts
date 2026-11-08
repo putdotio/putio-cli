@@ -1,6 +1,6 @@
 import { DEFAULT_PUTIO_API_BASE_URL, DEFAULT_PUTIO_UPLOAD_BASE_URL } from "@putdotio/sdk";
 import { Flag } from "effect/cli";
-import { Data, Effect, Option, Schema } from "effect";
+import { Data, Effect, Option, Predicate, Schema } from "effect";
 
 import type { ResolvedAuthState } from "./state.js";
 import {
@@ -29,6 +29,7 @@ import { resolveAuthState } from "./state.js";
 export const outputOption = Flag.Literals("output", ["json", "text", "ndjson"] as const).pipe(
   Flag.optional,
 );
+
 export const dryRunOption = Flag.Boolean("dry-run").pipe(Flag.withDefault(false));
 export const fieldsOption = Flag.String("fields").pipe(Flag.optional);
 export const jsonOption = Flag.String("json").pipe(Flag.optional);
@@ -235,13 +236,11 @@ const TOP_LEVEL_FIELD_PATTERN = /^[A-Za-z0-9_-]+$/u;
 const MAX_CURSOR_PAGES = 1_000;
 const MAX_CURSOR_ITEMS = 100_000;
 
-const ownKeys = (value: Record<string, unknown>) => Object.keys(value);
-const hasControlCharacters = (value: string) =>
-  [...value].some((character) => {
-    const codePoint = character.codePointAt(0);
+const isControlCodePoint = (codePoint: number | undefined) =>
+  codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
 
-    return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
-  });
+const hasControlCharacters = (value: string) =>
+  Array.from(value, (character) => character.codePointAt(0)).some(isControlCodePoint);
 
 const validateSafeString = (input: {
   readonly allowPathTraversal?: boolean;
@@ -325,13 +324,17 @@ const parseRequestedFields = (raw: string) => {
 const renderFieldList = (fields: ReadonlyArray<string>) =>
   fields.map((field) => `\`${field}\``).join(", ");
 
-const readCursor = (value: Record<string, unknown>) => {
+const readCursor = <A extends Record<string, unknown>>(value: A) => {
   const cursor = value.cursor;
 
-  return typeof cursor === "string" && cursor.length > 0 ? cursor : null;
+  return Predicate.isString(cursor) && cursor.length > 0 ? cursor : null;
 };
 
-const readPageItems = (value: Record<string, unknown>, itemKey: string, command: string) => {
+const readPageItems = <A extends Record<string, unknown>>(
+  value: A,
+  itemKey: string,
+  command: string,
+) => {
   const items = value[itemKey];
 
   if (!Array.isArray(items)) {
@@ -433,9 +436,9 @@ export const defineRepeatedTextOption = (
   option: Flag.String(name).pipe(Flag.atLeast(0)),
 });
 
-const mapInputError = (error: unknown, fallbackMessage: string) =>
-  error instanceof CliCommandInputError
-    ? error
+const mapInputError = (cause: unknown, fallbackMessage: string) =>
+  cause instanceof CliCommandInputError
+    ? cause
     : new CliCommandInputError({
         message: fallbackMessage,
       });
@@ -447,13 +450,13 @@ const tryCommandInput = <A>(try_: () => A, fallbackMessage: string) =>
   });
 
 export const decodeJsonOption = <A>(schema: Schema.Codec<A>, raw: string) =>
-  Effect.try({
-    try: () => JSON.parse(raw) as unknown,
-    catch: () =>
-      new CliCommandInputError({
-        message: "Expected `--json` to contain valid JSON.",
-      }),
-  }).pipe(
+  Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(raw).pipe(
+    Effect.mapError(
+      () =>
+        new CliCommandInputError({
+          message: "Expected `--json` to contain valid JSON.",
+        }),
+    ),
     Effect.flatMap((value) =>
       Effect.try({
         try: () => Schema.decodeUnknownSync(schema)(value),
@@ -488,6 +491,7 @@ export const resolveReadOutputControls = (input: {
     Effect.try({
       try: () => {
         const outputMode = normalizeOutputMode(input.output, runtime.isInteractiveTerminal);
+
         const requestedFields = Option.match(input.fields, {
           onNone: () => undefined,
           onSome: parseRequestedFields,
@@ -526,10 +530,11 @@ export const selectTopLevelFields = <A extends Record<string, unknown>>(input: {
   Effect.try({
     try: () => {
       if (input.requestedFields === undefined) {
-        return input.value as Record<string, unknown>;
+        return input.value;
       }
 
-      const validFields = ownKeys(input.value).sort((left, right) => left.localeCompare(right));
+      const validFields = Object.keys(input.value).sort((left, right) => left.localeCompare(right));
+
       const unknownFields = input.requestedFields.filter(
         (field) => !Object.prototype.hasOwnProperty.call(input.value, field),
       );
@@ -566,6 +571,7 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
         `Unable to validate the first page for \`${input.command}\`.`,
       )),
     ];
+
     const seenCursors = new Set<string>();
     let cursor = readCursor(input.initial);
     let pageCount = 1;
@@ -603,10 +609,12 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
           }),
         `Unable to validate pagination for \`${input.command}\`.`,
       );
+
       const pageItems = yield* tryCommandInput(
         () => readPageItems(nextPage, input.itemKey, input.command),
         `Unable to validate a page for \`${input.command}\`.`,
       );
+
       pageCount += 1;
       collectedItems.push(...pageItems);
       yield* tryCommandInput(
@@ -621,11 +629,18 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
       cursor = nextCursor;
     }
 
-    return {
+    const collected: A = {
       ...input.initial,
       [input.itemKey]: collectedItems,
-      ...(Object.prototype.hasOwnProperty.call(input.initial, "cursor") ? { cursor: null } : {}),
-    } as A;
+    };
+
+    if (!Object.prototype.hasOwnProperty.call(input.initial, "cursor")) {
+      return collected;
+    }
+
+    const exhausted: A = { ...collected, cursor: null };
+
+    return exhausted;
   });
 
 export const writeReadOutput = <A extends Record<string, unknown>>(input: {
@@ -794,18 +809,17 @@ const provideAuthedSdk = <A, E, R>(
 export const withAuthedSdk = <A, E, R>(program: AuthedSdkProgram<A, E, R>) =>
   Effect.flatMap(resolveAuthState(), (auth) => provideAuthedSdk(auth, undefined, program));
 
-// A persisted base that is not a URL is never the default, so upload refuses it.
 const isDefaultApiBaseUrl = (apiBaseUrl: string) =>
   URL.canParse(apiBaseUrl) && new URL(apiBaseUrl).href === new URL(DEFAULT_PUTIO_API_BASE_URL).href;
 
-// Uploads go to their own host. A custom API base needs an explicit upload base,
-// so its token is never sent to the production upload host.
 export const withAuthedUploadSdk = <A, E, R>(program: AuthedSdkProgram<A, E, R>) =>
   Effect.gen(function* () {
     const auth = yield* resolveAuthState();
+
     const runtime = yield* resolveCliRuntimeConfig().pipe(
       Effect.mapError((error) => new CliCommandInputError({ message: error.message })),
     );
+
     const uploadBaseUrl =
       runtime.uploadBaseUrl ??
       (isDefaultApiBaseUrl(auth.apiBaseUrl) ? DEFAULT_PUTIO_UPLOAD_BASE_URL : undefined);

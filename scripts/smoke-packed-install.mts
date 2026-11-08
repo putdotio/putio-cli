@@ -12,48 +12,66 @@ import { join, resolve } from "node:path";
 import process from "node:process";
 import { promisify } from "node:util";
 
-type AuthStatus = {
-  readonly apiBaseUrl: string;
-  readonly authenticated: boolean;
-  readonly profile: string | null;
-  readonly source: string | null;
-};
+import { Option, Predicate, Schema } from "effect";
 
-type ProfileList = {
-  readonly defaultProfile: string | null;
-  readonly profiles: ReadonlyArray<{
-    readonly current: boolean;
-    readonly name: string;
-  }>;
-};
+const AuthStatus = Schema.Struct({
+  apiBaseUrl: Schema.String,
+  authenticated: Schema.Boolean,
+  profile: Schema.NullOr(Schema.String),
+  source: Schema.NullOr(Schema.String),
+});
 
-type LogoutResult = {
-  readonly cleared: boolean;
-  readonly profile: string | null;
-};
+const ProfileList = Schema.Struct({
+  defaultProfile: Schema.NullOr(Schema.String),
+  profiles: Schema.Array(
+    Schema.Struct({
+      current: Schema.Boolean,
+      name: Schema.String,
+    }),
+  ),
+});
 
-type RemoveResult = {
-  readonly profile: string;
-  readonly removed: boolean;
-};
+const LogoutResult = Schema.Struct({
+  cleared: Schema.Boolean,
+  profile: Schema.NullOr(Schema.String),
+});
 
-type TransfersList = {
-  readonly cursor: string | null;
-  readonly total: number;
-  readonly transfers: ReadonlyArray<unknown>;
-};
+const RemoveResult = Schema.Struct({
+  profile: Schema.String,
+  removed: Schema.Boolean,
+});
 
-type NpmPackageInventoryEntry = {
-  readonly version?: string;
-};
+const UseResult = Schema.Struct({
+  profile: Schema.String,
+});
+
+const TransfersList = Schema.Struct({
+  cursor: Schema.NullOr(Schema.String),
+  total: Schema.Number,
+  transfers: Schema.Array(Schema.Unknown),
+});
+
+const NpmPackageInventory = Schema.Array(
+  Schema.Struct({
+    version: Schema.optional(Schema.String),
+  }),
+);
+
+const RootPackageManifest = Schema.Struct({
+  dependencies: Schema.Struct({ effect: Schema.String }),
+});
+
+const CliFailure = Schema.Struct({
+  error: Schema.Struct({ message: Schema.String }),
+});
 
 const root = process.cwd();
 const artifactsDir = join(root, ".artifacts");
-const expectedEffectVersion = (
-  JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
-    readonly dependencies: { readonly effect: string };
-  }
+
+const expectedEffectVersion = Schema.decodeUnknownSync(RootPackageManifest)(
+  JSON.parse(readFileSync(join(root, "package.json"), "utf8")),
 ).dependencies.effect;
+
 let installDir: string;
 let configPath: string;
 const commandTimeoutMs = 120_000;
@@ -127,33 +145,35 @@ server.listen(0, "127.0.0.1", () => {
 process.on("SIGTERM", () => server.close(() => process.exit(0)));
 `;
 
-const run = (command: string, args: ReadonlyArray<string>, options: object = {}) =>
+const run = (command: string, args: ReadonlyArray<string>) =>
   execFileSync(command, args, {
     cwd: root,
     encoding: "utf8",
     stdio: "pipe",
     timeout: commandTimeoutMs,
-    ...options,
   });
 
-const runPutioJson = <A,>(
+const runPutioJson = <S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
   binaryPath: string,
   args: ReadonlyArray<string>,
   env: Record<string, string> = {},
-): A =>
-  JSON.parse(
-    execFileSync(binaryPath, args, {
-      cwd: installDir,
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        ...env,
-        PUTIO_CLI_CONFIG_PATH: configPath,
-      },
-      stdio: "pipe",
-      timeout: commandTimeoutMs,
-    }),
-  ) as A;
+): S["Type"] =>
+  Schema.decodeUnknownSync(schema)(
+    JSON.parse(
+      execFileSync(binaryPath, args, {
+        cwd: installDir,
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          ...env,
+          PUTIO_CLI_CONFIG_PATH: configPath,
+        },
+        stdio: "pipe",
+        timeout: commandTimeoutMs,
+      }),
+    ),
+  );
 
 const assert = (condition: boolean, message: string) => {
   if (!condition) {
@@ -163,8 +183,8 @@ const assert = (condition: boolean, message: string) => {
 
 const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
   for (const [id, httpStatus, apiStatus, errorType] of [
-    [400, 404, 404, undefined], // malformed JSON
-    [405, 404, 404, undefined], // non-JSON body
+    [400, 404, 404, undefined],
+    [405, 404, 404, undefined],
     [401, 401, 401, "FIXTURE_ERROR"],
     [403, 403, 404, "FIXTURE_ERROR"],
     [404, 404, 404, "FIXTURE_ERROR"],
@@ -193,15 +213,17 @@ const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
         timeout: commandTimeoutMs,
       },
     );
+
     assert(
       result.status === 1 && result.stdout === "",
       "Expected structured failure on stderr only.",
     );
     const parsed: unknown = JSON.parse(result.stderr);
-    if (typeof parsed !== "object" || parsed === null || !("error" in parsed))
-      throw new Error("Missing error envelope.");
+
+    if (!Predicate.hasProperty(parsed, "error")) throw new Error("Missing error envelope.");
     const error = parsed.error;
-    if (typeof error !== "object" || error === null) throw new Error("Missing error metadata.");
+
+    if (!Predicate.isObjectOrArray(error)) throw new Error("Missing error metadata.");
     assert(
       "httpStatusCode" in error && error.httpStatusCode === httpStatus,
       "HTTP status was lost or conflated.",
@@ -224,9 +246,11 @@ const startMockApi = () => {
   const child = spawn(process.execPath, ["--input-type=module", "--eval", mockApiSource], {
     stdio: ["ignore", "pipe", "pipe"],
   });
+
   const ready = new Promise<string>((resolve, reject) => {
     let stderr = "";
     let stdout = "";
+
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error(`Timed out starting the packed-install API server. ${stderr}`.trim()));
@@ -255,6 +279,7 @@ const startMockApi = () => {
       if (!Number.isInteger(port) || port <= 0) {
         child.kill();
         reject(new Error(`Expected the API server to report a valid port. ${stderr}`.trim()));
+
         return;
       }
 
@@ -267,6 +292,7 @@ const startMockApi = () => {
 
 const waitForExit = async (child: ChildProcess, timeoutMs: number) => {
   if (child.exitCode !== null || child.signalCode !== null) return true;
+
   return Promise.race([
     once(child, "exit").then(() => true),
     new Promise<false>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
@@ -276,28 +302,16 @@ const waitForExit = async (child: ChildProcess, timeoutMs: number) => {
 const stopMockApi = async (child: ChildProcess) => {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
+
   if (await waitForExit(child, 2_000)) return;
   child.kill("SIGKILL");
+
   if (!(await waitForExit(child, 2_000))) {
     throw new Error(`Packed-install API server ${child.pid ?? "unknown"} did not stop.`);
   }
 };
 
-const readFailureMessage = (value: unknown) => {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("error" in value) ||
-    typeof value.error !== "object" ||
-    value.error === null ||
-    !("message" in value.error) ||
-    typeof value.error.message !== "string"
-  ) {
-    throw new Error("Expected the CLI failure to use the structured error contract.");
-  }
-
-  return value.error.message;
-};
+const decodeCliFailure = Schema.decodeUnknownOption(CliFailure);
 
 const runPutioFailure = (
   binaryPath: string,
@@ -321,11 +335,13 @@ const runPutioFailure = (
   assert(result.status === 1, `Expected CLI failure exit code 1, received ${result.status}.`);
 
   const output = result.stdout.trim().length > 0 ? result.stdout : result.stderr;
-  return readFailureMessage(JSON.parse(output));
+
+  return Option.getOrThrowWith(
+    decodeCliFailure(JSON.parse(output)),
+    () => new Error("Expected the CLI failure to use the structured error contract."),
+  ).error.message;
 };
 
-// The installed CLI's existing login deadline interrupts a response body without
-// terminating the process first. Observe fetch cancellation, not just process exit.
 const sdkBodyFetchSource = `
 import { writeFileSync } from "node:fs";
 const statePath = process.env.PUTIO_SDK_BODY_STATE_PATH;
@@ -355,12 +371,15 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
     PUTIO_CLI_API_BASE_URL: apiBaseUrl,
     PUTIO_CLI_TOKEN: "packed-smoke-token",
   };
+
   const malformed = spawnSync(
     binaryPath,
     ["transfers", "list", "--per-page", "998", "--output", "json"],
     { cwd: installDir, encoding: "utf8", env, timeout: 5_000 },
   );
+
   const malformedOutput = malformed.stdout + malformed.stderr;
+
   const malformedMetadata =
     malformed.error === undefined &&
     malformed.status === 1 &&
@@ -371,6 +390,7 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
   const statePath = join(installDir, "sdk-body-state.txt");
   writeFileSync(preloadPath, sdkBodyFetchSource);
   writeFileSync(statePath, "not-started");
+
   const interrupted = spawnSync(
     process.execPath,
     [
@@ -391,10 +411,12 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
       timeout: 5_000,
     },
   );
+
   const bodyReadAborted =
     interrupted.error === undefined &&
     interrupted.status === 1 &&
     readFileSync(statePath, "utf8") === "aborted";
+
   console.log(`Packed SDK proof: ${JSON.stringify({ malformedMetadata, bodyReadAborted })}`);
   assert(
     malformedMetadata,
@@ -405,32 +427,39 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
 
 const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
   const args = ["transfers", "list", "--page-all", "--per-page", "999", "--output", "ndjson"];
+
   const env = {
     ...process.env,
     PUTIO_CLI_CONFIG_PATH: configPath,
     PUTIO_CLI_API_BASE_URL: apiBaseUrl,
     PUTIO_CLI_TOKEN: "packed-smoke-token",
   };
+
   const child = spawn(binaryPath, args, {
     cwd: installDir,
     env,
     stdio: ["ignore", "pipe", "pipe"],
   });
+
   const deadline = setTimeout(() => child.kill("SIGKILL"), 15_000);
   let stderr = "";
   child.stderr.on("data", (chunk) => {
     stderr += String(chunk);
   });
+
   const completed = new Promise<number | null>((resolveExit, reject) => {
     child.once("error", reject);
     child.once("close", resolveExit);
   });
+
   try {
     const startedAt = Date.now();
+
     while (Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text()) === 0) {
       assert(Date.now() - startedAt < 5_000, "Streaming CLI never requested its first page.");
       await new Promise((resolveWait) => setTimeout(resolveWait, 20));
     }
+
     await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
     const pausedPages = Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text());
     assert(
@@ -442,10 +471,12 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
       output += String(chunk);
     });
     assert((await completed) === 0, `Streaming CLI failed: ${stderr}`);
+
     const pages = output
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line));
+
     assert(
       pages.length === 64 && pages.at(-1)?.cursor === null,
       "Streaming CLI did not drain all 64 NDJSON pages.",
@@ -455,6 +486,7 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     );
   } finally {
     clearTimeout(deadline);
+
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
     await completed;
   }
@@ -464,9 +496,11 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     env,
     stdio: ["ignore", "pipe", "pipe"],
   });
+
   const brokenDeadline = setTimeout(() => brokenPipe.kill("SIGKILL"), 5_000);
   brokenPipe.stderr.resume();
   brokenPipe.stdout.once("data", () => brokenPipe.stdout.destroy());
+
   try {
     const [code, signal] = await once(brokenPipe, "close");
     assert(
@@ -475,6 +509,7 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     );
   } finally {
     clearTimeout(brokenDeadline);
+
     if (brokenPipe.exitCode === null && brokenPipe.signalCode === null) brokenPipe.kill("SIGKILL");
   }
 };
@@ -501,13 +536,14 @@ const smokeAuthProfiles = (binaryPath: string) => {
     )}\n`,
   );
 
-  const defaultList = runPutioJson<ProfileList>(binaryPath, [
+  const defaultList = runPutioJson(ProfileList, binaryPath, [
     "auth",
     "profiles",
     "list",
     "--output",
     "json",
   ]);
+
   assert(
     defaultList.profiles.find((profile) => profile.name === "human")?.current === true,
     "Expected default profile `human` to be current.",
@@ -517,19 +553,21 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "Expected `automation` not to be current before selection.",
   );
 
-  const defaultStatus = runPutioJson<AuthStatus>(binaryPath, [
+  const defaultStatus = runPutioJson(AuthStatus, binaryPath, [
     "auth",
     "status",
     "--output",
     "json",
   ]);
+
   assert(defaultStatus.authenticated, "Expected default profile status to be authenticated.");
   assert(defaultStatus.profile === "human", "Expected default status to use `human`.");
   assert(defaultStatus.source === "profile", "Expected default status source to be `profile`.");
 
-  const envStatus = runPutioJson<AuthStatus>(binaryPath, ["auth", "status", "--output", "json"], {
+  const envStatus = runPutioJson(AuthStatus, binaryPath, ["auth", "status", "--output", "json"], {
     PUTIO_CLI_PROFILE: "automation",
   });
+
   assert(envStatus.authenticated, "Expected env-selected profile status to be authenticated.");
   assert(envStatus.profile === "automation", "Expected env selection to use `automation`.");
   assert(
@@ -537,7 +575,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "Expected env-selected profile to use its profile-specific API base URL.",
   );
 
-  const useResult = runPutioJson<{ readonly profile: string }>(binaryPath, [
+  const useResult = runPutioJson(UseResult, binaryPath, [
     "auth",
     "profiles",
     "use",
@@ -545,18 +583,20 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "--output",
     "json",
   ]);
+
   assert(
     useResult.profile === "automation",
     "Expected `profiles use` to select the `automation` profile.",
   );
 
-  const selectedList = runPutioJson<ProfileList>(binaryPath, [
+  const selectedList = runPutioJson(ProfileList, binaryPath, [
     "auth",
     "profiles",
     "list",
     "--output",
     "json",
   ]);
+
   assert(
     selectedList.defaultProfile === "automation",
     "Expected `profiles use` to persist the `automation` profile as default.",
@@ -566,7 +606,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "Expected the `automation` profile to be current after `profiles use`.",
   );
 
-  const logoutResult = runPutioJson<LogoutResult>(binaryPath, [
+  const logoutResult = runPutioJson(LogoutResult, binaryPath, [
     "auth",
     "logout",
     "--profile",
@@ -574,10 +614,11 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "--output",
     "json",
   ]);
+
   assert(logoutResult.cleared, "Expected profile logout to report a cleared token.");
   assert(logoutResult.profile === "automation", "Expected logout to report selected profile.");
 
-  const automationAfterLogout = runPutioJson<AuthStatus>(binaryPath, [
+  const automationAfterLogout = runPutioJson(AuthStatus, binaryPath, [
     "auth",
     "status",
     "--profile",
@@ -585,12 +626,13 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "--output",
     "json",
   ]);
+
   assert(
     !automationAfterLogout.authenticated,
     "Expected the `automation` profile to be unauthenticated after logout.",
   );
 
-  const humanAfterAutomationLogout = runPutioJson<AuthStatus>(binaryPath, [
+  const humanAfterAutomationLogout = runPutioJson(AuthStatus, binaryPath, [
     "auth",
     "status",
     "--profile",
@@ -598,12 +640,13 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "--output",
     "json",
   ]);
+
   assert(
     humanAfterAutomationLogout.authenticated,
     "Expected the human profile to remain authenticated after automation logout.",
   );
 
-  const removeResult = runPutioJson<RemoveResult>(binaryPath, [
+  const removeResult = runPutioJson(RemoveResult, binaryPath, [
     "auth",
     "profiles",
     "remove",
@@ -611,15 +654,17 @@ const smokeAuthProfiles = (binaryPath: string) => {
     "--output",
     "json",
   ]);
+
   assert(removeResult.removed, "Expected `profiles remove human` to report removal.");
 
-  const finalList = runPutioJson<ProfileList>(binaryPath, [
+  const finalList = runPutioJson(ProfileList, binaryPath, [
     "auth",
     "profiles",
     "list",
     "--output",
     "json",
   ]);
+
   assert(
     finalList.profiles.some((profile) => profile.name === "automation"),
     "Expected the `automation` profile to remain after removing human.",
@@ -631,7 +676,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
 };
 
 let mockApiProcess: ChildProcess | undefined;
-let didCreateInstallDir = false;
+let createdInstallDir: string | undefined;
 let interruptedBy: NodeJS.Signals | undefined;
 const commandController = new AbortController();
 const interruptHandlers = new Map<NodeJS.Signals, () => void>();
@@ -641,15 +686,17 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     interruptedBy ??= signal;
     commandController.abort();
   };
+
   interruptHandlers.set(signal, handler);
   process.on(signal, handler);
 }
 
 let primaryError: unknown;
 let cleanupError: unknown;
+
 try {
   installDir = mkdtempSync(join(tmpdir(), "putio-cli-install-"));
-  didCreateInstallDir = true;
+  createdInstallDir = installDir;
   configPath = join(installDir, "putio-config.json");
   rmSync(artifactsDir, { force: true, recursive: true });
   run("pnpm", ["pack", "--pack-destination", artifactsDir]);
@@ -676,6 +723,7 @@ try {
   );
 
   const binaryPath = join(installDir, "node_modules", ".bin", "putio");
+
   const versionOutput = execFileSync(binaryPath, ["version"], {
     cwd: installDir,
     encoding: "utf8",
@@ -695,17 +743,21 @@ try {
   JSON.parse(describeOutput);
   smokeAuthProfiles(binaryPath);
 
-  const effectInventory = JSON.parse(
-    execFileSync("npm", ["query", '[name="effect"]', "--json"], {
-      cwd: installDir,
-      encoding: "utf8",
-      stdio: "pipe",
-      timeout: commandTimeoutMs,
-    }),
-  ) as ReadonlyArray<NpmPackageInventoryEntry>;
+  const effectInventory = Schema.decodeUnknownSync(NpmPackageInventory)(
+    JSON.parse(
+      execFileSync("npm", ["query", '[name="effect"]', "--json"], {
+        cwd: installDir,
+        encoding: "utf8",
+        stdio: "pipe",
+        timeout: commandTimeoutMs,
+      }),
+    ),
+  );
+
   const effectVersions = effectInventory.flatMap((entry) =>
     entry.version === undefined ? [] : [entry.version],
   );
+
   assert(
     effectVersions.length === 1 && effectVersions[0] === expectedEffectVersion,
     `Expected the package to install one Effect ${expectedEffectVersion} runtime, received ${effectVersions.join(", ")}.`,
@@ -714,22 +766,26 @@ try {
   const mockApi = startMockApi();
   mockApiProcess = mockApi.child;
   const mockApiBaseUrl = await mockApi.ready;
-  const transfers = JSON.parse(
-    (
-      await execFile(binaryPath, ["transfers", "list", "--output", "json"], {
-        cwd: installDir,
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          PUTIO_CLI_API_BASE_URL: mockApiBaseUrl,
-          PUTIO_CLI_CONFIG_PATH: configPath,
-          PUTIO_CLI_TOKEN: "packed-smoke-token",
-        },
-        signal: commandController.signal,
-        timeout: commandTimeoutMs,
-      })
-    ).stdout,
-  ) as TransfersList;
+
+  const transfers = Schema.decodeUnknownSync(TransfersList)(
+    JSON.parse(
+      (
+        await execFile(binaryPath, ["transfers", "list", "--output", "json"], {
+          cwd: installDir,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PUTIO_CLI_API_BASE_URL: mockApiBaseUrl,
+            PUTIO_CLI_CONFIG_PATH: configPath,
+            PUTIO_CLI_TOKEN: "packed-smoke-token",
+          },
+          signal: commandController.signal,
+          timeout: commandTimeoutMs,
+        })
+      ).stdout,
+    ),
+  );
+
   assert(transfers.transfers.length === 0, "Expected the SDK-backed transfer list to be empty.");
   assert(transfers.cursor === null, "Expected the SDK-backed transfer list cursor to be null.");
   assert(transfers.total === 0, "Expected the SDK-backed transfer list total to be zero.");
@@ -740,6 +796,7 @@ try {
 
   const stateBeforeLogin = readFileSync(configPath, "utf8");
   const loginStartedAt = Date.now();
+
   const timedOutLogin = spawnSync(
     binaryPath,
     ["auth", "login", "--timeout-seconds", "1", "--output", "json"],
@@ -755,6 +812,7 @@ try {
       timeout: 5_000,
     },
   );
+
   assert(
     timedOutLogin.error === undefined && timedOutLogin.status === 1,
     "Expected installed login to exit with failure before the process timeout.",
@@ -773,6 +831,7 @@ try {
     ["whoami", "--fields", "auth", "--output", "json"],
     join(installDir, "missing-config.json"),
   );
+
   assert(
     missingAuthMessage.includes("Set PUTIO_CLI_TOKEN or run `putio auth login`."),
     "Expected missing authentication to include an actionable recovery step.",
@@ -784,6 +843,7 @@ try {
     join(installDir, "invalid-config.json"),
     { PUTIO_CLI_API_BASE_URL: "not-a-url" },
   );
+
   assert(
     invalidConfigMessage.includes("Expected a valid absolute URL"),
     "Expected invalid configuration to identify the malformed URL.",
@@ -826,15 +886,17 @@ try {
       cleanupError = error;
     }
   }
-  if (didCreateInstallDir) rmSync(installDir, { force: true, recursive: true });
+
+  if (createdInstallDir !== undefined) rmSync(createdInstallDir, { force: true, recursive: true });
+
   for (const [signal, handler] of interruptHandlers) process.off(signal, handler);
 }
 
 if (interruptedBy !== undefined) {
-  if (cleanupError !== undefined) console.error(`Packed-install cleanup failed: ${cleanupError}`);
+  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
   process.exitCode = interruptedBy === "SIGINT" ? 130 : 143;
 } else if (primaryError !== undefined) {
-  if (cleanupError !== undefined) console.error(`Packed-install cleanup failed: ${cleanupError}`);
+  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
   throw primaryError;
 } else if (cleanupError !== undefined) {
   throw cleanupError;

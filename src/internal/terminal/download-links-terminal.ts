@@ -29,6 +29,7 @@ export const renderDownloadLinksTerminal = (value: {
     mediaCount: value.links.media_links.length,
     mp4Count: value.links.mp4_links.length,
   });
+
   const sections = linkGroups.map(([title, links]) =>
     [
       translate("cli.downloadLinks.terminal.linksSection", { title, count: links.length }),

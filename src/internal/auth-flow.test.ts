@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Fiber } from "effect";
+import { ConfigProvider, Effect, Fiber, Result } from "effect";
 import { TestClock } from "effect/testing";
 
 import { makeCliAppLayer } from "./app-layer.js";
@@ -93,6 +93,7 @@ describe("waitForDeviceToken", () => {
           timeoutMs: 5_000,
           checkCodeMatch: () => {
             attempts += 1;
+
             return Effect.succeed(attempts >= 2 ? "token-123" : null);
           },
         }),
@@ -125,7 +126,8 @@ describe("waitForDeviceToken", () => {
       const result = yield* Fiber.join(fiber);
 
       assert.strictEqual(result._tag, "Failure");
-      if (result._tag === "Failure") {
+
+      if (Result.isFailure(result)) {
         assert.strictEqual(
           result.failure.message,
           "Timed out waiting for device authorization to complete.",
@@ -137,6 +139,7 @@ describe("waitForDeviceToken", () => {
   it.effect("interrupts a pending poll when the deadline expires", () =>
     Effect.gen(function* () {
       let interrupted = false;
+
       const fiber = yield* Effect.forkChild(
         Effect.result(
           waitForDeviceToken({
@@ -153,12 +156,14 @@ describe("waitForDeviceToken", () => {
           }),
         ),
       );
+
       yield* TestClock.adjust(100);
       assert.isDefined(fiber.pollUnsafe());
       const result = yield* Fiber.join(fiber);
       assert.isTrue(interrupted);
       assert.strictEqual(result._tag, "Failure");
-      if (result._tag === "Failure")
+
+      if (Result.isFailure(result))
         assert.strictEqual(
           result.failure.message,
           "Timed out waiting for device authorization to complete.",
@@ -169,6 +174,7 @@ describe("waitForDeviceToken", () => {
   it.effect("does not wait out a polling interval beyond the deadline", () =>
     Effect.gen(function* () {
       let attempts = 0;
+
       const fiber = yield* Effect.forkChild(
         Effect.result(
           waitForDeviceToken({
@@ -178,11 +184,13 @@ describe("waitForDeviceToken", () => {
             checkCodeMatch: () =>
               Effect.sync(() => {
                 attempts++;
+
                 return null;
               }),
           }),
         ),
       );
+
       yield* TestClock.adjust(100);
       assert.isDefined(fiber.pollUnsafe());
       const result = yield* Fiber.join(fiber);
@@ -201,7 +209,8 @@ describe("waitForDeviceToken", () => {
       );
 
       assert.strictEqual(result._tag, "Failure");
-      if (result._tag === "Failure") {
+
+      if (Result.isFailure(result)) {
         assert.strictEqual(
           result.failure.message,
           "Unable to poll put.io for the device authorization result.",

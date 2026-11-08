@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Exit, Option, Schema } from "effect";
 import fc from "fast-check";
 
 import {
@@ -53,16 +53,17 @@ describe("decodeJsonOption", () => {
   });
 
   it("fails on invalid json", async () => {
-    await expect(Effect.runPromiseExit(decodeJsonOption(schema, "{nope"))).resolves.toMatchObject({
-      _tag: "Failure",
-    });
+    const exit = await Effect.runPromiseExit(decodeJsonOption(schema, "{nope"));
+
+    expect(Exit.isFailure(exit)).toBe(true);
   });
 
   it("fails with a tagged input error when the payload shape is wrong", async () => {
     const exit = await Effect.runPromiseExit(decodeJsonOption(schema, '{"ids":"nope"}'));
 
     expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
+
+    if (Exit.isFailure(exit)) {
       expect(String(exit.cause)).toContain("CliCommandInputError");
     }
   });
@@ -128,34 +129,32 @@ describe("resolveReadOutputControls", () => {
   });
 
   it("rejects fields in terminal mode", async () => {
-    await expect(
-      Effect.runPromiseExit(
-        provideRuntime(
-          resolveReadOutputControls({
-            fields: Option.some("info"),
-            output: "text",
-          }),
-        ),
+    const exit = await Effect.runPromiseExit(
+      provideRuntime(
+        resolveReadOutputControls({
+          fields: Option.some("info"),
+          output: "text",
+        }),
       ),
-    ).resolves.toMatchObject({
-      _tag: "Failure",
-    });
+    );
+
+    expect(Exit.isFailure(exit)).toBe(true);
   });
 
   it("rejects page-all in terminal mode", async () => {
-    await expect(
-      Effect.runPromiseExit(
-        provideRuntime(
-          resolveReadOutputControls({
-            fields: Option.none(),
-            output: "text",
-            pageAll: true,
-          }),
+    expect(
+      Exit.isFailure(
+        await Effect.runPromiseExit(
+          provideRuntime(
+            resolveReadOutputControls({
+              fields: Option.none(),
+              output: "text",
+              pageAll: true,
+            }),
+          ),
         ),
       ),
-    ).resolves.toMatchObject({
-      _tag: "Failure",
-    });
+    ).toBe(true);
   });
 
   it("rejects malformed nested field selectors", async () => {
@@ -169,7 +168,8 @@ describe("resolveReadOutputControls", () => {
     );
 
     expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
+
+    if (Exit.isFailure(exit)) {
       expect(String(exit.cause)).toContain("top-level field names");
     }
   });
@@ -185,13 +185,15 @@ describe("resolveReadOutputControls", () => {
     );
 
     expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
+
+    if (Exit.isFailure(exit)) {
       expect(String(exit.cause)).toContain("cannot include `?` or `#` fragments");
     }
   });
 
   it("does not reflect control-bearing field selectors in errors", async () => {
     const payload = "\u001B]52;c;cHduZWQ=\u0007";
+
     const exit = await Effect.runPromiseExit(
       provideRuntime(
         resolveReadOutputControls({
@@ -202,7 +204,8 @@ describe("resolveReadOutputControls", () => {
     );
 
     expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
+
+    if (Exit.isFailure(exit)) {
       const cause = String(exit.cause);
       expect(cause).toContain("`--fields` selector #1 cannot contain control characters");
       expect(cause).not.toContain(payload);
@@ -220,7 +223,8 @@ describe("resolveReadOutputControls", () => {
     );
 
     expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
+
+    if (Exit.isFailure(exit)) {
       const cause = String(exit.cause);
       expect(cause).toContain("`--fields` selector #2 only accepts top-level field names");
       expect(cause).not.toContain("bad.field");
@@ -269,7 +273,8 @@ describe("selectTopLevelFields", () => {
     );
 
     expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
+
+    if (Exit.isFailure(exit)) {
       expect(String(exit.cause)).toContain("Unknown `--fields` value for `whoami`");
       expect(String(exit.cause)).toContain("Valid top-level fields: `auth`, `info`");
     }
@@ -277,8 +282,12 @@ describe("selectTopLevelFields", () => {
 });
 
 describe("collectAllCursorPages", () => {
-  // A page chain: the initial page plus continuation pages, each naming the next cursor.
-  type Page = { readonly cursor: string | null; readonly files: ReadonlyArray<number> };
+  type Page = {
+    readonly cursor: string | null;
+    readonly files: ReadonlyArray<number>;
+    readonly total?: number;
+  };
+
   const MAX_ITEMS = 100_000;
 
   const collect = (pages: ReadonlyArray<Page>) => {
@@ -286,19 +295,23 @@ describe("collectAllCursorPages", () => {
     const byCursor = new Map<string, Page>();
     pages.forEach((page, index) => {
       const previous = pages[index - 1];
+
       if (previous?.cursor) byCursor.set(previous.cursor, page);
     });
+
     const effect = collectAllCursorPages({
       command: "files list",
       continueWithCursor: (cursor: string) => {
         requested.push(cursor);
         const page = byCursor.get(cursor);
+
         return page ? Effect.succeed(page) : Effect.die(new Error(`unexpected cursor ${cursor}`));
       },
       initial: { ...pages[0]!, total: 7 },
       itemKey: "files",
       pageAll: true,
     });
+
     return { effect, requested };
   };
 
@@ -313,6 +326,7 @@ describe("collectAllCursorPages", () => {
       )
       .map(([cursors, sizes]) => {
         let next = 0;
+
         return sizes.map((size, index) => ({
           cursor: cursors[index] ?? null,
           files: Array.from({ length: size }, () => next++),
@@ -344,9 +358,11 @@ describe("collectAllCursorPages", () => {
           const cursors = pages.flatMap((page) => (page.cursor ? [page.cursor] : []));
           const repeated = cursors[pick % cursors.length]!;
           const last = pages.length - 1;
+
           const looping = pages.map((page, index) =>
             index === last ? { ...page, cursor: repeated } : page,
           );
+
           const { effect, requested } = collect(looping);
           const failure = await Effect.runPromise(Effect.flip(effect));
 
@@ -369,10 +385,12 @@ describe("collectAllCursorPages", () => {
 
         if (total <= MAX_ITEMS) {
           expect(exit._tag).toBe("Success");
+
           return;
         }
+
         expect(exit._tag).toBe("Failure");
-        expect(String(exit._tag === "Failure" ? exit.cause : "")).toContain(
+        expect(String(Exit.isFailure(exit) ? exit.cause : "")).toContain(
           "`files list` pagination exceeded 100000 items.",
         );
       }),
@@ -382,6 +400,7 @@ describe("collectAllCursorPages", () => {
 
   it("preserves continuation failures for their owning error boundary", async () => {
     const upstreamError = new Error("upstream unavailable");
+
     const failure = await Effect.runPromise(
       Effect.flip(
         collectAllCursorPages({
@@ -404,10 +423,12 @@ describe("collectAllCursorPages", () => {
 describe("writeReadPages", () => {
   it("stops streaming once the item total exceeds the cap", async () => {
     const lines: string[] = [];
+
     const page = (length: number, cursor: string | null) => ({
       cursor,
       files: Array.from({ length }, (_value, index) => index),
     });
+
     const exit = await Effect.runPromiseExit(
       writeReadPages({
         command: "files list",
@@ -431,7 +452,7 @@ describe("writeReadPages", () => {
     );
 
     expect(lines).toHaveLength(1);
-    expect(String(exit._tag === "Failure" ? exit.cause : "")).toContain(
+    expect(String(Exit.isFailure(exit) ? exit.cause : "")).toContain(
       "`files list` pagination exceeded 100000 items.",
     );
   });

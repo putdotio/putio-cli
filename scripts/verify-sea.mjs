@@ -17,7 +17,9 @@ const run = (args) =>
   });
 
 JSON.parse(run(["version"]));
+
 JSON.parse(run(["describe"]));
+
 JSON.parse(
   run(["transfers", "cancel", "--json", '{"ids":[12,18]}', "--dry-run", "--output", "json"]),
 );

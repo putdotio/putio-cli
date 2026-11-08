@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { Predicate, Schema } from "effect";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
 import {
@@ -15,13 +16,18 @@ import {
   type FixtureApi,
 } from "./test-support/run-cli.js";
 
-// Request shapes follow the put.io API routes the SDK documents; response
-// bodies are synthetic but satisfy the SDK's response schemas.
+const decodeTopLevelFields = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
 
 const AUTHORIZATION = `Token ${FIXTURE_TOKEN}`;
 const TIMESTAMP = "2026-03-15T12:00:00Z";
 
-const file = (id: number, name: string, fields: Record<string, unknown> = {}) => ({
+type FileOverrides = {
+  readonly file_type?: string;
+  readonly parent_id?: number;
+  readonly size?: number;
+};
+
+const file = (id: number, name: string, fields: FileOverrides = {}) => ({
   content_type: null,
   created_at: TIMESTAMP,
   crc32: null,
@@ -136,7 +142,7 @@ const hlsManifest = [
   `https://api.put.io/hls/playlist/abc/index-v1-a1.m3u8?oauth_token=${FIXTURE_TOKEN}`,
 ].join("\n");
 
-const ok = (body: Record<string, unknown> = {}) => ({ body: { status: "OK", ...body } });
+const ok = (body = {}) => ({ body: { status: "OK", ...body } });
 
 const routeReads = (api: FixtureApi) => {
   api.route("GET /v2/account/info", ok({ info: accountInfo }));
@@ -195,21 +201,24 @@ const expectFailure = (run: CliRun, message: string | RegExp) => {
   expect(run.exitCode).toBe(1);
   expect(run.stdout).toBe("");
   expect(stderrJson(run).error).toMatchObject({
-    message: typeof message === "string" ? message : expect.stringMatching(message),
+    message: Predicate.isString(message) ? message : expect.stringMatching(message),
   });
 };
 
 let api: FixtureApi;
 const putio = (...args: ReadonlyArray<string>) => runPutio(api, args);
+
 const requestsTo = (method: string, path: string) =>
   api.requests.filter((request) => request.method === method && request.path === path);
 
 const fixtureDirectories: string[] = [];
+
 const makeUploadFixture = async (name = "movie.mp4", mode?: number) => {
   const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
   fixtureDirectories.push(directory);
   const path = join(directory, name);
   await writeFile(path, "video fixture", mode === undefined ? undefined : { mode });
+
   return { directory, path };
 };
 
@@ -497,7 +506,9 @@ describe("reads", () => {
 
     const run = await putio(...command, "--fields", fields, "--output", "json");
 
-    expect(Object.keys(stdoutJson(run) as object).sort()).toEqual(fields.split(",").sort());
+    expect(Object.keys(decodeTopLevelFields(stdoutJson(run))).sort()).toEqual(
+      fields.split(",").sort(),
+    );
   });
 
   it("rejects unknown fields", async () => {
@@ -926,7 +937,7 @@ describe("files upload", () => {
     expect(api.requests).toEqual([]);
   });
 
-  it.skipIf(typeof process.getuid === "function" && process.getuid() === 0)(
+  it.skipIf(process.getuid?.() === 0)(
     "rejects an unreadable file before previewing an upload",
     async () => {
       const { path } = await makeUploadFixture("private.mp4", 0o000);

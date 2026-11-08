@@ -13,9 +13,11 @@ export const inspectLocalUpload = (inputPath: string) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+
     const resolvedPath = yield* fileSystem
       .realPath(inputPath)
       .pipe(Effect.mapError(unreadableUploadFile));
+
     const info = yield* fileSystem.stat(resolvedPath).pipe(Effect.mapError(unreadableUploadFile));
 
     if (info.type !== "File") {

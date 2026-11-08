@@ -1,7 +1,18 @@
+import {
+  PutioOperationError,
+  PutioRateLimitError,
+  PutioTransportError,
+  PutioValidationError,
+} from "@putdotio/sdk";
+import { Data } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";
 import { isPlainRecord } from "./localizers/helpers.js";
+
+class AuthFlowFailure extends Data.TaggedError("PutioCliAuthFlowError")<{
+  readonly message: string;
+}> {}
 
 const operationError = (
   domain: string,
@@ -15,30 +26,28 @@ const operationError = (
     readonly errorType?: string;
     readonly status: number;
   },
-) => ({
-  _tag: "PutioOperationError" as const,
-  body: {
-    error_message: errorMessage,
-    ...(errorType ? { error_type: errorType } : {}),
-    status_code: status,
-  },
-  contract: {
-    ...(errorType ? { errorType } : {}),
-    statusCode: status,
-  },
-  domain,
-  operation,
-  reason: errorType
-    ? ({
-        kind: "error_type",
-        value: errorType,
-      } as const)
-    : ({
-        kind: "status_code",
-        value: status,
-      } as const),
-  status,
-});
+) =>
+  errorType === undefined
+    ? new PutioOperationError<string, string, { readonly statusCode: number }>({
+        body: { error_message: errorMessage, status_code: status },
+        contract: { statusCode: status },
+        domain,
+        operation,
+        reason: { kind: "status_code", statusCode: status },
+        status,
+      })
+    : new PutioOperationError<
+        string,
+        string,
+        { readonly errorType: string; readonly statusCode: number }
+      >({
+        body: { error_message: errorMessage, error_type: errorType, status_code: status },
+        contract: { errorType, statusCode: status },
+        domain,
+        operation,
+        reason: { kind: "error_type", errorType },
+        status,
+      });
 
 describe("isPlainRecord", () => {
   it("accepts records and rejects arrays", () => {
@@ -49,19 +58,21 @@ describe("isPlainRecord", () => {
 
 describe("localizeCliError", () => {
   it("localizes rate limit errors with retry details", () => {
-    const localized = localizeCliError({
-      _tag: "PutioRateLimitError",
-      action: "captcha-needed",
-      body: {
-        status_code: 429,
-        error_message: "Too many requests.",
-      },
-      id: "rl_123",
-      limit: "10",
-      remaining: "0",
-      reset: "1773496255",
-      retryAfter: "42",
-    });
+    const localized = localizeCliError(
+      new PutioRateLimitError({
+        action: "captcha-needed",
+        body: {
+          status_code: 429,
+          error_message: "Too many requests.",
+        },
+        id: "rl_123",
+        limit: "10",
+        remaining: "0",
+        reset: "1773496255",
+        retryAfter: "42",
+        status: 429,
+      }),
+    );
 
     expect(isLocalizedError(localized)).toBe(true);
     expect(localized.message).toBe("Rate limited");
@@ -84,10 +95,7 @@ describe("localizeCliError", () => {
   });
 
   it("localizes auth flow errors with CLI hints", () => {
-    const localized = localizeCliError({
-      _tag: "PutioCliAuthFlowError",
-      message: "device flow failed",
-    });
+    const localized = localizeCliError(new AuthFlowFailure({ message: "device flow failed" }));
 
     expect(localized.message).toBe("Device login failed");
     expect(localized.recoverySuggestion.description).toBe(
@@ -109,50 +117,26 @@ describe("localizeCliError", () => {
   });
 
   it("localizes files operation errors with file-specific copy", () => {
-    const localized = localizeCliError({
-      _tag: "PutioOperationError",
-      body: {
-        error_message: "file lost",
-        error_type: "FILE_LOST",
-        status_code: 410,
-      },
-      contract: {
+    const localized = localizeCliError(
+      operationError("files", "list", {
+        errorMessage: "file lost",
         errorType: "FILE_LOST",
-        statusCode: 410,
-      },
-      domain: "files",
-      operation: "list",
-      reason: {
-        kind: "error_type",
-        value: "FILE_LOST",
-      },
-      status: 410,
-    });
+        status: 410,
+      }),
+    );
 
     expect(localized.message).toBe("This file is no longer available");
     expect(localized.recoverySuggestion.description).toBe("It may have been removed or expired.");
   });
 
   it("localizes transfer add validation errors", () => {
-    const localized = localizeCliError({
-      _tag: "PutioOperationError",
-      body: {
-        error_message: "empty url",
-        error_type: "EMPTY_URL",
-        status_code: 400,
-      },
-      contract: {
+    const localized = localizeCliError(
+      operationError("transfers", "add", {
+        errorMessage: "empty url",
         errorType: "EMPTY_URL",
-        statusCode: 400,
-      },
-      domain: "transfers",
-      operation: "add",
-      reason: {
-        kind: "error_type",
-        value: "EMPTY_URL",
-      },
-      status: 400,
-    });
+        status: 400,
+      }),
+    );
 
     expect(localized.message).toBe("Transfer URL is required");
     expect(localized.recoverySuggestion.description).toBe(
@@ -324,10 +308,9 @@ describe("localizeCliError", () => {
   });
 
   it("localizes transport errors", () => {
-    const localized = localizeCliError({
-      _tag: "PutioTransportError",
-      message: "socket hang up",
-    });
+    const localized = localizeCliError(
+      new PutioTransportError({ cause: new Error("socket hang up") }),
+    );
 
     expect(localized.message).toBe("Network request failed");
     expect(localized.recoverySuggestion.description).toBe(
@@ -336,10 +319,9 @@ describe("localizeCliError", () => {
   });
 
   it("localizes validation errors", () => {
-    const localized = localizeCliError({
-      _tag: "PutioValidationError",
-      message: "bad payload",
-    });
+    const localized = localizeCliError(
+      new PutioValidationError({ cause: new Error("bad payload") }),
+    );
 
     expect(localized.message).toBe("Unexpected response from put.io");
     expect(localized.recoverySuggestion.description).toBe(
@@ -348,13 +330,15 @@ describe("localizeCliError", () => {
   });
 
   it("localizes rate-limit errors without retry metadata", () => {
-    const localized = localizeCliError({
-      _tag: "PutioRateLimitError",
-      body: {
-        status_code: 429,
-        error_message: "Too many requests.",
-      },
-    });
+    const localized = localizeCliError(
+      new PutioRateLimitError({
+        body: {
+          status_code: 429,
+          error_message: "Too many requests.",
+        },
+        status: 429,
+      }),
+    );
 
     expect(localized.message).toBe("Rate limited");
     expect(localized.recoverySuggestion.description).toBe("Wait a moment and try again.");

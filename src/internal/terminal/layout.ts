@@ -46,6 +46,7 @@ export const renderPanel = (
   const paddingY = options?.paddingY ?? 0;
   const contentWidth = lines.reduce((width, line) => Math.max(width, stripAnsi(line).length), 0);
   const emptyLine = `│${" ".repeat(contentWidth + paddingX * 2)}│`;
+
   const renderLine = (line: string) =>
     `│${" ".repeat(paddingX)}${padVisible(line, contentWidth)}${" ".repeat(paddingX)}│`;
 

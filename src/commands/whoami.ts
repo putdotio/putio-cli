@@ -25,6 +25,7 @@ export const whoamiCommand = Command.make(
         fields,
         output: getOption(output),
       });
+
       const { auth, info } = yield* withAuthedSdk(({ auth, sdk }) =>
         sdk.account.getInfo({}).pipe(
           Effect.map((info) => ({

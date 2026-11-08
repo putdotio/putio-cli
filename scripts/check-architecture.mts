@@ -1,12 +1,14 @@
 import { globSync, readFileSync } from "node:fs";
 
 const requestedFiles = process.argv.slice(2);
+
 const files =
   requestedFiles.length > 0
     ? requestedFiles
     : globSync("src/**/*.ts", {
         exclude: ["src/**/*.test.ts", "src/**/*.spec.ts", "src/test-support/**"],
       });
+
 const effectRuntimePattern = /\bEffect\.run(?:Fork|Promise(?:Exit)?|Sync(?:Exit)?)\b/;
 let violationCount = 0;
 

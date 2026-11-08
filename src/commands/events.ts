@@ -15,8 +15,10 @@ import { fieldsFlag, outputFlag, type CommandSpec } from "../internal/command-sp
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { renderEventsTerminal } from "../internal/terminal/events-terminal.js";
+
 const beforeConfig = defineIntegerOption("before", { optional: true });
 const perPageConfig = defineIntegerOption("per-page", { optional: true });
+
 const eventTypeChoices = [
   "file_shared",
   "upload",
@@ -30,6 +32,7 @@ const eventTypeChoices = [
   "voucher",
   "zip_created",
 ] as const;
+
 const eventTypeConfig = defineChoiceOption("type", eventTypeChoices, { optional: true });
 
 const beforeOption = beforeConfig.option;
@@ -60,6 +63,7 @@ const eventsList = Command.make(
         fields,
         output: getOption(output),
       });
+
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.events.command.loading"),

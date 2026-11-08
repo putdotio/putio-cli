@@ -1,8 +1,8 @@
 import { CliError, Command } from "effect/cli";
-import { Console, Effect, Result } from "effect";
+import { Console, Effect, Predicate, Result, type Scope } from "effect";
 import packageJson from "../package.json";
 
-import { makeAuthCommand } from "./commands/auth.js";
+import { authCommand } from "./commands/auth.js";
 import { brandCommand, versionCommand } from "./commands/brand.js";
 import { downloadLinksCommand } from "./commands/download-links.js";
 import { eventsCommand } from "./commands/events.js";
@@ -26,8 +26,6 @@ import {
 } from "./internal/output-service.js";
 import type { CliSdk } from "./internal/sdk.js";
 import type { CliState } from "./internal/state.js";
-
-const authCommand = makeAuthCommand();
 
 const describeCommand = Command.make("describe", { output: outputOption }, ({ output }) =>
   Effect.gen(function* () {
@@ -53,41 +51,45 @@ const command = Command.make("putio", {}, () => Console.log(translate("cli.root.
   ]),
 );
 
-type BufferedConsoleEntry = {
-  readonly args: ReadonlyArray<unknown>;
-  readonly method: keyof Console.Console;
-};
+type BufferedConsoleEntry = (console: Console.Console) => void;
 
 const makeBufferedConsole = (entries: Array<BufferedConsoleEntry>): Console.Console => ({
-  assert: (condition, ...args) => entries.push({ args: [condition, ...args], method: "assert" }),
-  clear: () => entries.push({ args: [], method: "clear" }),
-  count: (label) => entries.push({ args: label === undefined ? [] : [label], method: "count" }),
+  assert: (condition, ...args) => entries.push((console) => console.assert(condition, ...args)),
+  clear: () => entries.push((console) => console.clear()),
+  count: (label) =>
+    entries.push((console) => (label === undefined ? console.count() : console.count(label))),
   countReset: (label) =>
-    entries.push({ args: label === undefined ? [] : [label], method: "countReset" }),
-  debug: (...args) => entries.push({ args, method: "debug" }),
+    entries.push((console) =>
+      label === undefined ? console.countReset() : console.countReset(label),
+    ),
+  debug: (...args) => entries.push((console) => console.debug(...args)),
   dir: (item, options) =>
-    entries.push({ args: options === undefined ? [item] : [item, options], method: "dir" }),
-  dirxml: (...args) => entries.push({ args, method: "dirxml" }),
-  error: (...args) => entries.push({ args, method: "error" }),
-  group: (...args) => entries.push({ args, method: "group" }),
-  groupCollapsed: (...args) => entries.push({ args, method: "groupCollapsed" }),
-  groupEnd: () => entries.push({ args: [], method: "groupEnd" }),
-  info: (...args) => entries.push({ args, method: "info" }),
-  log: (...args) => entries.push({ args, method: "log" }),
+    entries.push((console) =>
+      options === undefined ? console.dir(item) : console.dir(item, options),
+    ),
+  dirxml: (...args) => entries.push((console) => console.dirxml(...args)),
+  error: (...args) => entries.push((console) => console.error(...args)),
+  group: (...args) => entries.push((console) => console.group(...args)),
+  groupCollapsed: (...args) => entries.push((console) => console.groupCollapsed(...args)),
+  groupEnd: () => entries.push((console) => console.groupEnd()),
+  info: (...args) => entries.push((console) => console.info(...args)),
+  log: (...args) => entries.push((console) => console.log(...args)),
   table: (tabularData, properties) =>
-    entries.push({
-      args: properties === undefined ? [tabularData] : [tabularData, properties],
-      method: "table",
-    }),
-  time: (label) => entries.push({ args: label === undefined ? [] : [label], method: "time" }),
-  timeEnd: (label) => entries.push({ args: label === undefined ? [] : [label], method: "timeEnd" }),
+    entries.push((console) =>
+      properties === undefined
+        ? console.table(tabularData)
+        : console.table(tabularData, properties),
+    ),
+  time: (label) =>
+    entries.push((console) => (label === undefined ? console.time() : console.time(label))),
+  timeEnd: (label) =>
+    entries.push((console) => (label === undefined ? console.timeEnd() : console.timeEnd(label))),
   timeLog: (label, ...args) =>
-    entries.push({
-      args: label === undefined ? args : [label, ...args],
-      method: "timeLog",
-    }),
-  trace: (...args) => entries.push({ args, method: "trace" }),
-  warn: (...args) => entries.push({ args, method: "warn" }),
+    entries.push((console) =>
+      label === undefined ? console.timeLog(...args) : console.timeLog(label, ...args),
+    ),
+  trace: (...args) => entries.push((console) => console.trace(...args)),
+  warn: (...args) => entries.push((console) => console.warn(...args)),
 });
 
 const replayBufferedConsole = (
@@ -95,9 +97,8 @@ const replayBufferedConsole = (
   entries: ReadonlyArray<BufferedConsoleEntry>,
 ) =>
   Effect.sync(() => {
-    for (const entry of entries) {
-      const method = console[entry.method] as (...args: ReadonlyArray<unknown>) => void;
-      method(...entry.args);
+    for (const replay of entries) {
+      replay(console);
     }
   });
 
@@ -106,26 +107,33 @@ const formatCliParserError = (error: CliError.ShowHelp) =>
 
 const executableName = (value: string) => {
   const normalized = value.replaceAll("\\", "/");
+
   return normalized.slice(normalized.lastIndexOf("/") + 1).toLowerCase();
 };
 
 const isNodeExecutable = (value: string) => {
   const name = executableName(value);
+
   return name === "node" || name === "node.exe";
 };
 
 const isPutioExecutable = (value: string) => {
   const name = executableName(value);
+
   return name === "putio" || name === "putio.exe" || name === "bin.mjs";
 };
 
 const stripLeadingPutioExecutables = (args: ReadonlyArray<string>) => {
   let start = 0;
+
   while (isPutioExecutable(args[start] ?? "")) {
     start++;
   }
+
   return args.slice(start);
 };
+
+const RUNTIME_ARGV_PREFIX_LENGTH = 2;
 
 const commandArgsFromArgv = (args: ReadonlyArray<string>, isSingleExecutable: boolean) => {
   const [first] = args;
@@ -134,9 +142,8 @@ const commandArgsFromArgv = (args: ReadonlyArray<string>, isSingleExecutable: bo
     return args;
   }
 
-  // A single executable application puts its own path in argv[0] and the invoked name in argv[1].
   if (isSingleExecutable || isNodeExecutable(first)) {
-    return stripLeadingPutioExecutables(args.slice(2));
+    return stripLeadingPutioExecutables(args.slice(RUNTIME_ARGV_PREFIX_LENGTH));
   }
 
   return stripLeadingPutioExecutables(args);
@@ -149,7 +156,8 @@ type CliCommandEnvironment =
   | CliOutput
   | CliRuntime
   | CliSdk
-  | CliState;
+  | CliState
+  | Scope.Scope;
 
 export const runCli: (
   args: ReadonlyArray<string>,
@@ -159,6 +167,7 @@ export const runCli: (
   const run = Command.runWith(command, {
     version: packageJson.version,
   });
+
   const runtime = yield* CliRuntime;
   const outputMode = detectOutputModeFromArgv(args, runtime.isInteractiveTerminal);
   const commandArgs = commandArgsFromArgv(args, runtime.isSingleExecutable);
@@ -180,7 +189,7 @@ export const runCli: (
       Effect.tap(() => replayBufferedConsole(currentConsole, entries)),
       Effect.catchFilter(
         (error) =>
-          CliError.isCliError(error) && error._tag === "ShowHelp"
+          CliError.isCliError(error) && Predicate.isTagged(error, "ShowHelp")
             ? Result.succeed(error)
             : Result.fail(error),
         (error) => {

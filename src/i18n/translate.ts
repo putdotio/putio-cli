@@ -3,10 +3,13 @@ import i18next from "i18next";
 import { en } from "./catalog/en.js";
 
 type Primitive = string | number | boolean | null;
+
 type TranslationLeaf = string | readonly [string, string];
+
 type JoinPath<Prefix extends string, Suffix extends string> = Suffix extends ""
   ? Prefix
   : `${Prefix}.${Suffix}`;
+
 type PreviousDepth = [never, 0, 1, 2, 3, 4, 5, 6];
 
 type LeafPaths<T, Depth extends number = 6> = [Depth] extends [never]
@@ -36,7 +39,9 @@ type TranslationParams<T extends string> = [ExtractPlaceholders<T>] extends [nev
   : Record<ExtractPlaceholders<T>, Primitive>;
 
 type StringsCatalog = typeof en;
+
 export type StringKey = LeafPaths<StringsCatalog>;
+
 export type SupportedLocale = "en";
 
 export type StringParams<K extends StringKey> =
@@ -55,7 +60,6 @@ const instance = i18next.createInstance();
 void instance.init({
   lng: "en",
   fallbackLng: "en",
-  showSupportNotice: false,
   interpolation: {
     escapeValue: false,
   },

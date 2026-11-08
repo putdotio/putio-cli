@@ -1,3 +1,4 @@
+import { putioSdkLiveLayer } from "@putdotio/sdk";
 import { Effect } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -10,15 +11,20 @@ import {
 } from "./sdk-operations.js";
 
 describe("sdk operations", () => {
+  const sdkLayer = putioSdkLiveLayer({});
+
   it("discovers nested own callables without invoking accessors", () => {
     let getterCalls = 0;
+
     const files = {
       get: () => Effect.succeed({ id: 42 }),
     };
+
     Object.defineProperty(files, "secret", {
       enumerable: true,
       get: () => {
         getterCalls += 1;
+
         return () => Effect.void;
       },
     });
@@ -119,11 +125,15 @@ describe("sdk operations", () => {
       },
     };
 
-    await expect(Effect.runPromise(invokeSdkOperation(client, "files.get", [42]))).resolves.toEqual(
-      { id: 42 },
-    );
     await expect(
-      Effect.runPromise(invokeSdkOperation(client, "helpers.join", ["a", "b"])),
+      Effect.runPromise(
+        invokeSdkOperation(client, "files.get", [42]).pipe(Effect.provide(sdkLayer)),
+      ),
+    ).resolves.toEqual({ id: 42 });
+    await expect(
+      Effect.runPromise(
+        invokeSdkOperation(client, "helpers.join", ["a", "b"]).pipe(Effect.provide(sdkLayer)),
+      ),
     ).resolves.toBe("a:b");
   });
 

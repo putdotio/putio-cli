@@ -4,9 +4,15 @@ import type {
   MatchConditionLocalizer,
 } from "@putdotio/sdk/utilities";
 import { DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
+import { Predicate } from "effect";
 import { translate } from "../../i18n/index.js";
 
-import { getNestedErrorMessage, isPlainRecord, parseRetryAfterSeconds } from "./helpers.js";
+import {
+  getNestedErrorMessage,
+  isPlainRecord,
+  isRetryAfterInput,
+  parseRetryAfterSeconds,
+} from "./helpers.js";
 
 const buildRateLimitResolutionUrl = (
   rateLimitId: string,
@@ -17,10 +23,11 @@ const buildRateLimitResolutionUrl = (
   return url.toString();
 };
 
-const formatResetTimestamp = (value: unknown): string | undefined => {
-  const seconds = parseRetryAfterSeconds(value);
+const isNonEmptyString = (value: unknown): value is string =>
+  Predicate.isString(value) && value.length > 0;
 
-  if (typeof seconds !== "number" || !Number.isFinite(seconds)) {
+const formatResetTimestamp = (seconds: number | undefined): string | undefined => {
+  if (seconds === undefined || !Number.isFinite(seconds)) {
     return undefined;
   }
 
@@ -37,9 +44,9 @@ const formatResetTimestamp = (value: unknown): string | undefined => {
 
 const rateLimitLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
-  match: (error): error is Record<string, unknown> =>
+  match: (error) =>
     isPlainRecord(error) &&
-    ((error._tag === "PutioRateLimitError" &&
+    ((Predicate.isTagged(error, "PutioRateLimitError") &&
       "body" in error &&
       isPlainRecord(error.body) &&
       error.body.status_code === 429) ||
@@ -49,28 +56,37 @@ const rateLimitLocalizer: MatchConditionLocalizer<unknown> = {
         error.body.error_type === "RATE_LIMIT_ERROR")),
   localize: (error) => {
     const value = isPlainRecord(error) ? error : {};
+    const body = "body" in value && isPlainRecord(value.body) ? value.body : {};
+    const bodyRetryAfter = "retry_after" in body ? body.retry_after : undefined;
+    const errorRetryAfter = "retryAfter" in value ? value.retryAfter : undefined;
+    const reset = "reset" in value ? value.reset : undefined;
+
     const retryAfter =
-      parseRetryAfterSeconds(isPlainRecord(value.body) ? value.body.retry_after : undefined) ??
-      parseRetryAfterSeconds(value.retryAfter);
-    const resetAt = formatResetTimestamp(value.reset);
-    const action =
-      typeof value.action === "string" && value.action.length > 0 ? value.action : undefined;
-    const rateLimitId = typeof value.id === "string" && value.id.length > 0 ? value.id : undefined;
+      (isRetryAfterInput(bodyRetryAfter) ? parseRetryAfterSeconds(bodyRetryAfter) : undefined) ??
+      (isRetryAfterInput(errorRetryAfter) ? parseRetryAfterSeconds(errorRetryAfter) : undefined);
+
+    const resetAt = formatResetTimestamp(
+      isRetryAfterInput(reset) ? parseRetryAfterSeconds(reset) : undefined,
+    );
+
+    const action = "action" in value && isNonEmptyString(value.action) ? value.action : undefined;
+
+    const rateLimitId = "id" in value && isNonEmptyString(value.id) ? value.id : undefined;
+
     const resolutionUrl =
       action === "captcha-needed" && rateLimitId
         ? buildRateLimitResolutionUrl(rateLimitId)
         : undefined;
-    const limit =
-      typeof value.limit === "string" && value.limit.length > 0 ? value.limit : undefined;
+
+    const limit = "limit" in value && isNonEmptyString(value.limit) ? value.limit : undefined;
+
     const remaining =
-      typeof value.remaining === "string" && value.remaining.length > 0
-        ? value.remaining
-        : undefined;
+      "remaining" in value && isNonEmptyString(value.remaining) ? value.remaining : undefined;
+
+    const hasRetryAfter = retryAfter !== undefined && Number.isFinite(retryAfter);
 
     const details = [
-      ...(typeof retryAfter === "number" && Number.isFinite(retryAfter)
-        ? ([["retry after", `${retryAfter}s`]] as const)
-        : []),
+      ...(hasRetryAfter ? ([["retry after", `${retryAfter}s`]] as const) : []),
       ...(resetAt ? ([["reset at", resetAt]] as const) : []),
       ...(action ? ([["action", action]] as const) : []),
       ...(limit ? ([["limit", limit]] as const) : []),
@@ -82,12 +98,11 @@ const rateLimitLocalizer: MatchConditionLocalizer<unknown> = {
       message: translate("cli.error.rateLimit.title"),
       recoverySuggestion: {
         type: "instruction",
-        description:
-          typeof retryAfter === "number" && Number.isFinite(retryAfter)
-            ? translate("cli.error.rateLimit.retryAfter", { seconds: retryAfter })
-            : resetAt
-              ? translate("cli.error.rateLimit.retryAt", { resetAt })
-              : translate("cli.error.rateLimit.retrySoon"),
+        description: hasRetryAfter
+          ? translate("cli.error.rateLimit.retryAfter", { seconds: retryAfter })
+          : resetAt
+            ? translate("cli.error.rateLimit.retryAt", { resetAt })
+            : translate("cli.error.rateLimit.retrySoon"),
       },
       meta: {
         details: details.length > 0 ? details : undefined,
@@ -121,8 +136,7 @@ const authLocalizers: APIErrorByStatusCodeLocalizer[] = [401, 403].map((status_c
 
 const transportLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
-  match: (error): error is { _tag: string } =>
-    isPlainRecord(error) && error._tag === "PutioTransportError",
+  match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "PutioTransportError"),
   localize: () => ({
     message: translate("cli.error.network.title"),
     recoverySuggestion: {
@@ -140,8 +154,7 @@ const transportLocalizer: MatchConditionLocalizer<unknown> = {
 
 const validationLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
-  match: (error): error is { _tag: string } =>
-    isPlainRecord(error) && error._tag === "PutioValidationError",
+  match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "PutioValidationError"),
   localize: () => ({
     message: translate("cli.error.validation.title"),
     recoverySuggestion: {
@@ -159,8 +172,7 @@ const validationLocalizer: MatchConditionLocalizer<unknown> = {
 
 const authFlowLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
-  match: (error): error is { _tag: string } =>
-    isPlainRecord(error) && error._tag === "PutioCliAuthFlowError",
+  match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "PutioCliAuthFlowError"),
   localize: () => ({
     message: translate("cli.error.authFlow.title"),
     recoverySuggestion: {
@@ -178,8 +190,7 @@ const authFlowLocalizer: MatchConditionLocalizer<unknown> = {
 
 const configLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
-  match: (error): error is { _tag: string } =>
-    isPlainRecord(error) && error._tag === "CliConfigError",
+  match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "CliConfigError"),
   localize: (error) => ({
     message: translate("cli.error.config.title"),
     recoverySuggestion: {
