@@ -4,10 +4,11 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
 import * as Sentry from "@sentry/core";
-import { Context } from "effect";
+import { Context, Layer, Option, Predicate, Schema } from "effect";
 import packageJson from "../../package.json";
 
 import { buildConfigPath } from "./config.js";
+import { installCrashBoundary, type CrashBoundaryOptions } from "./crash-boundary.js";
 import { loadCrashReportingConfig, type CrashReportingConfig } from "./crash-reporting-config.js";
 import { ENV_CLI_CONFIG_PATH, ENV_XDG_CONFIG_HOME } from "./env.js";
 import { parsePersistedConfig } from "./state.js";
@@ -19,7 +20,14 @@ const SENTRY_ENVIRONMENT = "production";
 const SENTRY_RELEASE = `@putdotio/cli@${packageJson.version}`;
 const SENTRY_MESSAGE = "Unexpected CLI failure";
 
-export type CrashKind = "effect_defect" | "uncaught_exception" | "unhandled_rejection";
+const CrashKindSchema = Schema.Literals([
+  "effect_defect",
+  "uncaught_exception",
+  "unhandled_rejection",
+]);
+
+export type CrashKind = typeof CrashKindSchema.Type;
+
 type CrashReportingDisabledReason =
   | "build_configuration_unavailable"
   | "configuration_unavailable"
@@ -86,6 +94,7 @@ const makeFetchTransport = (
 ) =>
   Sentry.createTransport(options, ({ body }) => {
     const sanitizedBody = sanitizeEnvelope(body);
+
     return sanitizedBody === undefined
       ? Promise.reject(new Error("Crash-reporting envelope rejected."))
       : sendCrashRequest(options, sanitizedBody);
@@ -111,6 +120,7 @@ const sentryAdapter: SentryAdapter = {
 
 const optionalTrimmedValue = (value: string | undefined) => {
   const trimmed = value?.trim();
+
   return trimmed && trimmed.length > 0 ? trimmed : undefined;
 };
 
@@ -122,6 +132,7 @@ export const loadCrashReportingPreference = (
   } = {},
 ): CrashReportingPreference => {
   const environment = options.environment ?? process.env;
+
   const configPath = buildConfigPath({
     explicitConfigPath: optionalTrimmedValue(environment[ENV_CLI_CONFIG_PATH]),
     homePath: options.homePath ?? homedir(),
@@ -130,16 +141,18 @@ export const loadCrashReportingPreference = (
   });
 
   let rawConfig: string;
+
   try {
     rawConfig = (options.readConfig ?? ((path) => readFileSync(path, "utf8")))(configPath);
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT"
+    return Predicate.hasProperty(error, "code") && error.code === "ENOENT"
       ? { disabled: false }
       : { disabled: true, reason: "configuration_unavailable" };
   }
 
   try {
     const config = parsePersistedConfig(rawConfig);
+
     return config.telemetry_disabled === true
       ? { disabled: true, reason: "persisted_opt_out" }
       : { disabled: false };
@@ -169,28 +182,14 @@ export const sanitizeCrashEvent = (event: Sentry.Event, kind: CrashKind): Sentry
   timestamp: event.timestamp,
 });
 
-const isCrashKind = (value: unknown): value is CrashKind =>
-  value === "effect_defect" || value === "uncaught_exception" || value === "unhandled_rejection";
+const EnvelopeCrashEvent = Schema.Struct({
+  event_id: Schema.Unknown,
+  tags: Schema.Struct({
+    failure_kind: CrashKindSchema,
+  }),
+});
 
-const hasProperty = <Key extends PropertyKey>(
-  value: object,
-  key: Key,
-): value is Record<Key, unknown> => key in value;
-
-const getEnvelopeCrashKind = (event: unknown) => {
-  if (
-    typeof event !== "object" ||
-    event === null ||
-    !hasProperty(event, "tags") ||
-    typeof event.tags !== "object" ||
-    event.tags === null ||
-    !hasProperty(event.tags, "failure_kind")
-  ) {
-    return undefined;
-  }
-
-  return isCrashKind(event.tags.failure_kind) ? event.tags.failure_kind : undefined;
-};
+const decodeEnvelopeCrashEvent = Schema.decodeUnknownOption(EnvelopeCrashEvent);
 
 export const sanitizeCrashEnvelope = (
   body: string | Uint8Array,
@@ -203,14 +202,16 @@ export const sanitizeCrashEnvelope = (
   try {
     const [headers, items] = Sentry.parseEnvelope(body);
     const item = items.length === 1 ? items[0] : undefined;
+
+    const itemEvent =
+      item?.[0].type === "event"
+        ? Option.getOrUndefined(decodeEnvelopeCrashEvent(item[1]))
+        : undefined;
+
     if (
       headers.event_id !== expected.eventId ||
-      item?.[0].type !== "event" ||
-      typeof item[1] !== "object" ||
-      item[1] === null ||
-      !hasProperty(item[1], "event_id") ||
-      item[1].event_id !== expected.eventId ||
-      getEnvelopeCrashKind(item[1]) !== expected.kind
+      itemEvent?.event_id !== expected.eventId ||
+      itemEvent.tags.failure_kind !== expected.kind
     ) {
       return undefined;
     }
@@ -219,6 +220,7 @@ export const sanitizeCrashEnvelope = (
       { event_id: expected.eventId, timestamp: expected.timestamp },
       expected.kind,
     );
+
     return Sentry.serializeEnvelope(
       Sentry.createEnvelope<Sentry.EventEnvelope>(
         {
@@ -244,7 +246,6 @@ const waitForFlush = async (flush: () => Promise<boolean>) => {
       }),
     ]);
   } catch {
-    // Reporting is best-effort and must never replace the command failure.
   } finally {
     if (timeout !== undefined) {
       clearTimeout(timeout);
@@ -272,11 +273,13 @@ export const makeCrashReporter = (
   }
 
   const config = options.config ?? loadCrashReportingConfig();
+
   if (config === undefined) {
     return disabledReporter("build_configuration_unavailable");
   }
 
   const sentry = options.sentry ?? sentryAdapter;
+
   let pendingEvent:
     | {
         readonly eventId: string;
@@ -316,6 +319,7 @@ export const makeCrashReporter = (
             timestamp: Date.now() / 1_000,
           }))
         )();
+
         pendingEvent = { ...identity, kind };
         sentry.captureEvent(
           sanitizeCrashEvent(
@@ -325,7 +329,6 @@ export const makeCrashReporter = (
         );
         await waitForFlush(() => sentry.flush(CRASH_REPORTING_FLUSH_TIMEOUT_MS));
       } catch {
-        // Reporting is best-effort and must never replace the command failure.
       } finally {
         pendingEvent = undefined;
       }
@@ -337,3 +340,35 @@ export const makeCrashReporter = (
 export class CliCrashReporter extends Context.Service<CliCrashReporter, CrashReporterService>()(
   "@putdotio/cli/CliCrashReporter",
 ) {}
+
+export const CrashReportingDisabledLive = Layer.succeed(
+  CliCrashReporter,
+  disabledReporter("configuration_unavailable"),
+);
+
+export const bootstrapCrashReporting = (
+  options: {
+    readonly boundary?: CrashBoundaryOptions;
+    readonly config?: CrashReportingConfig;
+    readonly loadPreference?: () => CrashReportingPreference;
+    readonly sentry?: SentryAdapter;
+  } = {},
+) => {
+  let preference: CrashReportingPreference;
+
+  try {
+    preference = (options.loadPreference ?? loadCrashReportingPreference)();
+  } catch {
+    preference = { disabled: true, reason: "configuration_unavailable" };
+  }
+
+  const reporter = makeCrashReporter({
+    config: options.config,
+    preference,
+    sentry: options.sentry,
+  });
+
+  const remove = installCrashBoundary(reporter, options.boundary);
+
+  return { remove, reporter };
+};

@@ -20,6 +20,7 @@ describe("shouldUseTerminalLoader", () => {
   it.effect("releases the spinner when the wrapped effect fails", () =>
     Effect.gen(function* () {
       let stopCount = 0;
+
       const runtime = {
         ...makeCliRuntime({ isInteractiveTerminal: true }),
         startSpinner: (_message: string) =>
@@ -43,6 +44,7 @@ describe("shouldUseTerminalLoader", () => {
   it.effect("releases the spinner when the wrapped effect is interrupted", () =>
     Effect.gen(function* () {
       let stopCount = 0;
+
       const runtime = {
         ...makeCliRuntime({ isInteractiveTerminal: true }),
         startSpinner: (_message: string) =>
@@ -52,6 +54,7 @@ describe("shouldUseTerminalLoader", () => {
             }),
           }),
       };
+
       const fiber = yield* withTerminalLoader(
         { message: "Loading", output: "terminal" },
         Effect.never,

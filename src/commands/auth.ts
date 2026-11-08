@@ -30,7 +30,7 @@ import {
 import {
   dryRunFlag,
   jsonFlag,
-  jsonShapeFromSchema,
+  jsonInputSpecFromSchema,
   outputFlag,
   stringArgument,
   type CommandSpec,
@@ -60,6 +60,7 @@ import {
 const openConfig = defineBooleanOption("open", { defaultValue: false });
 const timeoutSecondsConfig = defineIntegerOption("timeout-seconds", { optional: true });
 const previewCodeConfig = defineTextOption("code", { defaultValue: "PUTIO1" });
+
 const profileConfig = defineTextOption("profile", {
   description: AUTH_PROFILE_NAME_DESCRIPTION,
   optional: true,
@@ -71,6 +72,7 @@ const previewCodeOption = previewCodeConfig.option;
 const profileOption = profileConfig.option;
 const profileArgument = Argument.String("profile");
 const approveCodeArgument = Argument.String("code").pipe(Argument.optional);
+
 const profileCommandArgument = stringArgument("profile", {
   description: AUTH_PROFILE_NAME_DESCRIPTION,
   required: true,
@@ -94,11 +96,12 @@ type AuthCommandEnvironment =
   | CliSdk
   | CliState;
 
-type EmptyCommandShape = Record<string, never>;
+type EmptyCommandConfig = Record<string, never>;
+
 type AuthCommand = Command.Command<
   "auth",
-  EmptyCommandShape,
-  EmptyCommandShape,
+  EmptyCommandConfig,
+  EmptyCommandConfig,
   unknown,
   AuthCommandEnvironment
 >;
@@ -189,6 +192,7 @@ const authStatus = Command.make(
         try: () => resolveProfileInput(profile),
         catch: (error) => error,
       });
+
       const status = yield* getAuthStatus({ profile: selectedProfile });
 
       yield* writeOutput(status, getOption(output), renderAuthStatus);
@@ -206,18 +210,23 @@ const authLogin = Command.make(
   ({ open, output, profile, timeoutSeconds }) =>
     Effect.gen(function* () {
       const runtimeService = yield* CliRuntime;
+
       const outputMode = normalizeOutputMode(
         getOption(output),
         runtimeService.isInteractiveTerminal,
       );
+
       const runtime = yield* resolveCliRuntimeConfig();
       const apiBaseUrl = runtime.apiBaseUrl;
+
       const selectedProfile = yield* Effect.try({
         try: () => resolveProfileInput(profile),
         catch: (error) => error,
       });
+
       const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1_000;
       const authFlow = yield* resolveAuthFlowConfig();
+
       const { code } = yield* provideSdk(
         { apiBaseUrl },
         sdk.auth.getCode({
@@ -225,8 +234,10 @@ const authLogin = Command.make(
           clientName: authFlow.clientName,
         }),
       );
+
       const linkUrl = buildDeviceLinkUrl(code, authFlow.webAppUrl);
       const browserOpened = yield* open ? openBrowser(linkUrl) : Effect.succeed(false);
+
       const instructionMessage =
         outputMode === "terminal"
           ? renderAuthLoginTerminal({
@@ -251,6 +262,7 @@ const authLogin = Command.make(
         outputMode === "terminal" && !browserOpened
           ? yield* Effect.forkScoped(waitForOpenShortcut(linkUrl))
           : undefined;
+
       yield* Effect.addFinalizer(() =>
         openShortcutFiber ? Fiber.interrupt(openShortcutFiber) : Effect.void,
       );
@@ -267,6 +279,7 @@ const authLogin = Command.make(
             provideSdk({ apiBaseUrl }, sdk.auth.checkCodeMatch(authCode)),
         }),
       );
+
       const {
         configPath,
         profile: savedProfile,
@@ -299,6 +312,7 @@ const authLogout = Command.make(
         try: () => resolveProfileInput(profile),
         catch: (error) => error,
       });
+
       const {
         cleared,
         configPath,
@@ -366,6 +380,7 @@ const authApprove = Command.make(
         json,
         schema: AuthApproveInputSchema,
       });
+
       const approvedCode = validateResourceIdentifier("`auth approve` code", input.code.trim());
 
       if (dryRun) {
@@ -435,17 +450,18 @@ const authProfiles = Command.make("profiles", {}, () => Effect.void).pipe(
   Command.withSubcommands([authProfilesList, authProfilesUse, authProfilesRemove]),
 );
 
-export const makeAuthCommand = (): AuthCommand =>
-  Command.make("auth", {}, () => Console.log(translate("cli.root.chooseAuthSubcommand"))).pipe(
-    Command.withSubcommands([
-      authStatus,
-      authLogin,
-      authLogout,
-      authPreview,
-      authApprove,
-      authProfiles,
-    ]),
-  );
+export const authCommand: AuthCommand = Command.make("auth", {}, () =>
+  Console.log(translate("cli.root.chooseAuthSubcommand")),
+).pipe(
+  Command.withSubcommands([
+    authStatus,
+    authLogin,
+    authLogout,
+    authPreview,
+    authApprove,
+    authProfiles,
+  ]),
+);
 
 export const authCommandSpecs = [
   {
@@ -465,7 +481,7 @@ export const authCommandSpecs = [
         }),
       ],
       flags: [dryRunFlag(), jsonFlag(), outputFlag()],
-      json: jsonShapeFromSchema(AuthApproveInputSchema),
+      json: jsonInputSpecFromSchema(AuthApproveInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.authApprove"),

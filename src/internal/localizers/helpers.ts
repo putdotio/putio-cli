@@ -1,43 +1,48 @@
 import type { MatchConditionLocalizer } from "@putdotio/sdk/utilities";
 import { Predicate } from "effect";
 
-export const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
-  Predicate.isObject(value);
+export const isPlainRecord = Predicate.isObject;
 
-export const parseRetryAfterSeconds = (value: unknown): number | undefined => {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
+export const isRetryAfterInput = (value: unknown): value is number | string =>
+  Predicate.isNumber(value) || Predicate.isString(value);
+
+export const parseRetryAfterSeconds = (value: number | string): number | undefined => {
+  if (Predicate.isNumber(value)) {
+    return Number.isFinite(value) ? value : undefined;
   }
 
-  if (typeof value === "string" && value.trim().length > 0) {
+  if (value.trim().length > 0) {
     const parsed = Number.parseInt(value, 10);
+
     return Number.isFinite(parsed) ? parsed : undefined;
   }
 
   return undefined;
 };
 
-export const getNestedErrorMessage = (value: unknown): string | undefined => {
-  if (!isPlainRecord(value)) {
+const isNonBlankString = (value: unknown): value is string =>
+  Predicate.isString(value) && value.trim().length > 0;
+
+export const getNestedErrorMessage = (cause: unknown): string | undefined => {
+  if (!isPlainRecord(cause)) {
     return undefined;
   }
 
   if (
-    "body" in value &&
-    isPlainRecord(value.body) &&
-    "error_message" in value.body &&
-    typeof value.body.error_message === "string" &&
-    value.body.error_message.trim().length > 0
+    "body" in cause &&
+    isPlainRecord(cause.body) &&
+    "error_message" in cause.body &&
+    isNonBlankString(cause.body.error_message)
   ) {
-    return value.body.error_message.trim();
+    return cause.body.error_message.trim();
   }
 
-  if ("message" in value && typeof value.message === "string" && value.message.trim().length > 0) {
-    return value.message.trim();
+  if ("message" in cause && isNonBlankString(cause.message)) {
+    return cause.message.trim();
   }
 
-  if ("cause" in value) {
-    return getNestedErrorMessage(value.cause);
+  if ("cause" in cause) {
+    return getNestedErrorMessage(cause.cause);
   }
 
   return undefined;
@@ -47,39 +52,43 @@ type OperationErrorRecord = {
   readonly _tag: "PutioOperationError";
   readonly domain: string;
   readonly operation: string;
-  readonly body: Record<string, unknown>;
+  readonly body: { readonly error_type?: unknown };
   readonly status: number;
 };
 
-const isOperationError = (error: unknown): error is OperationErrorRecord =>
-  isPlainRecord(error) &&
-  error._tag === "PutioOperationError" &&
-  typeof error.domain === "string" &&
-  typeof error.operation === "string" &&
-  typeof error.status === "number" &&
-  isPlainRecord(error.body);
+const isOperationError = (cause: unknown): cause is OperationErrorRecord =>
+  isPlainRecord(cause) &&
+  Predicate.isTagged(cause, "PutioOperationError") &&
+  "domain" in cause &&
+  Predicate.isString(cause.domain) &&
+  "operation" in cause &&
+  Predicate.isString(cause.operation) &&
+  "status" in cause &&
+  Predicate.isNumber(cause.status) &&
+  "body" in cause &&
+  isPlainRecord(cause.body);
 
 export const hasOperationStatus = (
-  error: unknown,
+  cause: unknown,
   domain: string,
   operations: ReadonlyArray<string>,
   status: number,
 ) =>
-  isOperationError(error) &&
-  error.domain === domain &&
-  operations.includes(error.operation) &&
-  error.status === status;
+  isOperationError(cause) &&
+  cause.domain === domain &&
+  operations.includes(cause.operation) &&
+  cause.status === status;
 
 export const hasOperationErrorType = (
-  error: unknown,
+  cause: unknown,
   domain: string,
   operations: ReadonlyArray<string>,
   errorType: string,
 ) =>
-  isOperationError(error) &&
-  error.domain === domain &&
-  operations.includes(error.operation) &&
-  error.body.error_type === errorType;
+  isOperationError(cause) &&
+  cause.domain === domain &&
+  operations.includes(cause.operation) &&
+  cause.body.error_type === errorType;
 
 export const createOperationLocalizer = (
   match: MatchConditionLocalizer<unknown>["match"],

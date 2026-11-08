@@ -3,7 +3,7 @@ import { homedir, hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { isSea } from "node:sea";
 
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Match } from "effect";
 
 type CliSpinner = {
   readonly stop: Effect.Effect<void>;
@@ -29,12 +29,11 @@ export class CliRuntime extends Context.Service<CliRuntime, CliRuntimeService>()
 ) {}
 
 const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
-  const command =
-    platform === "darwin"
-      ? { file: "open", args: [url] }
-      : platform === "win32"
-        ? { file: "cmd", args: ["/c", "start", "", url] }
-        : { file: "xdg-open", args: [url] };
+  const command = Match.value(platform).pipe(
+    Match.when("darwin", () => ({ file: "open", args: [url] })),
+    Match.when("win32", () => ({ file: "cmd", args: ["/c", "start", "", url] })),
+    Match.orElse(() => ({ file: "xdg-open", args: [url] })),
+  );
 
   return Effect.callback<boolean>((resume, signal) => {
     let child: ReturnType<typeof spawn>;
@@ -47,6 +46,7 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
       });
     } catch {
       resume(Effect.succeed(false));
+
       return;
     }
 
@@ -55,10 +55,12 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
       child.removeListener("close", onClose);
       resume(Effect.succeed(false));
     };
+
     const onClose = () => {
       child.removeListener("error", onError);
       child.removeListener("spawn", onSpawn);
     };
+
     const onSpawn = () => {
       child.removeListener("error", onError);
       child.removeListener("close", onClose);
@@ -78,65 +80,82 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
 
 const writeStdout = (message: string): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
-    let interrupted = false;
+    let waiterInterrupted = false;
     let settled = false;
-    let failureFallback: ReturnType<typeof setImmediate> | undefined;
+    let callbackOnlyFailure: ReturnType<typeof setImmediate> | undefined;
+
     const cleanup = () => {
-      clearImmediate(failureFallback);
+      clearImmediate(callbackOnlyFailure);
       process.stdout.removeListener("error", onError);
       process.stdout.removeListener("close", onClose);
     };
+
     const onError = (error: Error) => {
       if (settled) return;
       settled = true;
       cleanup();
-      if (!interrupted) resume(Effect.die(error));
+
+      if (!waiterInterrupted) resume(Effect.die(error));
     };
+
     const onClose = () => onError(new Error("Standard output closed before the write completed"));
+
+    const failAfterPendingErrorEvent = (error: Error) => {
+      callbackOnlyFailure = setImmediate(() => onError(error));
+    };
+
     process.stdout.once("error", onError);
     process.stdout.once("close", onClose);
+
     try {
       process.stdout.write(message, (error) => {
         if (settled) return;
+
         if (error) {
-          // Allow Node's error event first; writes to an already closed stream
-          // can fail through the callback alone.
-          failureFallback = setImmediate(() => onError(error));
+          failAfterPendingErrorEvent(error);
+
           return;
         }
+
         settled = true;
         cleanup();
-        if (!interrupted) resume(Effect.void);
+
+        if (!waiterInterrupted) resume(Effect.void);
       });
     } catch (error) {
       cleanup();
       resume(Effect.die(error));
     }
-    return Effect.sync(() => {
-      // A queued stdout write cannot be cancelled without destroying shared stdout.
-      // Observe its eventual error/completion even after its waiting fiber stops.
-      interrupted = true;
+
+    const stopWaitingButKeepObservingQueuedWrite = Effect.sync(() => {
+      waiterInterrupted = true;
     });
+
+    return stopWaitingButKeepObservingQueuedWrite;
   });
 
-export const makeCliRuntime = (
-  options: {
-    readonly argv?: ReadonlyArray<string>;
-    readonly isInteractiveTerminal?: boolean;
-    readonly isSingleExecutable?: boolean;
-    readonly platform?: NodeJS.Platform;
-    readonly homeDirectory?: string;
-    readonly hostName?: string;
-    readonly writeStdout?: (message: string) => void;
-    readonly writeStderr?: (message: string) => void;
-  } = {},
-): CliRuntimeService => {
+export type CliRuntimeOptions = {
+  readonly argv?: ReadonlyArray<string>;
+  readonly isInteractiveTerminal?: boolean;
+  readonly isSingleExecutable?: boolean;
+  readonly platform?: NodeJS.Platform;
+  readonly homeDirectory?: string;
+  readonly hostName?: string;
+  readonly openExternal?: (url: string) => boolean;
+  readonly setExitCode?: (code: number) => void;
+  readonly writeStdout?: (message: string) => void;
+  readonly writeStderr?: (message: string) => void;
+};
+
+export const makeCliRuntime = (options: CliRuntimeOptions = {}): CliRuntimeService => {
   const argv = options.argv ?? process.argv;
   const platform = options.platform ?? process.platform;
   const homeDirectory = options.homeDirectory ?? homedir();
   const hostName = options.hostName ?? hostname();
+
   const isInteractiveTerminal =
     options.isInteractiveTerminal ?? Boolean(process.stdout.isTTY && process.stdin.isTTY);
+
   const isSingleExecutable = options.isSingleExecutable ?? isSea();
   const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
@@ -146,6 +165,12 @@ export const makeCliRuntime = (
     isSingleExecutable,
     setExitCode: (code) =>
       Effect.sync(() => {
+        if (options.setExitCode) {
+          options.setExitCode(code);
+
+          return;
+        }
+
         process.exitCode = code;
       }),
     writeStdout: (message) =>
@@ -156,15 +181,23 @@ export const makeCliRuntime = (
       Effect.sync(() => {
         if (options.writeStderr) {
           options.writeStderr(message);
+
           return;
         }
 
         process.stderr.write(message);
       }),
-    openExternal: (url) => openExternalWithPlatform(platform, url),
+    openExternal: (url) => {
+      const openExternal = options.openExternal;
+
+      return openExternal
+        ? Effect.sync(() => openExternal(url))
+        : openExternalWithPlatform(platform, url);
+    },
     startSpinner: (message) =>
       Effect.sync(() => {
         let frameIndex = 0;
+
         const render = () => {
           process.stdout.write(`\r\x1b[K${spinnerFrames[frameIndex]} ${message}`);
           frameIndex = (frameIndex + 1) % spinnerFrames.length;
@@ -194,4 +227,7 @@ export const makeCliRuntime = (
   };
 };
 
-export const CliRuntimeLive = Layer.sync(CliRuntime, () => makeCliRuntime());
+export const cliRuntimeLayer = (options: CliRuntimeOptions = {}) =>
+  Layer.sync(CliRuntime, () => makeCliRuntime(options));
+
+export const CliRuntimeLive = cliRuntimeLayer();

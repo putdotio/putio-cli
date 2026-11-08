@@ -1,4 +1,4 @@
-import { Cause, Effect } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { handleCliCause } from "./main.js";
@@ -11,7 +11,8 @@ describe("handleCliCause", () => {
     const exit = await Effect.runPromiseExit(handleCliCause(Cause.interrupt()));
 
     expect(exit._tag).toBe("Failure");
-    if (exit._tag === "Failure") {
+
+    if (Exit.isFailure(exit)) {
       expect(Cause.hasInterruptsOnly(exit.cause)).toBe(true);
     }
   });
@@ -23,15 +24,18 @@ describe("handleCliCause", () => {
     const writeError = vi.fn(() => Effect.void);
     const writeOutput = vi.fn(() => Effect.void);
     const capture = vi.fn(() => Promise.resolve());
+
     const crashReporter: CrashReporterService = {
       capture,
       decision: { enabled: true },
     };
+
     const cliOutput: CliOutputService = {
       error: writeError,
       formatError,
       write: writeOutput,
     };
+
     const runtime = {
       ...makeCliRuntime({
         argv: ["node", "putio", "whoami", "--output", "json"],
@@ -66,15 +70,18 @@ describe("handleCliCause", () => {
     const writeError = vi.fn(() => Effect.void);
     const writeOutput = vi.fn(() => Effect.void);
     const capture = vi.fn(() => Promise.reject(new Error("reporting failed")));
+
     const crashReporter: CrashReporterService = {
       capture,
       decision: { enabled: true },
     };
+
     const cliOutput: CliOutputService = {
       error: writeError,
       formatError,
       write: writeOutput,
     };
+
     const runtime = {
       ...makeCliRuntime({
         argv: ["node", "putio", "files", "list", "--output", "ndjson"],

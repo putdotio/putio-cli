@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import * as Sentry from "@sentry/core";
+import { Predicate } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import packageJson from "../../package.json";
 
@@ -38,8 +39,10 @@ const listen = (server: Server) =>
     server.listen(0, "127.0.0.1", () => {
       server.removeListener("error", reject);
       const address = server.address();
-      if (address === null || typeof address === "string") {
+
+      if (address === null || Predicate.isString(address)) {
         reject(new Error("Expected the test server to listen on an IP socket."));
+
         return;
       }
 
@@ -201,6 +204,7 @@ describe("sanitizeCrashEnvelope", () => {
     const sanitized = sanitizeCrashEnvelope(input, expected);
 
     expect(sanitized).toBeDefined();
+
     if (sanitized === undefined) {
       throw new Error("Expected the authorized crash envelope to be rebuilt.");
     }
@@ -287,16 +291,20 @@ describe("sendCrashRequest", () => {
 
   it("does not follow redirects or retransmit the envelope", async () => {
     let destinationRequests = 0;
+
     const destination = createServer((_request, response) => {
       destinationRequests += 1;
       response.writeHead(202).end();
     });
+
     const destinationUrl = await listen(destination);
     let redirectRequests = 0;
+
     const redirect = createServer((_request, response) => {
       redirectRequests += 1;
       response.writeHead(307, { location: `${destinationUrl}/forwarded` }).end();
     });
+
     const redirectUrl = await listen(redirect);
 
     try {
@@ -335,6 +343,7 @@ describe("sendCrashRequest", () => {
 describe("makeCrashReporter", () => {
   it("does not initialize or capture after the persisted opt-out", async () => {
     const sentry = makeSentryAdapter();
+
     const reporter = makeCrashReporter({
       preference: { disabled: true, reason: "persisted_opt_out" },
       sentry: sentry.adapter,
@@ -350,6 +359,7 @@ describe("makeCrashReporter", () => {
 
   it("initializes without default integrations and captures only once", async () => {
     const sentry = makeSentryAdapter();
+
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,
       sentry: sentry.adapter,
@@ -372,6 +382,7 @@ describe("makeCrashReporter", () => {
     const initOptions = sentry.init.mock.calls[0]?.[0];
     const beforeSend = initOptions?.beforeSend;
     expect(beforeSend).toBeDefined();
+
     if (beforeSend === undefined) {
       throw new Error("beforeSend was not installed");
     }
@@ -393,6 +404,7 @@ describe("makeCrashReporter", () => {
   it("swallows transport failures", async () => {
     const sentry = makeSentryAdapter();
     sentry.flush.mockRejectedValue(new Error("offline"));
+
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,
       sentry: sentry.adapter,
@@ -403,6 +415,7 @@ describe("makeCrashReporter", () => {
 
   it("swallows synthetic event construction failures", async () => {
     const sentry = makeSentryAdapter();
+
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,
       createEventIdentity: () => {
@@ -420,6 +433,7 @@ describe("makeCrashReporter", () => {
     vi.useFakeTimers();
     const sentry = makeSentryAdapter();
     sentry.flush.mockReturnValue(new Promise(() => undefined));
+
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,
       sentry: sentry.adapter,
@@ -436,6 +450,7 @@ describe("makeCrashReporter", () => {
     sentry.init.mockImplementation(() => {
       throw new Error("bad DSN");
     });
+
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,
       sentry: sentry.adapter,
@@ -455,7 +470,9 @@ describe("makeCrashReporter", () => {
         }),
       ),
     );
+
     vi.stubGlobal("fetch", request);
+
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,
       createEventIdentity: () => ({
@@ -468,6 +485,7 @@ describe("makeCrashReporter", () => {
 
     expect(request).toHaveBeenCalledOnce();
     const call = request.mock.calls[0];
+
     if (call === undefined) {
       throw new Error("Expected the concrete Sentry transport to issue one request.");
     }
@@ -483,7 +501,8 @@ describe("makeCrashReporter", () => {
       }),
     );
     const body = init?.body;
-    if (typeof body !== "string" && !(body instanceof Uint8Array)) {
+
+    if (!Predicate.isString(body) && !(body instanceof Uint8Array)) {
       throw new Error("Expected a serialized Sentry envelope request body.");
     }
 

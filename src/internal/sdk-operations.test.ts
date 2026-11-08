@@ -12,13 +12,16 @@ import {
 describe("sdk operations", () => {
   it("discovers nested own callables without invoking accessors", () => {
     let getterCalls = 0;
+
     const files = {
       get: () => Effect.succeed({ id: 42 }),
     };
+
     Object.defineProperty(files, "secret", {
       enumerable: true,
       get: () => {
         getterCalls += 1;
+
         return () => Effect.void;
       },
     });

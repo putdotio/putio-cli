@@ -27,9 +27,12 @@ import {
 
 const tempDirectories = new Set<string>();
 
+const notFoundTag: PlatformError.SystemErrorTag = "NotFound";
+
 const makeTempDirectory = async () => {
   const directory = await mkdtemp(join(tmpdir(), "putio-cli-"));
   tempDirectories.add(directory);
+
   return directory;
 };
 
@@ -108,14 +111,14 @@ describe("resolveConfigPath", () => {
     );
 
     const file = await stat(configPath);
-    const contents = JSON.parse(await readFile(configPath, "utf8")) as {
-      api_base_url: string;
-      auth_token: string;
-    };
+
+    const contents: unknown = JSON.parse(await readFile(configPath, "utf8"));
 
     expect(file.mode & 0o777).toBe(0o600);
-    expect(contents.api_base_url).toBe("https://api.put.io");
-    expect(contents.auth_token).toBe("dummy-token");
+    expect(contents).toMatchObject({
+      api_base_url: "https://api.put.io",
+      auth_token: "dummy-token",
+    });
   });
 
   it("persists and clears the telemetry opt-out without changing auth state", async () => {
@@ -126,6 +129,7 @@ describe("resolveConfigPath", () => {
       JSON.stringify({ api_base_url: "https://api.put.io", auth_token: "stored-token" }),
       "utf8",
     );
+
     const provideConfig = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
         Effect.provideService(
@@ -156,6 +160,7 @@ describe("resolveConfigPath", () => {
   it("creates config files with private permissions before chmod", async () => {
     const writeModes: Array<number | undefined> = [];
     const chmodModes: Array<number> = [];
+
     const fileSystem = FileSystem.makeNoop({
       chmod: (_path, mode) =>
         Effect.sync(() => {
@@ -165,7 +170,7 @@ describe("resolveConfigPath", () => {
       readFileString: (path) =>
         Effect.fail(
           PlatformError.systemError({
-            _tag: "NotFound",
+            _tag: notFoundTag,
             module: "FileSystem",
             method: "readFileString",
             pathOrDescriptor: path,
@@ -310,12 +315,7 @@ describe("resolveConfigPath", () => {
 
     await Effect.runPromise(clearPersistedState(configPath).pipe(makeRuntimeLayer()));
 
-    const contents = JSON.parse(await readFile(configPath, "utf8")) as {
-      api_base_url: string;
-      auth_token?: string;
-    };
-
-    expect(contents).toEqual({
+    expect(JSON.parse(await readFile(configPath, "utf8"))).toEqual({
       api_base_url: "https://staging.put.io",
     });
   });
@@ -692,11 +692,9 @@ describe("resolveConfigPath", () => {
       ),
     );
 
-    let contents = JSON.parse(await readFile(configPath, "utf8")) as {
-      default_profile?: string;
-      profiles?: Record<string, unknown>;
-    };
-    expect(contents.default_profile).toBe("automation");
+    let contents: unknown = JSON.parse(await readFile(configPath, "utf8"));
+
+    expect(contents).toHaveProperty("default_profile", "automation");
 
     const result = await Effect.runPromise(
       removeProfile("automation").pipe(
@@ -711,16 +709,14 @@ describe("resolveConfigPath", () => {
     );
 
     expect(result.removed).toBe(true);
-    contents = JSON.parse(await readFile(configPath, "utf8")) as {
-      default_profile?: string;
-      profiles?: Record<string, unknown>;
-    };
-    expect(contents.default_profile).toBeUndefined();
-    expect(contents.profiles).toBeUndefined();
+    contents = JSON.parse(await readFile(configPath, "utf8"));
+    expect(contents).not.toHaveProperty("default_profile");
+    expect(contents).not.toHaveProperty("profiles");
   });
 
   it("rejects invalid profile names through typed profile operations", async () => {
     const useExit = await Effect.runPromiseExit(useProfile("bad/name").pipe(makeRuntimeLayer()));
+
     const removeExit = await Effect.runPromiseExit(
       removeProfile("bad/name").pipe(makeRuntimeLayer()),
     );
@@ -771,15 +767,11 @@ describe("resolveConfigPath", () => {
       profile: "automation",
     });
 
-    const contents = JSON.parse(await readFile(configPath, "utf8")) as {
-      profiles: {
-        readonly automation: { readonly auth_token?: string };
-        readonly human: { readonly auth_token?: string };
-      };
-    };
+    const contents: unknown = JSON.parse(await readFile(configPath, "utf8"));
 
-    expect(contents.profiles["automation"].auth_token).toBeUndefined();
-    expect(contents.profiles.human.auth_token).toBe("human-token");
+    expect(contents).toHaveProperty(["profiles", "automation"]);
+    expect(contents).not.toHaveProperty(["profiles", "automation", "auth_token"]);
+    expect(contents).toHaveProperty(["profiles", "human", "auth_token"], "human-token");
   });
 
   it("does not create a profile when logging out of a missing profile", async () => {
@@ -809,11 +801,9 @@ describe("resolveConfigPath", () => {
       profile: "automation",
     });
 
-    const contents = JSON.parse(await readFile(configPath, "utf8")) as {
-      profiles: Record<string, unknown>;
-    };
+    const contents: unknown = JSON.parse(await readFile(configPath, "utf8"));
 
-    expect(contents.profiles).toEqual({
+    expect(contents).toHaveProperty("profiles", {
       human: {
         auth_token: "human-token",
       },

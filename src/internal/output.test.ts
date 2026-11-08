@@ -1,4 +1,11 @@
-import { PutioApiError, PutioAuthError, PutioRateLimitError } from "@putdotio/sdk";
+import {
+  PutioApiError,
+  PutioAuthError,
+  PutioOperationError,
+  PutioRateLimitError,
+  PutioTransportError,
+} from "@putdotio/sdk";
+import { Data } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CliCommandInputError } from "./command.js";
@@ -15,6 +22,15 @@ import {
   sanitizeTerminalText,
   sanitizeTerminalValue,
 } from "./output-service.js";
+
+class OtherError extends Data.TaggedError("OtherError")<{
+  readonly status: number;
+  readonly body: { readonly status_code: number };
+}> {}
+
+const forgedApiErrorWithTextStatus = JSON.parse(
+  '{"_tag":"PutioApiError","status":"404","body":{"status_code":404}}',
+);
 
 describe("sanitizeTerminalValue", () => {
   it("redacts sensitive object keys recursively", () => {
@@ -76,8 +92,8 @@ describe("renderJson", () => {
   });
 
   it("preserves schema sentinel values for sensitive-looking keys", () => {
-    expect(renderJson({ persistedConfigShape: { auth_token: "string" } })).toBe(
-      '{\n  "persistedConfigShape": {\n    "auth_token": "string"\n  }\n}',
+    expect(renderJson({ persistedConfig: { auth_token: "string" } })).toBe(
+      '{\n  "persistedConfig": {\n    "auth_token": "string"\n  }\n}',
     );
   });
 
@@ -144,8 +160,8 @@ describe("sanitizeStructuredValue", () => {
   });
 
   it("preserves schema sentinel values for sensitive-looking keys", () => {
-    expect(sanitizeStructuredValue({ persistedConfigShape: { auth_token: "string" } })).toEqual({
-      persistedConfigShape: { auth_token: "string" },
+    expect(sanitizeStructuredValue({ persistedConfig: { auth_token: "string" } })).toEqual({
+      persistedConfig: { auth_token: "string" },
     });
   });
 
@@ -262,33 +278,36 @@ describe("detectOutputModeFromArgv", () => {
 
 describe("formatCliError", () => {
   it("prefers put.io API error payload messages", () => {
-    const output = formatCliError({
-      _tag: "PutioApiError",
-      body: {
-        status_code: 500,
-        error_message: "No soup for you.",
-      },
-      message: "",
-    });
+    const output = formatCliError(
+      new PutioApiError({
+        body: {
+          status_code: 500,
+          error_message: "No soup for you.",
+        },
+        status: 500,
+      }),
+    );
 
     expect(output).toContain("Command failed");
     expect(output).toContain("No soup for you.");
   });
 
   it("formats rate limit errors with retry information", () => {
-    const output = formatCliError({
-      _tag: "PutioRateLimitError",
-      action: "captcha-needed",
-      body: {
-        status_code: 429,
-        error_message: "Too many requests.",
-      },
-      id: "rl_123",
-      limit: "10",
-      remaining: "0",
-      reset: "1773496255",
-      retryAfter: "42",
-    });
+    const output = formatCliError(
+      new PutioRateLimitError({
+        action: "captcha-needed",
+        body: {
+          status_code: 429,
+          error_message: "Too many requests.",
+        },
+        id: "rl_123",
+        limit: "10",
+        remaining: "0",
+        reset: "1773496255",
+        retryAfter: "42",
+        status: 429,
+      }),
+    );
 
     expect(output).toContain("Rate limited");
     expect(output).toContain("Wait about 42s and try again.");
@@ -312,13 +331,15 @@ describe("formatCliError", () => {
   });
 
   it("renders auth recovery guidance", () => {
-    const output = formatCliError({
-      _tag: "PutioAuthError",
-      body: {
-        status_code: 401,
-        error_message: "invalid access token",
-      },
-    });
+    const output = formatCliError(
+      new PutioAuthError({
+        body: {
+          status_code: 401,
+          error_message: "invalid access token",
+        },
+        status: 401,
+      }),
+    );
 
     expect(output).toContain("Authentication failed");
     expect(output).toContain("putio auth login");
@@ -335,6 +356,7 @@ describe("formatCliErrorJson", () => {
         }),
       ),
     );
+
     expect(output.error).toMatchObject({ httpStatusCode: 400, statusCode: status });
   });
 
@@ -347,6 +369,7 @@ describe("formatCliErrorJson", () => {
         }),
       ),
     );
+
     expect(output.error).toMatchObject({ httpStatusCode: 404, statusCode: 404 });
     expect(output.error).not.toHaveProperty("errorType");
   });
@@ -369,8 +392,7 @@ describe("formatCliErrorJson", () => {
   });
 
   it("retains operation errors without serializing their request or body", () => {
-    const error = {
-      _tag: "PutioOperationError",
+    const operationErrorFields = {
       status: 404,
       domain: "files",
       operation: "get",
@@ -378,7 +400,12 @@ describe("formatCliErrorJson", () => {
       reason: { kind: "status_code", statusCode: 404 },
       body: { status_code: 404, error_type: "FILE_NOT_FOUND", token: "private-payload" },
       request: { url: "https://example.invalid/?oauth_token=private-payload" },
-    };
+    } as const;
+
+    const error = new PutioOperationError<string, string, { readonly statusCode: 404 }>(
+      operationErrorFields,
+    );
+
     const output = formatCliErrorJson(error);
     const { error: metadata } = JSON.parse(output);
     expect(metadata).toMatchObject({
@@ -393,19 +420,18 @@ describe("formatCliErrorJson", () => {
 
   it.each([NaN, Infinity, 404.5, 99, 600])("omits invalid HTTP status %s", (status) => {
     const output = JSON.parse(
-      formatCliErrorJson({
-        _tag: "PutioApiError",
-        status,
-        body: { status_code: 404 },
-      }),
+      formatCliErrorJson(
+        new PutioApiError({ status, body: { status_code: 404 } }, { disableChecks: true }),
+      ),
     );
+
     expect(output.error).not.toHaveProperty("httpStatusCode");
   });
 
   it.each([
-    { _tag: "PutioTransportError", cause: new Error("HTTP 404") },
-    { _tag: "PutioApiError", status: "404", body: { status_code: 404 } },
-    { _tag: "OtherError", status: 404, body: { status_code: 404 } },
+    new PutioTransportError({ cause: new Error("HTTP 404") }),
+    forgedApiErrorWithTextStatus,
+    new OtherError({ status: 404, body: { status_code: 404 } }),
     new Error("404 FILE_NOT_FOUND"),
     new CliCommandInputError({ message: "404" }),
   ])("does not infer response metadata for unrecognized errors", (error) => {
@@ -422,6 +448,7 @@ describe("formatCliErrorJson", () => {
         body: { error_type: "https://example.invalid/?oauth_token=hidden-secret" },
       }),
     );
+
     expect(JSON.parse(output).error).toHaveProperty("httpStatusCode", 404);
     expect(JSON.parse(output).error).not.toHaveProperty("statusCode");
     expect(output).not.toContain("hidden-secret");
@@ -429,12 +456,14 @@ describe("formatCliErrorJson", () => {
 
   it("preserves differing HTTP and API statuses", () => {
     const output = JSON.parse(
-      formatCliErrorJson({
-        _tag: "PutioApiError",
-        status: 403,
-        body: { status_code: 404, error_type: "FILE_NOT_FOUND", error_message: "Not found" },
-      }),
+      formatCliErrorJson(
+        new PutioApiError({
+          status: 403,
+          body: { status_code: 404, error_type: "FILE_NOT_FOUND", error_message: "Not found" },
+        }),
+      ),
     );
+
     expect(output.error).toMatchObject({
       httpStatusCode: 403,
       statusCode: 404,
@@ -444,13 +473,15 @@ describe("formatCliErrorJson", () => {
   });
 
   it("renders localized errors as structured json", () => {
-    const output = formatCliErrorJson({
-      _tag: "PutioAuthError",
-      body: {
-        status_code: 401,
-        error_message: "invalid access token",
-      },
-    });
+    const output = formatCliErrorJson(
+      new PutioAuthError({
+        body: {
+          status_code: 401,
+          error_message: "invalid access token",
+        },
+        status: 401,
+      }),
+    );
 
     expect(output).toContain('"title": "Authentication failed"');
     expect(output).toContain('"type": "instruction"');

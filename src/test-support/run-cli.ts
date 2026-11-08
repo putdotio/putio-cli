@@ -1,15 +1,15 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage } from "node:http";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Console, ConfigProvider, Effect } from "effect";
+import { Console, ConfigProvider, Effect, Layer, Predicate, Schema } from "effect";
 
 import { runCli } from "../cli.js";
-import { makeCliAppLayer } from "../internal/app-layer.js";
+import { CliServicesLive } from "../internal/app-layer.js";
+import { CrashReportingDisabledLive } from "../internal/crash-reporting.js";
 import { handleCliCause } from "../internal/main.js";
-import { makeCliRuntime } from "../internal/runtime.js";
+import { cliRuntimeLayer } from "../internal/runtime.js";
 
 export const FIXTURE_TOKEN = "fixture-token";
 
@@ -30,6 +30,14 @@ type FixtureResponse = {
 
 type FixtureRoute = (request: RecordedRequest) => FixtureResponse;
 
+type RepliesInOrderThenRepeatLast = ReadonlyArray<FixtureResponse>;
+
+const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
+
+const parseErrorEnvelope = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Struct({ error: Schema.Unknown })),
+);
+
 const notFound: FixtureResponse = {
   body: {
     error_message: "No fixture route",
@@ -42,22 +50,28 @@ const notFound: FixtureResponse = {
 
 const readBody = async (request: IncomingMessage) => {
   const chunks: Buffer[] = [];
-  for await (const chunk of request) chunks.push(chunk as Buffer);
+
+  for await (const chunk of request) chunks.push(chunk);
   const raw = Buffer.concat(chunks);
   const contentType = request.headers["content-type"] ?? "";
 
   if (raw.length === 0) return {};
+
   if (contentType.startsWith("application/x-www-form-urlencoded")) {
     return Object.fromEntries(new URLSearchParams(raw.toString("utf8")));
   }
+
   if (contentType.startsWith("multipart/form-data")) {
     const form = await new Response(raw, { headers: { "content-type": contentType } }).formData();
     const fields: Record<string, string> = {};
+
     for (const [key, value] of form) {
-      fields[key] = typeof value === "string" ? value : await value.text();
+      fields[key] = value instanceof File ? await value.text() : value;
     }
+
     return fields;
   }
+
   return { raw: raw.toString("utf8") };
 };
 
@@ -71,9 +85,11 @@ export const startFixtureApi = async () => {
   const routes = new Map<string, FixtureRoute>();
   const requests: RecordedRequest[] = [];
   const blocked: string[] = [];
+
   const server = createServer((request, response) => {
     void (async () => {
       const url = new URL(request.url ?? "/", "http://fixture.invalid");
+
       const recorded: RecordedRequest = {
         authorization: request.headers.authorization,
         body: await readBody(request),
@@ -82,6 +98,7 @@ export const startFixtureApi = async () => {
         path: url.pathname,
         query: Object.fromEntries(url.searchParams),
       };
+
       requests.push(recorded);
       const route = routes.get(`${recorded.method} ${recorded.path}`);
       const reply = route ? route(recorded) : notFound;
@@ -94,7 +111,13 @@ export const startFixtureApi = async () => {
   });
 
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const port = (server.address() as AddressInfo).port;
+  const address = server.address();
+
+  if (address === null || Predicate.isString(address)) {
+    throw new Error("Fixture API did not bind a TCP port.");
+  }
+
+  const port = address.port;
   const baseUrl = `http://127.0.0.1:${port}`;
   const uploadBaseUrl = `http://localhost:${port}`;
   const realFetch = globalThis.fetch;
@@ -104,6 +127,7 @@ export const startFixtureApi = async () => {
 
     if (url.origin === baseUrl || url.origin === uploadBaseUrl) return realFetch(input, init);
     blocked.push(url.origin);
+
     return Promise.reject(new Error(`Fixture API blocks network access to ${url.origin}`));
   };
 
@@ -122,17 +146,21 @@ export const startFixtureApi = async () => {
       requests.length = 0;
       blocked.length = 0;
     },
-    /** Answer `METHOD /path`; a list answers successive requests in order, repeating the last. */
     route: (
-      key: string,
-      reply: FixtureResponse | ReadonlyArray<FixtureResponse> | FixtureRoute,
+      methodAndPath: string,
+      reply: FixtureResponse | RepliesInOrderThenRepeatLast | FixtureRoute,
     ) => {
-      if (typeof reply === "function") {
-        routes.set(key, reply);
+      if (Predicate.isFunction(reply)) {
+        routes.set(methodAndPath, reply);
+
         return;
       }
+
       const replies = Array.isArray(reply) ? [...reply] : [reply];
-      routes.set(key, () => (replies.length > 1 ? replies.shift() : replies[0]) ?? notFound);
+      routes.set(
+        methodAndPath,
+        () => (replies.length > 1 ? replies.shift() : replies[0]) ?? notFound,
+      );
     },
   };
 };
@@ -169,6 +197,7 @@ export const runPutio = async (
   const stderr: string[] = [];
   const openedUrls: string[] = [];
   let exitCode = 0;
+
   const env = Object.fromEntries(
     Object.entries({
       PUTIO_CLI_API_BASE_URL: api.baseUrl,
@@ -179,54 +208,62 @@ export const runPutio = async (
       ...options.env,
     }).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
+
   const capture =
     (chunks: string[]) =>
     (...values: ReadonlyArray<unknown>) =>
       chunks.push(`${values.map(String).join(" ")}\n`);
+
   const console_: Console.Console = Object.assign(Object.create(console), {
     error: capture(stderr),
     log: capture(stdout),
   });
-  const runtime = {
-    ...makeCliRuntime({
-      argv,
-      homeDirectory: configDir,
-      hostName: "fixture-host",
-      isInteractiveTerminal: options.isInteractiveTerminal ?? false,
-      isSingleExecutable: false,
-      writeStderr: (message) => stderr.push(message),
-      writeStdout: (message) => stdout.push(message),
-    }),
-    openExternal: (url: string) =>
-      Effect.sync(() => {
-        openedUrls.push(url);
-        return true;
-      }),
-    setExitCode: (code: number) =>
-      Effect.sync(() => {
-        exitCode = code;
-      }),
-  };
+
+  const runtimeLayer = cliRuntimeLayer({
+    argv,
+    homeDirectory: configDir,
+    hostName: "fixture-host",
+    isInteractiveTerminal: options.isInteractiveTerminal ?? false,
+    isSingleExecutable: false,
+    openExternal: (url) => {
+      openedUrls.push(url);
+
+      return true;
+    },
+    setExitCode: (code) => {
+      exitCode = code;
+    },
+    writeStderr: (message) => stderr.push(message),
+    writeStdout: (message) => stdout.push(message),
+  });
 
   try {
     if (options.configContents !== undefined) {
       await writeFile(configPath, options.configContents, "utf8");
     }
+
     await Effect.runPromise(
       Effect.scoped(
         runCli(argv).pipe(
           Effect.catchCause(handleCliCause),
-          Effect.provide(makeCliAppLayer(runtime)),
+          Effect.provide(
+            CliServicesLive.pipe(
+              Layer.provideMerge(runtimeLayer),
+              Layer.merge(CrashReportingDisabledLive),
+            ),
+          ),
         ),
       ).pipe(
         Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown(env)),
         Effect.provideService(Console.Console, console_),
       ),
     );
+
     const config = await readFile(configPath, "utf8").then(
-      (contents) => JSON.parse(contents) as unknown,
+      (contents) => parseJson(contents),
       () => undefined,
     );
+
     return {
       config,
       configPath,
@@ -246,8 +283,8 @@ export const stdoutLines = (run: CliRun) =>
     .trim()
     .split("\n")
     .filter((line) => line.length > 0)
-    .map((line) => JSON.parse(line) as unknown);
+    .map((line) => parseJson(line));
 
-export const stdoutJson = (run: CliRun) => JSON.parse(run.stdout) as unknown;
+export const stdoutJson = (run: CliRun) => parseJson(run.stdout);
 
-export const stderrJson = (run: CliRun) => JSON.parse(run.stderr) as { readonly error: unknown };
+export const stderrJson = (run: CliRun) => parseErrorEnvelope(run.stderr);

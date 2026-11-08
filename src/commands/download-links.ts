@@ -21,7 +21,7 @@ import {
   dryRunFlag,
   fieldsFlag,
   jsonFlag,
-  jsonShapeFromSchema,
+  jsonInputSpecFromSchema,
   outputFlag,
   type CommandSpec,
 } from "../internal/command-specs.js";
@@ -123,6 +123,7 @@ const downloadLinksGet = Command.make(
         fields,
         output: getOption(output),
       });
+
       const result = yield* withTerminalLoader(
         {
           message: `Loading download-links job ${id}...`,
@@ -165,7 +166,7 @@ export const downloadLinksCommandSpecs = [
         jsonFlag(),
         outputFlag(),
       ],
-      json: jsonShapeFromSchema(DownloadLinksCreateInputSchema, [
+      json: jsonInputSpecFromSchema(DownloadLinksCreateInputSchema, [
         "Provide at least one ids entry or a cursor value.",
       ]),
     },

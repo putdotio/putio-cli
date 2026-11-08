@@ -15,6 +15,7 @@ export const humanFileSize = (bytes: number): string => {
   } while (Math.abs(value) >= 1024 && unitIndex < units.length - 1);
 
   const rounded = Math.abs(value) >= 10 ? value.toFixed(0) : value.toFixed(1);
+
   return `${rounded} ${units[unitIndex]}`;
 };
 
@@ -35,7 +36,7 @@ export const truncate = (value: string, maxWidth: number): string => {
 };
 
 export const formatPercent = (value: number | null | undefined): string =>
-  typeof value === "number" ? `${Math.round(value)}%` : "—";
+  value === null || value === undefined ? "—" : `${Math.round(value)}%`;
 
 export const formatNullable = (value: string | null | undefined): string =>
   value && value.length > 0 ? value : "—";

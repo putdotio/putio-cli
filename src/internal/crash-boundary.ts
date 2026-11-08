@@ -1,9 +1,13 @@
 import type { CrashKind, CrashReporterService } from "./crash-reporting.js";
 
-type ReplayFatal = (kind: CrashKind, reason: unknown) => void;
+type ReplayFatal = (kind: CrashKind, cause: unknown) => void;
+
 type UncaughtExceptionOrigin = "uncaughtException" | "unhandledRejection";
+
 type UncaughtExceptionHandler = (error: Error, origin?: UncaughtExceptionOrigin) => void;
-type UnhandledRejectionHandler = (reason: unknown) => void;
+
+type UnhandledRejectionHandler = (cause: unknown) => void;
+
 type UnhandledRejectionsMode = "none" | "strict" | "throw" | "warn" | "warn-with-error-code";
 
 export type CrashBoundaryRuntime = {
@@ -51,6 +55,7 @@ const getUnhandledRejectionsMode = (
 
   for (const match of nodeOptions?.matchAll(unhandledRejectionsModePattern) ?? []) {
     const value = match[2] ?? match[3];
+
     if (isUnhandledRejectionsMode(value)) {
       mode = value;
     }
@@ -58,8 +63,10 @@ const getUnhandledRejectionsMode = (
 
   for (const [index, argument] of execArgv.entries()) {
     const inline = argument.match(/^--unhandled-rejections=(.+)$/u)?.[1];
+
     const value =
       inline ?? (argument === "--unhandled-rejections" ? execArgv[index + 1] : undefined);
+
     if (isUnhandledRejectionsMode(value)) {
       mode = value;
     }
@@ -68,19 +75,21 @@ const getUnhandledRejectionsMode = (
   return mode;
 };
 
-const replayFatalWithNode = (kind: CrashKind, reason: unknown) => {
+const replayFatalWithNode = (kind: CrashKind, cause: unknown) => {
   if (kind === "unhandled_rejection") {
     const mode = getUnhandledRejectionsMode();
+
     if (mode === "none" || mode === "warn") {
       return;
     }
 
-    void Promise.reject(reason);
+    void Promise.reject(cause);
+
     return;
   }
 
   setImmediate(() => {
-    throw reason;
+    throw cause;
   });
 };
 
@@ -101,7 +110,7 @@ export const installCrashBoundary = (
     runtime.removeUnhandledRejectionHandler(onUnhandledRejection);
   };
 
-  const handle = (kind: CrashKind, reason: unknown) => {
+  const handle = (kind: CrashKind, cause: unknown) => {
     if (handling) {
       return;
     }
@@ -110,8 +119,8 @@ export const installCrashBoundary = (
     remove();
 
     void reporter.capture(kind).then(
-      () => replayFatal(kind, reason),
-      () => replayFatal(kind, reason),
+      () => replayFatal(kind, cause),
+      () => replayFatal(kind, cause),
     );
   };
 
@@ -122,8 +131,9 @@ export const installCrashBoundary = (
 
     handle("uncaught_exception", error);
   };
-  const onUnhandledRejection = (reason: unknown) => {
-    handle("unhandled_rejection", reason);
+
+  const onUnhandledRejection = (cause: unknown) => {
+    handle("unhandled_rejection", cause);
   };
 
   runtime.addUncaughtExceptionHandler(onUncaughtException);

@@ -11,7 +11,7 @@ const localizeError = createLocalizeError<unknown>([
   ...cliSharedErrorLocalizers,
 ]);
 
-export const localizeCliError = (error: unknown) => localizeError(error);
+export const localizeCliError = (cause: unknown) => localizeError(cause);
 
 export const isLocalizedError = (value: unknown): value is LocalizedError =>
   value instanceof LocalizedError;

@@ -5,7 +5,7 @@ import type { CrashKind, CrashReporterService } from "./crash-reporting.js";
 
 const makeRuntime = () => {
   let uncaughtExceptionHandler: ((error: Error) => void) | undefined;
-  let unhandledRejectionHandler: ((reason: unknown) => void) | undefined;
+  let unhandledRejectionHandler: ((cause: unknown) => void) | undefined;
 
   const runtime: CrashBoundaryRuntime = {
     addUncaughtExceptionHandler: (handler) => {
@@ -36,6 +36,7 @@ const makeRuntime = () => {
 describe("installCrashBoundary", () => {
   it("does not install handlers when reporting is disabled", () => {
     const runtime = makeRuntime();
+
     const reporter: CrashReporterService = {
       capture: vi.fn(() => Promise.resolve()),
       decision: { enabled: false, reason: "persisted_opt_out" },
@@ -54,6 +55,7 @@ describe("installCrashBoundary", () => {
     const runtime = makeRuntime();
     const capture = vi.fn((_kind: CrashKind) => Promise.resolve());
     const replayFatal = vi.fn();
+
     const reporter: CrashReporterService = {
       capture,
       decision: { enabled: true },

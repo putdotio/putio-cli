@@ -26,9 +26,10 @@ export const renderFilesTerminal = <T extends FilesTextInput>(value: T) => {
   }
 
   const totalSuffix =
-    typeof value.total === "number"
+    value.total !== undefined
       ? translate("cli.files.terminal.totalSuffix", { total: value.total })
       : "";
+
   const summary = value.parent?.name
     ? translate("cli.files.terminal.summaryInParent", {
         count: value.files.length,

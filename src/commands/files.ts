@@ -30,7 +30,7 @@ import {
   fieldsFlag,
   integerArgument,
   jsonFlag,
-  jsonShapeFromSchema,
+  jsonInputSpecFromSchema,
   outputFlag,
   pageAllFlag,
   type CommandSpec,
@@ -40,6 +40,7 @@ import { inspectLocalUpload, openLocalUploadBlob } from "../internal/local-uploa
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderFilesTerminal } from "../internal/terminal/files-terminal.js";
+
 const parentIdConfig = defineIntegerOption("parent-id", { optional: true });
 const perPageConfig = defineIntegerOption("per-page", { optional: true });
 const queryConfig = defineTextOption("query");
@@ -47,6 +48,7 @@ const fileIdsConfig = defineRepeatedIntegerOption("id");
 const contentTypeConfig = defineTextOption("content-type", { optional: true });
 const hiddenConfig = defineBooleanOption("hidden", { defaultValue: false });
 const skipTrashConfig = defineBooleanOption("skip-trash", { defaultValue: false });
+
 const fileTypeChoices = [
   "FOLDER",
   "FILE",
@@ -58,7 +60,9 @@ const fileTypeChoices = [
   "TEXT",
   "SWF",
 ] as const;
+
 const fileTypeConfig = defineChoiceOption("file-type", fileTypeChoices, { optional: true });
+
 const fileSortChoices = [
   "NAME_ASC",
   "NAME_DESC",
@@ -73,15 +77,18 @@ const fileSortChoices = [
   "WATCH_ASC",
   "WATCH_DESC",
 ] as const;
+
 const sortByConfig = defineChoiceOption("sort-by", fileSortChoices, { optional: true });
 const optionalFileIdConfig = defineIntegerOption("id", { optional: true });
 const optionalFileNameConfig = defineTextOption("name", { optional: true });
 const uploadPathConfig = defineTextOption("path", { optional: true });
 const uploadFileNameConfig = defineTextOption("file-name", { optional: true });
+
 const hlsOriginalConfig = defineBooleanOption("original", {
   defaultValue: false,
   description: "Serve the original file instead of the MP4 conversion.",
 });
+
 const hlsMaxSubtitleCountConfig = defineIntegerOption("max-subtitle-count", { optional: true });
 const hlsSubtitleLanguageConfig = defineRepeatedTextOption("subtitle-language");
 
@@ -293,8 +300,10 @@ const filesList = Command.make(
         output: getOption(output),
         pageAll,
       });
+
       const parent = Option.getOrElse(parentId, () => 0);
       const perPageValue = Option.getOrElse(perPage, () => 20);
+
       const query = {
         content_type: Option.getOrUndefined(contentType),
         file_type: Option.getOrUndefined(fileType),
@@ -303,6 +312,7 @@ const filesList = Command.make(
         sort_by: Option.getOrUndefined(sortBy),
         total: 1,
       } as const;
+
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.loading"),
@@ -410,11 +420,14 @@ const filesUpload = Command.make(
           path: validateLocalPathInput("`files upload --path`", value.path),
         })),
       );
+
       const prepared = yield* inspectLocalUpload(input.path);
+
       const resolvedFileName = validateNameLikeInput(
         "`files upload --file-name`",
         input.file_name ?? prepared.fileName,
       );
+
       const plan = {
         file_name: resolvedFileName,
         parent_id: input.parent_id,
@@ -427,6 +440,7 @@ const filesUpload = Command.make(
       }
 
       const file = yield* openLocalUploadBlob(prepared.path);
+
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.uploading", { name: resolvedFileName }),
@@ -608,11 +622,14 @@ const filesSearchCommand = Command.make(
         output: getOption(output),
         pageAll,
       });
+
       const perPageValue = Option.getOrElse(perPage, () => 20);
+
       const searchQuery = {
         per_page: perPageValue,
         query,
       } as const;
+
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.searching", { query }),
@@ -646,10 +663,12 @@ const filesStartFromGet = Command.make(
         fileId,
         "Expected `files start-from get` file-id to be a positive integer.",
       );
+
       const controls = yield* resolveReadOutputControls({
         fields,
         output: getOption(output),
       });
+
       const startFrom = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.loadingStartFrom", { fileId: validatedFileId }),
@@ -657,6 +676,7 @@ const filesStartFromGet = Command.make(
         },
         withAuthedSdk(({ sdk }) => sdk.files.getStartFrom(validatedFileId)),
       );
+
       const result = {
         file_id: validatedFileId,
         start_from: startFrom,
@@ -780,11 +800,14 @@ const filesHlsManifest = Command.make(
         fileId,
         "Expected `files hls-manifest` file-id to be a positive integer.",
       );
+
       const controls = yield* resolveReadOutputControls({
         fields,
         output: getOption(output),
       });
+
       const languages = subtitleLanguages.map((value) => value.trim()).filter(Boolean);
+
       const manifest = yield* withTerminalLoader(
         {
           message: translate("cli.files.command.loadingHlsManifest", { fileId: validatedFileId }),
@@ -794,10 +817,11 @@ const filesHlsManifest = Command.make(
           sdk.files.getHlsMasterPlaylist(validatedFileId, {
             maxSubtitleCount: Option.getOrUndefined(maxSubtitleCount),
             playOriginal: original,
-            ...(languages.length > 0 ? { subtitleLanguages: languages } : {}),
+            subtitleLanguages: languages.length > 0 ? languages : undefined,
           }),
         ),
       );
+
       const result = {
         file_id: validatedFileId,
         manifest,
@@ -889,7 +913,7 @@ export const filesCommandSpecs = [
         integerArgument("seconds", { required: false }),
       ],
       flags: [dryRunFlag(), jsonFlag(), outputFlag()],
-      json: jsonShapeFromSchema(FilesStartFromSetInputSchema),
+      json: jsonInputSpecFromSchema(FilesStartFromSetInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesStartFromSet"),
@@ -906,7 +930,7 @@ export const filesCommandSpecs = [
     input: {
       arguments: [integerArgument("file-id", { required: false })],
       flags: [dryRunFlag(), jsonFlag(), outputFlag()],
-      json: jsonShapeFromSchema(FilesStartFromResetInputSchema),
+      json: jsonInputSpecFromSchema(FilesStartFromResetInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesStartFromReset"),
@@ -968,7 +992,7 @@ export const filesCommandSpecs = [
         parentIdConfig.flag,
         optionalFileNameConfig.flag,
       ],
-      json: jsonShapeFromSchema(FilesMkdirInputSchema, [
+      json: jsonInputSpecFromSchema(FilesMkdirInputSchema, [
         "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
       ]),
     },
@@ -993,7 +1017,7 @@ export const filesCommandSpecs = [
         parentIdConfig.flag,
         uploadPathConfig.flag,
       ],
-      json: jsonShapeFromSchema(FilesUploadInputSchema, [
+      json: jsonInputSpecFromSchema(FilesUploadInputSchema, [
         "`path` must resolve to a readable regular file.",
         "`file_name` rejects control characters and path traversal segments like `../` or `%2e`.",
       ]),
@@ -1018,7 +1042,7 @@ export const filesCommandSpecs = [
         optionalFileNameConfig.flag,
         outputFlag(),
       ],
-      json: jsonShapeFromSchema(FilesRenameInputSchema, [
+      json: jsonInputSpecFromSchema(FilesRenameInputSchema, [
         "`name` rejects control characters and path traversal segments like `../` or `%2e`.",
       ]),
     },
@@ -1036,7 +1060,7 @@ export const filesCommandSpecs = [
     command: "files move",
     input: {
       flags: [dryRunFlag(), fileIdsConfig.flag, jsonFlag(), outputFlag(), parentIdConfig.flag],
-      json: jsonShapeFromSchema(FilesMoveInputSchema),
+      json: jsonInputSpecFromSchema(FilesMoveInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesMove"),
@@ -1052,7 +1076,7 @@ export const filesCommandSpecs = [
     command: "files delete",
     input: {
       flags: [dryRunFlag(), fileIdsConfig.flag, jsonFlag(), outputFlag(), skipTrashConfig.flag],
-      json: jsonShapeFromSchema(FilesDeleteInputSchema),
+      json: jsonInputSpecFromSchema(FilesDeleteInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.filesDelete"),

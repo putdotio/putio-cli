@@ -21,6 +21,7 @@ const UrlStringSchema = NonEmptyStringSchema.pipe(
     Schema.makeFilter((value) => {
       try {
         new URL(value);
+
         return undefined;
       } catch {
         return "Expected a valid absolute URL";
@@ -87,14 +88,14 @@ export const buildConfigPath = (input: {
 const decodeAuthFlowConfig = Schema.decodeUnknownSync(PutioCliAuthFlowConfigSchema);
 const decodeRuntimeConfig = Schema.decodeUnknownSync(CliRuntimeConfigSchema);
 
-const getErrorMessage = (error: unknown) =>
-  error instanceof Error && error.message.trim().length > 0 ? error.message.trim() : undefined;
+const getErrorMessage = (cause: unknown) =>
+  cause instanceof Error && cause.message.trim().length > 0 ? cause.message.trim() : undefined;
 
-const mapCliConfigError = (message: string) => (error: unknown) =>
-  error instanceof CliConfigError
-    ? error
+const mapCliConfigError = (message: string) => (cause: unknown) =>
+  cause instanceof CliConfigError
+    ? cause
     : new CliConfigError({
-        message: getErrorMessage(error) ? `${message} ${getErrorMessage(error)}` : message,
+        message: getErrorMessage(cause) ? `${message} ${getErrorMessage(cause)}` : message,
       });
 
 const resolveConfigPath = (runtime: CliRuntimeService) =>
@@ -114,6 +115,7 @@ const resolveConfigPath = (runtime: CliRuntimeService) =>
 const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
   authFlowConfig: Effect.gen(function* () {
     const hostName = yield* runtime.getHostname;
+
     const value = yield* Config.all({
       appId: Config.succeed(PUTIO_CLI_APP_ID),
       clientName: optionalTrimmedString(ENV_CLI_CLIENT_NAME).pipe(
@@ -134,6 +136,7 @@ const makeCliConfig = (runtime: CliRuntimeService): CliConfigService => ({
     const apiBaseUrl = yield* optionalTrimmedString(ENV_API_BASE_URL).pipe(
       Config.map((value) => Option.getOrElse(value, () => DEFAULT_PUTIO_API_BASE_URL)),
     );
+
     const token = yield* optionalTrimmedString(ENV_CLI_TOKEN);
     const uploadBaseUrl = yield* optionalTrimmedString(ENV_UPLOAD_BASE_URL);
     const profile = yield* optionalTrimmedString(ENV_CLI_PROFILE);

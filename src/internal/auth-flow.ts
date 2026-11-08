@@ -2,6 +2,7 @@ import { DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
 import { Data, Duration, Effect } from "effect";
 
 export { resolveCliAuthFlowConfig as resolveAuthFlowConfig } from "./config.js";
+
 import { CliRuntime } from "./runtime.js";
 
 class PutioCliAuthFlowError extends Data.TaggedError("PutioCliAuthFlowError")<{
@@ -37,7 +38,7 @@ export const waitForDeviceToken = <R>(options: {
         ),
       );
 
-      if (typeof token === "string" && token.length > 0) {
+      if (token !== null && token.length > 0) {
         return token;
       }
 

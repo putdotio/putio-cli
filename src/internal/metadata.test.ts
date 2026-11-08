@@ -8,16 +8,21 @@ describe("describeCli", () => {
     const describeCommand = metadata.commands.find((command) => command.command === "describe");
     const whoamiCommand = metadata.commands.find((command) => command.command === "whoami");
     const filesListCommand = metadata.commands.find((command) => command.command === "files list");
+
     const filesDeleteCommand = metadata.commands.find(
       (command) => command.command === "files delete",
     );
+
     const filesMoveCommand = metadata.commands.find((command) => command.command === "files move");
+
     const filesRenameCommand = metadata.commands.find(
       (command) => command.command === "files rename",
     );
+
     const transfersListCommand = metadata.commands.find(
       (command) => command.command === "transfers list",
     );
+
     const authProfilesUseCommand = metadata.commands.find(
       (command) => command.command === "auth profiles use",
     );

@@ -27,7 +27,7 @@ describe("renderWhoamiTerminal", () => {
             theme: "auto",
           },
         },
-      } as never),
+      }),
     ).toContain("Account");
   });
 });

@@ -4,12 +4,20 @@ import { translate } from "../../i18n/index.js";
 import { formatNullable, humanFileSize } from "./format.js";
 import { renderKeyValueBlock } from "./layout.js";
 
+type WhoamiTerminalInfo = Pick<
+  AccountInfoBroad,
+  "account_status" | "family_owner" | "is_sub_account" | "mail" | "trash_size" | "username"
+> & {
+  readonly disk: Pick<AccountInfoBroad["disk"], "avail" | "size" | "used">;
+  readonly settings: Pick<AccountInfoBroad["settings"], "theme" | "two_factor_enabled">;
+};
+
 export const renderWhoamiTerminal = (value: {
   readonly auth: {
     readonly source: string;
     readonly apiBaseUrl: string;
   };
-  readonly info: AccountInfoBroad;
+  readonly info: WhoamiTerminalInfo;
 }) =>
   [
     renderKeyValueBlock(translate("cli.whoami.terminal.account"), [

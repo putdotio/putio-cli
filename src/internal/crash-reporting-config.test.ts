@@ -6,7 +6,7 @@ import {
   CRASH_REPORTING_DSN_REQUIRED_ENV,
   decodeCrashReportingConfig,
   loadCrashReportingConfig,
-  makeCrashReportingBuildDefines,
+  resolveCrashReportingBuildDefines,
 } from "./crash-reporting-config.js";
 
 const TEST_DSN = "https://0123456789abcdef0123456789abcdef@o1.ingest.us.sentry.io/123";
@@ -32,7 +32,7 @@ describe("crash-reporting build configuration", () => {
   });
 
   it("injects the validated DSN as a build constant", () => {
-    expect(makeCrashReportingBuildDefines({ [CRASH_REPORTING_DSN_ENV]: TEST_DSN })).toEqual({
+    expect(resolveCrashReportingBuildDefines({ [CRASH_REPORTING_DSN_ENV]: TEST_DSN })).toEqual({
       [CRASH_REPORTING_DSN_DEFINE]: JSON.stringify(TEST_DSN),
     });
   });
@@ -40,7 +40,7 @@ describe("crash-reporting build configuration", () => {
   it("allows secret-free local builds while disabling their reporter", () => {
     vi.stubEnv(CRASH_REPORTING_DSN_ENV, "");
 
-    expect(makeCrashReportingBuildDefines({})).toEqual({
+    expect(resolveCrashReportingBuildDefines({})).toEqual({
       [CRASH_REPORTING_DSN_DEFINE]: JSON.stringify(""),
     });
     expect(loadCrashReportingConfig()).toBeUndefined();
@@ -48,10 +48,10 @@ describe("crash-reporting build configuration", () => {
 
   it("fails release builds without a valid DSN", () => {
     expect(() =>
-      makeCrashReportingBuildDefines({ [CRASH_REPORTING_DSN_REQUIRED_ENV]: "true" }),
+      resolveCrashReportingBuildDefines({ [CRASH_REPORTING_DSN_REQUIRED_ENV]: "true" }),
     ).toThrow(`${CRASH_REPORTING_DSN_ENV} is required for release builds.`);
     expect(() =>
-      makeCrashReportingBuildDefines({ [CRASH_REPORTING_DSN_ENV]: "not-a-dsn" }),
+      resolveCrashReportingBuildDefines({ [CRASH_REPORTING_DSN_ENV]: "not-a-dsn" }),
     ).toThrow(`${CRASH_REPORTING_DSN_ENV} must be a valid HTTPS Sentry DSN.`);
   });
 });

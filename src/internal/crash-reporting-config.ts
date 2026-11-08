@@ -17,24 +17,29 @@ export type CrashReportingConfig = {
 
 const decodeSentryDsn = Schema.decodeUnknownOption(SentryDsnSchema);
 
-export const decodeCrashReportingConfig = (input: unknown): CrashReportingConfig | undefined => {
+export const decodeCrashReportingConfig = (
+  input: string | undefined,
+): CrashReportingConfig | undefined => {
   const dsn = Option.getOrUndefined(decodeSentryDsn(input));
+
   return dsn === undefined ? undefined : { dsn: dsn.toString() };
 };
 
 export const loadCrashReportingConfig = (): CrashReportingConfig | undefined =>
   decodeCrashReportingConfig(process.env.PUTIO_CLI_SENTRY_DSN);
 
-export const makeCrashReportingBuildDefines = (
+export const resolveCrashReportingBuildDefines = (
   environment: Readonly<Record<string, string | undefined>>,
 ) => {
   const rawDsn = environment[CRASH_REPORTING_DSN_ENV]?.trim();
+
   const config =
     rawDsn === undefined || rawDsn.length === 0 ? undefined : decodeCrashReportingConfig(rawDsn);
 
   if (rawDsn !== undefined && rawDsn.length > 0 && config === undefined) {
     throw new Error(`${CRASH_REPORTING_DSN_ENV} must be a valid HTTPS Sentry DSN.`);
   }
+
   if (environment[CRASH_REPORTING_DSN_REQUIRED_ENV] === "true" && config === undefined) {
     throw new Error(`${CRASH_REPORTING_DSN_ENV} is required for release builds.`);
   }

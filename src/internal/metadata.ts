@@ -24,19 +24,26 @@ import {
 import { PUTIO_CLI_APP_ID } from "./constants.js";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
+
 const ConfigStringFieldSchema = Schema.Struct({
   required: Schema.Boolean,
   type: Schema.Literal("string"),
 });
+
 const ConfigBooleanFieldSchema = Schema.Struct({
   required: Schema.Boolean,
   type: Schema.Literal("boolean"),
 });
-const PersistedProfileShapeSchema = Schema.Struct({
+
+const PERSISTED_CONFIG_CONTRACT_KEY = "persistedConfigShape";
+
+const PersistedProfileFieldsSchema = Schema.Struct({
   api_base_url: ConfigStringFieldSchema,
   auth_token: ConfigStringFieldSchema,
 });
+
 const SupportedOutputModeSchema = Schema.Literals(["json", "text", "ndjson"] as const);
+
 const AutomationContractSchema = Schema.Struct({
   consumerSkillLibrary: Schema.Boolean,
   defaultNonInteractiveOutput: Schema.Literal("json"),
@@ -62,14 +69,14 @@ const CliMetadataSchema = Schema.Struct({
     loginOpensBrowserByDefault: Schema.Boolean,
     loginWebAppUrlEnv: NonEmptyStringSchema,
     persistedConfigEnv: NonEmptyStringSchema,
-    persistedConfigShape: Schema.Struct({
+    [PERSISTED_CONFIG_CONTRACT_KEY]: Schema.Struct({
       api_base_url: ConfigStringFieldSchema,
       auth_token: ConfigStringFieldSchema,
       default_profile: ConfigStringFieldSchema,
       profiles: Schema.Struct({
         required: Schema.Boolean,
         type: Schema.Literal("record"),
-        values: PersistedProfileShapeSchema,
+        values: PersistedProfileFieldsSchema,
       }),
       telemetry_disabled: ConfigBooleanFieldSchema,
     }),
@@ -140,7 +147,7 @@ export const describeCli = (
       loginOpensBrowserByDefault: false,
       loginWebAppUrlEnv: ENV_CLI_WEB_APP_URL,
       persistedConfigEnv: ENV_CLI_CONFIG_PATH,
-      persistedConfigShape: {
+      [PERSISTED_CONFIG_CONTRACT_KEY]: {
         api_base_url: { required: true, type: "string" },
         auth_token: { required: false, type: "string" },
         default_profile: { required: false, type: "string" },

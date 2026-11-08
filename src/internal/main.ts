@@ -22,9 +22,7 @@ export const handleCliCause = (cause: Cause.Cause<unknown>) => {
       yield* Effect.promise(async () => {
         try {
           await crashReporter.capture("effect_defect");
-        } catch {
-          // Reporting is best-effort and must never replace the command failure.
-        }
+        } catch {}
       });
     }
   });

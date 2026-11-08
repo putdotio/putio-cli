@@ -25,7 +25,7 @@ import {
   dryRunFlag,
   fieldsFlag,
   jsonFlag,
-  jsonShapeFromSchema,
+  jsonInputSpecFromSchema,
   outputFlag,
   pageAllFlag,
   type CommandSpec,
@@ -34,6 +34,7 @@ import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderTransfersTerminal } from "../internal/terminal/transfers-terminal.js";
+
 const perPageConfig = defineIntegerOption("per-page", { optional: true });
 const callbackUrlConfig = defineTextOption("callback-url", { optional: true });
 const transferIdConfig = defineIntegerOption("id");
@@ -99,7 +100,7 @@ const requiredTransferIds = (value: ReadonlyArray<number>, message: string) => {
 };
 
 export const isTerminalTransferStatus = (status: string) =>
-  WATCH_TERMINAL_STATUSES.includes(status as (typeof WATCH_TERMINAL_STATUSES)[number]);
+  WATCH_TERMINAL_STATUSES.some((terminalStatus) => terminalStatus === status);
 
 export const renderTransfers = (
   transfers: ReadonlyArray<{
@@ -166,7 +167,9 @@ const transfersList = Command.make(
         output: getOption(output),
         pageAll,
       });
+
       const perPageValue = Option.getOrElse(perPage, () => 20);
+
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.transfers.command.loading"),
@@ -397,16 +400,19 @@ const transfersWatch = Command.make(
         fields,
         output: getOption(output),
       });
+
       const intervalMs =
         Math.max(
           1,
           Option.getOrElse(intervalSeconds, () => 2),
         ) * 1_000;
+
       const timeoutMs =
         Math.max(
           1,
           Option.getOrElse(timeoutSeconds, () => 300),
         ) * 1_000;
+
       const startedAt = yield* Clock.currentTimeMillis;
 
       const result = yield* withTerminalLoader(
@@ -574,7 +580,7 @@ export const transfersCommandSpecs = [
         saveParentIdConfig.flag,
         urlConfig.flag,
       ],
-      json: jsonShapeFromSchema(TransfersAddInputSchema),
+      json: jsonInputSpecFromSchema(TransfersAddInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersAdd"),
@@ -590,7 +596,7 @@ export const transfersCommandSpecs = [
     command: "transfers cancel",
     input: {
       flags: [dryRunFlag(), transferIdsConfig.flag, jsonFlag(), outputFlag()],
-      json: jsonShapeFromSchema(TransfersCancelInputSchema),
+      json: jsonInputSpecFromSchema(TransfersCancelInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersCancel"),
@@ -606,7 +612,7 @@ export const transfersCommandSpecs = [
     command: "transfers retry",
     input: {
       flags: [dryRunFlag(), optionalTransferIdConfig.flag, jsonFlag(), outputFlag()],
-      json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
+      json: jsonInputSpecFromSchema(TransfersSingleIdInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersRetry"),
@@ -622,7 +628,7 @@ export const transfersCommandSpecs = [
     command: "transfers clean",
     input: {
       flags: [dryRunFlag(), transferIdsConfig.flag, jsonFlag(), outputFlag()],
-      json: jsonShapeFromSchema(TransfersCleanInputSchema),
+      json: jsonInputSpecFromSchema(TransfersCleanInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersClean"),
@@ -638,7 +644,7 @@ export const transfersCommandSpecs = [
     command: "transfers reannounce",
     input: {
       flags: [dryRunFlag(), optionalTransferIdConfig.flag, jsonFlag(), outputFlag()],
-      json: jsonShapeFromSchema(TransfersSingleIdInputSchema),
+      json: jsonInputSpecFromSchema(TransfersSingleIdInputSchema),
     },
     kind: "write",
     purpose: translate("cli.metadata.transfersReannounce"),
