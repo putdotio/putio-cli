@@ -119,9 +119,9 @@ const rateLimitLocalizer: MatchConditionLocalizer<unknown> = {
   },
 };
 
-const authLocalizers: APIErrorByStatusCodeLocalizer[] = [401, 403].map((status_code) => ({
-  kind: "api_status_code" as const,
-  status_code,
+const authLocalizer: APIErrorByStatusCodeLocalizer = {
+  kind: "api_status_code",
+  status_code: 401,
   localize: () => ({
     message: translate("app.auth.failed.title"),
     recoverySuggestion: {
@@ -132,7 +132,19 @@ const authLocalizers: APIErrorByStatusCodeLocalizer[] = [401, 403].map((status_c
       hints: [translate("cli.error.auth.loginHint"), translate("cli.error.auth.statusHint")],
     },
   }),
-}));
+};
+
+const forbiddenLocalizer: APIErrorByStatusCodeLocalizer = {
+  kind: "api_status_code",
+  status_code: 403,
+  localize: (error) => ({
+    message: translate("cli.error.forbidden.title"),
+    recoverySuggestion: {
+      type: "instruction",
+      description: getNestedErrorMessage(error) ?? translate("cli.error.forbidden.message"),
+    },
+  }),
+};
 
 const transportLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
@@ -216,7 +228,8 @@ const genericLocalizer: GenericErrorLocalizer = {
 
 export const cliSharedErrorLocalizers = [
   rateLimitLocalizer,
-  ...authLocalizers,
+  authLocalizer,
+  forbiddenLocalizer,
   transportLocalizer,
   validationLocalizer,
   authFlowLocalizer,
