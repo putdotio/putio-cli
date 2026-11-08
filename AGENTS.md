@@ -29,7 +29,7 @@ does not cover.
 
 - Docs only: `pnpm exec vp check .`, plus `pnpm exec vp run skills:lint` for `skills/*`; no runtime proof.
 - Source change: `pnpm exec vp run verify`. Prefer in-process tests unless the process boundary is the behavior under test; add command-path coverage when the `effect/cli` command boundary changes.
-- Commands, flags, or output: also `pnpm exec vp run build`, then run `./dist/bin.mjs describe` and the changed command with `--output json`; for auth changes, `./dist/bin.mjs whoami --fields auth --output json`.
+- Commands, flags, output, auth, or config persistence: also `pnpm exec vp run build`, then drive the changed command with the `verify-putio-cli` skill, which sandboxes the binary against a fixture API.
 - Standalone binary bundling: `pnpm exec vp run build:sea`, then `pnpm exec vp run verify:sea`.
 
 ## Hazards
