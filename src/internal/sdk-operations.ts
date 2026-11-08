@@ -8,24 +8,32 @@ export type SdkJsonValue = Schema.Schema.Type<typeof Schema.Json>;
 type DynamicSdkEffect = Effect.Effect<unknown, unknown, PutioSdkContext>;
 
 type ResolvedSdkOperation = {
-  readonly invoke: (args: ReadonlyArray<SdkJsonValue>) => DynamicSdkEffect;
+  readonly invoke: (args: ReadonlyArray<unknown>) => DynamicSdkEffect;
 };
 
-const unsupportedOperations = new Map<string, string>([
-  ["account.destroy", "accepts a positional account password"],
-  ["config.getKeyWith", "requires a runtime schema decoder"],
-  ["config.readWith", "requires a runtime schema decoder"],
-  ["events.getTorrent", "returns binary data"],
-  ["files.createUploadRequest", "requires a Blob-backed file input"],
-  ["files.upload", "requires a Blob-backed file input"],
-  ["oauth.setIcon", "requires a Blob-backed icon input"],
-  ["oauth.regenerateToken", "returns a credential as a scalar value"],
-]);
+const unsupportedOperationReasons = {
+  "account.destroy": "accepts a positional account password",
+  "config.getKeyWith": "requires a runtime schema decoder",
+  "config.readWith": "requires a runtime schema decoder",
+  "events.getTorrent": "returns binary data",
+  "files.createUploadRequest": "requires a Blob-backed file input",
+  "files.upload": "requires a Blob-backed file input",
+  "oauth.setIcon": "requires a Blob-backed icon input",
+  "oauth.regenerateToken": "returns a credential as a scalar value",
+} as const;
 
-const unsupportedNamespaces = new Map<string, string>([
-  ["auth", "authentication operations can expose credentials or approval codes"],
-  ["config", "arbitrary key-value operations can expose secret scalar values"],
-]);
+const unsupportedNamespaceReasons = {
+  auth: "authentication operations can expose credentials or approval codes",
+  config: "arbitrary key-value operations can expose secret scalar values",
+} as const;
+
+export type UnsupportedSdkOperation =
+  | keyof typeof unsupportedOperationReasons
+  | `${keyof typeof unsupportedNamespaceReasons}.${string}`;
+
+const unsupportedOperations = new Map<string, string>(Object.entries(unsupportedOperationReasons));
+
+const unsupportedNamespaces = new Map<string, string>(Object.entries(unsupportedNamespaceReasons));
 
 const operationSegmentPattern = /^[a-z][A-Za-z0-9]*$/u;
 const blockedOperationSegments = new Set(["__proto__", "constructor", "prototype"]);
@@ -194,7 +202,7 @@ export const resolveSdkOperation = <Client extends object>(
 export const invokeSdkOperation = <Client extends object>(
   client: Client,
   operation: string,
-  args: ReadonlyArray<SdkJsonValue>,
+  args: ReadonlyArray<unknown>,
 ): DynamicSdkEffect =>
   Effect.try({
     try: () => resolveSdkOperation(client, operation).invoke(args),

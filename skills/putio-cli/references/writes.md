@@ -20,12 +20,13 @@ putio files mkdir --json '{"name":"Projects","parent_id":9}' --output json
 putio files upload --json '{"path":"./movie.mp4","parent_id":42}' --output json
 putio files start-from reset --json '{"file_id":42}' --output json
 putio transfers add --json '[{"url":"https://example.com/file.torrent"}]' --output json
-putio sdk call --json '{"operation":"files.get","args":[42]}' --dry-run --output json
-putio sdk call --json '{"operation":"files.get","args":[42]}' --execute --output json
+putio sdk call --json '{"operation":"files.get","args":[{"id":42}]}' --dry-run --output json
+putio sdk call --json '{"operation":"files.get","args":[{"id":42}]}' --execute --output json
 ```
 
 Rules:
 
 - Take required keys from `describe`; never guess names.
 - Treat every `sdk call` operation as potentially mutating and inspect its dry-run before `--execute`.
+- `sdk call` args are the SDK function's positional parameters and must match its input schema. A mismatch fails with title `Invalid SDK arguments` before any request; `error.details` names the `operation` and the schema `issue` with its path.
 - `files upload` sends to `PUTIO_CLI_UPLOAD_BASE_URL`, or upload.put.io with the default API base. With a custom `PUTIO_CLI_API_BASE_URL` and no upload base, it fails before sending anything; set both together.

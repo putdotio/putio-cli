@@ -28,6 +28,7 @@ import {
   writeOutput,
 } from "../internal/output-service.js";
 import { sdk } from "../internal/sdk.js";
+import { decodeSdkOperationArgs } from "../internal/sdk-operation-args.js";
 import {
   invokeSdkOperation,
   listSdkOperations,
@@ -162,11 +163,13 @@ const sdkCall = Command.make(
         catch: (error) => error,
       });
 
+      const operationArgs = yield* decodeSdkOperationArgs(input.operation, input.args);
+
       if (mode === "dry-run") {
         return yield* writeDryRunPlan(
           "sdk call",
           {
-            args: redactSensitiveStructuredValues(input.args),
+            args: redactSensitiveStructuredValues(operationArgs),
             operation: input.operation,
           },
           getOption(output),
@@ -179,7 +182,7 @@ const sdkCall = Command.make(
           output: getOption(output),
         },
         withAuthedSdk(({ sdk: authedSdk }) =>
-          invokeSdkOperation(authedSdk, input.operation, input.args),
+          invokeSdkOperation(authedSdk, input.operation, operationArgs),
         ),
       );
 
@@ -219,6 +222,7 @@ const sdkCallJsonInputSpec = {
   ],
   rules: [
     "`operation` must be an own, JSON-callable SDK function path returned by `sdk list`.",
+    "`args` must match the operation's positional input schema; a mismatch fails before any request.",
     "Exactly one of `--dry-run` or `--execute` is required.",
   ],
 } satisfies JsonInputSpec;

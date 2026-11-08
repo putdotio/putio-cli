@@ -121,11 +121,14 @@ putio files upload --path ./movie.mp4 --parent-id 42 --output json
 ```
 
 Call an SDK operation that has no dedicated command. `sdk call` treats every
-operation as mutating and needs exactly one of `--dry-run` or `--execute`:
+operation as mutating and needs exactly one of `--dry-run` or `--execute`.
+`--args` is a JSON array of the SDK function's positional parameters. It must
+match that function's input schema; a mismatch fails with
+`Invalid SDK arguments` before any request:
 
 ```bash
 putio sdk list --output json
-putio sdk call --operation files.get --args '[42]' --dry-run --output json
+putio sdk call --operation files.get --args '[{"id":42}]' --dry-run --output json
 ```
 
 Structured failures exit with status 1 and write JSON to stderr. Read

@@ -1,8 +1,10 @@
 import { putioSdkLiveLayer } from "@putdotio/sdk";
-import { Effect } from "effect";
+import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CliCommandInputError } from "./command.js";
+import { sdk } from "./sdk.js";
+import { decodeSdkOperationArgs } from "./sdk-operation-args.js";
 import {
   invokeSdkOperation,
   listSdkOperations,
@@ -135,6 +137,20 @@ describe("sdk operations", () => {
         invokeSdkOperation(client, "helpers.join", ["a", "b"]).pipe(Effect.provide(sdkLayer)),
       ),
     ).resolves.toBe("a:b");
+  });
+
+  it("defines an argument schema for every advertised SDK operation", async () => {
+    const missing = [];
+
+    for (const operation of listSdkOperations(sdk).operations) {
+      const exit = await Effect.runPromiseExit(decodeSdkOperationArgs(operation, [{}, {}, {}]));
+
+      if (Exit.isFailure(exit) && String(exit.cause).includes("No argument schema")) {
+        missing.push(operation);
+      }
+    }
+
+    expect(missing).toEqual([]);
   });
 
   it("normalizes void to null and rejects non-JSON results", () => {

@@ -1,7 +1,7 @@
 import { createPutioSdkEffectClient, putioSdkLiveLayer, type PutioSdkContext } from "@putdotio/sdk";
 import { Context, Effect, Layer } from "effect";
 
-type CliSdkClient = ReturnType<typeof createPutioSdkEffectClient>;
+export type CliSdkClient = ReturnType<typeof createPutioSdkEffectClient>;
 
 export const sdk = createPutioSdkEffectClient();
 
