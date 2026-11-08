@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/index.ts", "src/bin.ts", "src/sea.ts"],
+  "entry": ["src/index.ts", "src/bin.ts", "src/sea.ts", ".agents/skills/*/scripts/*.mjs"],
   "ignore": ["tools/oxlint/anti-slop/**"],
   "ignoreDependencies": ["@effect/platform-node-shared", "postject"]
 }

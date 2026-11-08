@@ -3,6 +3,7 @@ node_modules
 dist
 coverage
 .artifacts
+.evidence
 .claude/worktrees/
 *.log
 .DS_Store
