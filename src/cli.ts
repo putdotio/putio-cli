@@ -2,7 +2,7 @@ import { CliError, Command } from "effect/cli";
 import { Console, Effect, Predicate, Result, type Scope } from "effect";
 import packageJson from "../package.json";
 
-import { authCommand } from "./commands/auth.js";
+import { authCommand, rejectInlineAuthToken } from "./commands/auth.js";
 import { brandCommand, versionCommand } from "./commands/brand.js";
 import { downloadLinksCommand } from "./commands/download-links.js";
 import { eventsCommand } from "./commands/events.js";
@@ -171,6 +171,8 @@ export const runCli: (
   const runtime = yield* CliRuntime;
   const outputMode = detectOutputModeFromArgv(args, runtime.isInteractiveTerminal);
   const commandArgs = commandArgsFromArgv(args, runtime.isSingleExecutable);
+
+  yield* rejectInlineAuthToken(commandArgs);
 
   yield* Effect.annotateCurrentSpan({
     "cli.command": commandArgs[0] ?? "root",

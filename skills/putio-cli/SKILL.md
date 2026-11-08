@@ -22,7 +22,7 @@ description: "Operate the put.io CLI as a consumer for put.io authentication, fi
 Load only the reference the task needs:
 
 - runtime contract and SDK fallback: [`references/discovery.md`](references/discovery.md)
-- login, profiles, device approval, headless auth: [`references/auth.md`](references/auth.md)
+- login, token profiles, profiles, device approval, headless auth: [`references/auth.md`](references/auth.md)
 - `--fields`, `--page-all`, and `ndjson` reads: [`references/reads.md`](references/reads.md)
 - `--json` and `--dry-run` writes: [`references/writes.md`](references/writes.md)
 - error classification, input and output safety: [`references/guardrails.md`](references/guardrails.md)

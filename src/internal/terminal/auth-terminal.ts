@@ -77,7 +77,8 @@ export const renderAuthLoginTerminal = (value: {
 
 export const renderAuthLoginSuccessTerminal = (value: {
   readonly apiBaseUrl: string;
-  readonly browserOpened: boolean;
+  readonly authMethod: string;
+  readonly browserOpened?: boolean;
   readonly configPath: string;
   readonly profile?: string | null;
 }) =>
@@ -90,10 +91,17 @@ export const renderAuthLoginSuccessTerminal = (value: {
           value: value.profile ?? translate("cli.common.none"),
         }),
         translate("cli.auth.success.apiBaseUrl", { value: value.apiBaseUrl }),
+        translate("cli.auth.success.authMethod", { value: value.authMethod }),
         translate("cli.auth.success.configPath", { value: value.configPath }),
-        translate("cli.auth.success.browserOpened", {
-          value: value.browserOpened ? translate("cli.common.yes") : translate("cli.common.no"),
-        }),
+        ...(value.browserOpened === undefined
+          ? []
+          : [
+              translate("cli.auth.success.browserOpened", {
+                value: value.browserOpened
+                  ? translate("cli.common.yes")
+                  : translate("cli.common.no"),
+              }),
+            ]),
       ],
       {
         paddingX: 2,

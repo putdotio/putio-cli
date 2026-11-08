@@ -10,8 +10,13 @@ import { CliRuntime } from "./runtime.js";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 
+const AuthMethodSchema = Schema.Literals(["device", "token"] as const);
+
+export type AuthMethod = Schema.Schema.Type<typeof AuthMethodSchema>;
+
 export const PutioCliProfileConfigSchema = Schema.Struct({
   api_base_url: Schema.optional(NonEmptyStringSchema),
+  auth_method: Schema.optional(AuthMethodSchema),
   auth_token: Schema.optional(NonEmptyStringSchema),
 });
 
@@ -19,6 +24,7 @@ export type PutioCliProfileConfig = Schema.Schema.Type<typeof PutioCliProfileCon
 
 export const PutioCliConfigSchema = Schema.Struct({
   api_base_url: NonEmptyStringSchema,
+  auth_method: Schema.optional(AuthMethodSchema),
   auth_token: Schema.optional(NonEmptyStringSchema),
   default_profile: Schema.optional(NonEmptyStringSchema),
   profiles: Schema.optional(Schema.Record(Schema.String, PutioCliProfileConfigSchema)),
@@ -39,6 +45,7 @@ export type ResolvedAuthState = Schema.Schema.Type<typeof ResolvedAuthStateSchem
 
 export const AuthStatusSchema = Schema.Struct({
   apiBaseUrl: NonEmptyStringSchema,
+  authMethod: Schema.NullOr(AuthMethodSchema),
   authenticated: Schema.Boolean,
   configPath: NonEmptyStringSchema,
   defaultProfile: Schema.NullOr(NonEmptyStringSchema),
@@ -50,6 +57,7 @@ export type AuthStatus = Schema.Schema.Type<typeof AuthStatusSchema>;
 
 export const AuthProfileSummarySchema = Schema.Struct({
   apiBaseUrl: NonEmptyStringSchema,
+  authMethod: Schema.NullOr(AuthMethodSchema),
   authenticated: Schema.Boolean,
   current: Schema.Boolean,
   name: NonEmptyStringSchema,
@@ -89,6 +97,7 @@ export type CliStateService = {
   readonly savePersistedState: (
     state: {
       readonly apiBaseUrl?: string;
+      readonly authMethod: AuthMethod;
       readonly token: string;
     },
     configPath?: string,
@@ -252,6 +261,12 @@ export const parsePersistedConfig = (raw: string): PutioCliConfig => {
 const profileConfigApiBaseUrl = (state: PutioCliConfig, profile: PutioCliProfileConfig) =>
   profile.api_base_url ?? state.api_base_url;
 
+const storedAuthMethod = (entry: {
+  readonly auth_method?: AuthMethod;
+  readonly auth_token?: string;
+}): AuthMethod | null =>
+  Predicate.isString(entry.auth_token) ? (entry.auth_method ?? "device") : null;
+
 const selectProfileNameEffect = (input: {
   readonly explicitProfile?: string;
   readonly runtimeProfile?: string;
@@ -384,6 +399,7 @@ const setTelemetryEnabledEffect = (
 const savePersistedStateEffect = (
   state: {
     readonly apiBaseUrl?: string;
+    readonly authMethod: AuthMethod;
     readonly token: string;
   },
   configPath?: string,
@@ -417,6 +433,7 @@ const savePersistedStateEffect = (
       const nextProfile: PutioCliProfileConfig = {
         api_base_url:
           state.apiBaseUrl ?? existingProfile?.api_base_url ?? persistedState.api_base_url,
+        auth_method: state.authMethod,
         auth_token: state.token,
       };
 
@@ -444,6 +461,7 @@ const savePersistedStateEffect = (
     const nextState: PutioCliConfig = {
       ...persistedState,
       api_base_url: state.apiBaseUrl ?? persistedState.api_base_url,
+      auth_method: state.authMethod,
       auth_token: state.token,
     };
 
@@ -520,6 +538,7 @@ const clearPersistedStateEffect = (
 
     const nextState: PutioCliConfig = {
       ...existingConfig,
+      auth_method: undefined,
       auth_token: undefined,
     };
 
@@ -550,6 +569,7 @@ const listProfilesEffect = (): Effect.Effect<
     const profiles = Object.entries(state?.profiles ?? {})
       .map(([name, profile]) => ({
         apiBaseUrl: profileConfigApiBaseUrl(state ?? makeEmptyState(), profile),
+        authMethod: storedAuthMethod(profile),
         authenticated: Predicate.isString(profile.auth_token),
         current: currentProfile === name,
         name,
@@ -571,6 +591,7 @@ const getAuthStatusEffect = (
 
     if (runtime.token) {
       return {
+        authMethod: null,
         authenticated: true,
         source: "env",
         apiBaseUrl: runtime.apiBaseUrl,
@@ -594,6 +615,7 @@ const getAuthStatusEffect = (
     if (selectedProfile) {
       if (state === null) {
         return {
+          authMethod: null,
           authenticated: false,
           source: null,
           apiBaseUrl: runtime.apiBaseUrl,
@@ -607,6 +629,7 @@ const getAuthStatusEffect = (
 
       return profile === undefined || !Predicate.isString(profile.auth_token)
         ? {
+            authMethod: null,
             authenticated: false,
             source: null,
             apiBaseUrl: runtime.apiBaseUrl,
@@ -615,6 +638,7 @@ const getAuthStatusEffect = (
             profile: selectedProfile,
           }
         : {
+            authMethod: storedAuthMethod(profile),
             authenticated: true,
             source: "profile",
             apiBaseUrl: profileConfigApiBaseUrl(state, profile),
@@ -626,6 +650,7 @@ const getAuthStatusEffect = (
 
     return state === null
       ? {
+          authMethod: null,
           authenticated: false,
           source: null,
           apiBaseUrl: runtime.apiBaseUrl,
@@ -634,6 +659,7 @@ const getAuthStatusEffect = (
           profile: null,
         }
       : {
+          authMethod: storedAuthMethod(state),
           authenticated: Predicate.isString(state.auth_token),
           source: Predicate.isString(state.auth_token) ? "config" : null,
           apiBaseUrl: state.api_base_url,
@@ -820,6 +846,7 @@ export const loadPersistedState = (configPath?: string) =>
 export const savePersistedState = (
   state: {
     readonly apiBaseUrl?: string;
+    readonly authMethod: AuthMethod;
     readonly token: string;
   },
   configPath?: string,

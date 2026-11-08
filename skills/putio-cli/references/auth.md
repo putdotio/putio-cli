@@ -18,6 +18,20 @@ putio auth profiles use automation
 `--timeout-seconds` bounds the wait, pending polls included. A timeout saves no
 partial auth state.
 
+Save an existing token as a profile. The CLI validates it with put.io before it
+writes anything; a rejected token saves nothing. Never pass the token as an
+argument or print it:
+
+```bash
+putio auth login --profile web --token
+printf '%s' "$TOKEN" | putio auth login --profile ci --token-stdin --output json
+```
+
+- `--token` prompts without echo and fails outside an interactive terminal.
+- `--token-stdin` reads the whole of stdin; use it in scripts.
+- Neither combines with `--open` or `--timeout-seconds`.
+- `auth status` and `auth profiles list` report `authMethod`: `token`, `device`, or `null` when unauthenticated or env-sourced.
+
 Preview a device-link URL without requesting or approving a real code:
 
 ```bash

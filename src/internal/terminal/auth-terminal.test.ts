@@ -36,6 +36,7 @@ describe("renderAuthLoginSuccessTerminal", () => {
   it("renders a branded success summary", () => {
     const output = renderAuthLoginSuccessTerminal({
       apiBaseUrl: "https://api.put.io",
+      authMethod: "device",
       browserOpened: true,
       configPath: "/tmp/putio/config.json",
     });
