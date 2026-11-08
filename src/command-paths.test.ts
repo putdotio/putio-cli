@@ -700,6 +700,34 @@ describe("file writes", () => {
     ]);
   });
 
+  it("reports a refused move as a permission error, not a sign-in failure", async () => {
+    const refusal =
+      "You don't have the permission to access the requested resource. It is either read-protected or not readable by the server.";
+
+    api.route("POST /v2/files/move", {
+      body: {
+        error_message: refusal,
+        error_type: "Forbidden",
+        status: "ERROR",
+        status_code: 403,
+      },
+      status: 403,
+    });
+
+    const run = await putio("files", "move", "--id", "1", "--parent-id", "3", "--output", "json");
+    const error = stderrJson(run).error;
+
+    expect(run.exitCode).toBe(1);
+    expect(error).toMatchObject({
+      httpStatusCode: 403,
+      statusCode: 403,
+      errorType: "Forbidden",
+      message: refusal,
+    });
+    expect(error).not.toMatchObject({ title: "Authentication failed" });
+    expect(JSON.stringify(error)).not.toContain("putio auth login");
+  });
+
   it("reads a watch position", async () => {
     api.route("GET /v2/files/42/start-from", ok({ start_from: 90 }));
 

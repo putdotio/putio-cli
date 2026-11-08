@@ -118,6 +118,10 @@ export const en = {
         title: "Command failed",
         message: "Command failed.",
       },
+      forbidden: {
+        title: "Permission denied",
+        message: "You don't have permission to do that.",
+      },
       config: {
         title: "Configuration error",
         message: "The CLI configuration is invalid or incomplete.",
