@@ -327,12 +327,16 @@ const persistConfigEffect = (
         .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
     }
 
+    const targetPath = yield* fs.realPath(effectiveConfigPath).pipe(
+      Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(effectiveConfigPath)),
+      Effect.mapError((error) => mapFileSystemError(error, message)),
+    );
+
     yield* fs
-      .makeDirectory(runtime.dirname(effectiveConfigPath), { recursive: true })
+      .makeDirectory(runtime.dirname(targetPath), { recursive: true })
       .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
 
-    const suffix = yield* Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER);
-    const tempPath = `${effectiveConfigPath}.${suffix.toString(36)}.tmp`;
+    const tempPath = `${targetPath}.${yield* makeUniqueToken}.tmp`;
 
     yield* fs
       .writeFileString(tempPath, `${JSON.stringify(state, null, 2)}\n`, {
@@ -341,37 +345,65 @@ const persistConfigEffect = (
       })
       .pipe(
         Effect.andThen(fs.chmod(tempPath, CONFIG_FILE_MODE)),
-        Effect.andThen(fs.rename(tempPath, effectiveConfigPath)),
+        Effect.andThen(fs.rename(tempPath, targetPath)),
         Effect.onError(() => fs.remove(tempPath, { force: true }).pipe(Effect.ignore)),
         Effect.mapError((error) => mapFileSystemError(error, message)),
       );
   });
 
+const makeUniqueToken = Effect.map(Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER), (value) =>
+  value.toString(36),
+);
+
 class ConfigLockBusy extends Data.TaggedError("ConfigLockBusy")<{
   readonly lockPath: string;
 }> {}
 
-const removeStaleConfigLock = (fs: FileSystem.FileSystem, lockPath: string) =>
+const isStaleLockFile = (fs: FileSystem.FileSystem, path: string) =>
   Effect.gen(function* () {
     const info = yield* fs
-      .stat(lockPath)
+      .stat(path)
       .pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(null)));
 
     if (info === null || Option.isNone(info.mtime)) {
-      return;
+      return false;
     }
 
     const now = yield* Clock.currentTimeMillis;
 
-    if (now - info.mtime.value.getTime() > CONFIG_LOCK_STALE_AFTER_MS) {
-      yield* fs.remove(lockPath, { force: true });
+    return now - info.mtime.value.getTime() > CONFIG_LOCK_STALE_AFTER_MS;
+  });
+
+const removeIfStale = (fs: FileSystem.FileSystem, path: string) =>
+  Effect.gen(function* () {
+    if (yield* isStaleLockFile(fs, path)) {
+      yield* fs.remove(path, { force: true });
     }
   });
 
-const acquireConfigLock = (fs: FileSystem.FileSystem, lockPath: string) =>
-  fs.writeFileString(lockPath, "", { flag: "wx", mode: CONFIG_FILE_MODE }).pipe(
+const breakStaleConfigLock = (fs: FileSystem.FileSystem, lockPath: string) => {
+  const breakerPath = `${lockPath}.break`;
+
+  return Effect.gen(function* () {
+    if (!(yield* isStaleLockFile(fs, lockPath))) {
+      return;
+    }
+
+    yield* fs.writeFileString(breakerPath, "", { flag: "wx", mode: CONFIG_FILE_MODE }).pipe(
+      Effect.andThen(
+        removeIfStale(fs, lockPath).pipe(
+          Effect.ensuring(fs.remove(breakerPath, { force: true }).pipe(Effect.ignore)),
+        ),
+      ),
+      Effect.catchReason("PlatformError", "AlreadyExists", () => removeIfStale(fs, breakerPath)),
+    );
+  });
+};
+
+const acquireConfigLock = (fs: FileSystem.FileSystem, lockPath: string, token: string) =>
+  fs.writeFileString(lockPath, token, { flag: "wx", mode: CONFIG_FILE_MODE }).pipe(
     Effect.catchReason("PlatformError", "AlreadyExists", () =>
-      removeStaleConfigLock(fs, lockPath).pipe(
+      breakStaleConfigLock(fs, lockPath).pipe(
         Effect.andThen(Effect.fail(new ConfigLockBusy({ lockPath }))),
       ),
     ),
@@ -380,6 +412,14 @@ const acquireConfigLock = (fs: FileSystem.FileSystem, lockPath: string) =>
       times: CONFIG_LOCK_MAX_RETRIES,
       while: (error) => error instanceof ConfigLockBusy,
     }),
+  );
+
+const releaseConfigLock = (fs: FileSystem.FileSystem, lockPath: string, token: string) =>
+  fs.readFileString(lockPath, "utf8").pipe(
+    Effect.flatMap((owner) =>
+      owner === token ? fs.remove(lockPath, { force: true }) : Effect.void,
+    ),
+    Effect.ignore,
   );
 
 const withConfigLock = <A, E, R>(
@@ -391,10 +431,11 @@ const withConfigLock = <A, E, R>(
     const fs = yield* FileSystem.FileSystem;
     const runtime = yield* CliRuntime;
     const lockPath = `${effectiveConfigPath}.lock`;
+    const token = yield* makeUniqueToken;
 
     return yield* Effect.acquireUseRelease(
       fs.makeDirectory(runtime.dirname(effectiveConfigPath), { recursive: true }).pipe(
-        Effect.andThen(acquireConfigLock(fs, lockPath)),
+        Effect.andThen(acquireConfigLock(fs, lockPath, token)),
         Effect.mapError(
           (cause) =>
             new AuthStateError({
@@ -407,7 +448,7 @@ const withConfigLock = <A, E, R>(
         ),
       ),
       () => effect,
-      () => fs.remove(lockPath, { force: true }).pipe(Effect.ignore),
+      () => releaseConfigLock(fs, lockPath, token),
     );
   });
 

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -173,6 +173,35 @@ describe("resolveConfigPath", () => {
 
     expect(persisted.telemetry_disabled).toBe(true);
     expect(Object.keys(persisted.profiles ?? {}).sort()).toEqual([...profileNames].sort());
+  });
+
+  it("updates the target of a symlinked config without replacing the link", async () => {
+    const dir = await makeTempDirectory();
+    const targetPath = join(dir, "managed.json");
+    const configPath = join(dir, "config.json");
+    await writeFile(
+      targetPath,
+      JSON.stringify({ api_base_url: "https://api.put.io", auth_token: "stored-token" }),
+      "utf8",
+    );
+    await symlink(targetPath, configPath);
+
+    await Effect.runPromise(
+      setTelemetryEnabled(false).pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({ PUTIO_CLI_CONFIG_PATH: configPath }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect((await lstat(configPath)).isSymbolicLink()).toBe(true);
+    expect(parsePersistedConfig(await readFile(targetPath, "utf8"))).toEqual({
+      api_base_url: "https://api.put.io",
+      auth_token: "stored-token",
+      telemetry_disabled: true,
+    });
   });
 
   it("recovers from a lock left behind by a dead process", async () => {
