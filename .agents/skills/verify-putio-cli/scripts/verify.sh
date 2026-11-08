@@ -3,7 +3,7 @@ set -euo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT="$(git -C "$SKILL_DIR" rev-parse --show-toplevel)"
-BASE="$ROOT/.artifacts/verify-putio-cli"
+BASE="$ROOT/.evidence/verify-putio-cli"
 BIN="$ROOT/dist/bin.mjs"
 
 usage() {

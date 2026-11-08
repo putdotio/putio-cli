@@ -30,7 +30,7 @@ The fixture API (`scripts/fixture-api.mjs`) accepts only `fixture-token`, answer
 
 ## Evidence
 
-`.artifacts/verify-putio-cli/<run>/evidence/` (gitignored) holds `run.txt` (revision, dirty-path count, binary hash), `requests.jsonl`, and one numbered directory per step: `command.txt`, then `stdout.txt`, `stderr.txt`, `exit.txt` for pipes, or `screen-<label>.txt` and `pane.txt` (`dead status`) for a PTY.
+`.evidence/verify-putio-cli/<run>/evidence/` (gitignored) holds `run.txt` (revision, dirty-path count, binary hash), `requests.jsonl`, and one numbered directory per step: `command.txt`, then `stdout.txt`, `stderr.txt`, `exit.txt` for pipes, or `screen-<label>.txt` and `pane.txt` (`dead status`) for a PTY.
 
 A proof shows the action and the resulting state:
 
