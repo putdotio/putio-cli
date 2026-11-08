@@ -4,18 +4,9 @@ overrides:
   "@putdotio/sdk>effect": "$effect"
 
 allowBuilds:
-  "@parcel/watcher": true
-  "@playwright/browser-chromium": false
-  "@swc/core": false
   esbuild: true
-  msgpackr-extract: true
-  onnxruntime-node: false
-  protobufjs: false
-  sharp: false
 
 minimumReleaseAgeExclude:
-  - knip@6.31.0
-  - "@uinaf/skillcheck@0.4.0"
   - "@putdotio/sdk@14.0.0"
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.5.0
