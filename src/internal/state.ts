@@ -1,7 +1,18 @@
 import * as FileSystem from "effect/FileSystem";
 
 import { DEFAULT_PUTIO_API_BASE_URL } from "@putdotio/sdk";
-import { Context, Data, Effect, Layer, Predicate, Schema } from "effect";
+import {
+  Clock,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Option,
+  Predicate,
+  Random,
+  Schedule,
+  Schema,
+} from "effect";
 
 import { normalizeAuthProfileName } from "./auth-profile.js";
 import { CONFIG_FILE_MODE } from "./constants.js";
@@ -75,7 +86,12 @@ export type AuthProfileList = Schema.Schema.Type<typeof AuthProfileListSchema>;
 
 export class AuthStateError extends Data.TaggedError("AuthStateError")<{
   readonly message: string;
+  readonly cause?: unknown;
 }> {}
+
+const CONFIG_LOCK_RETRY_INTERVAL = "25 millis";
+const CONFIG_LOCK_MAX_RETRIES = 600;
+const CONFIG_LOCK_STALE_AFTER_MS = 10_000;
 
 type AuthProfileSelection = {
   readonly profile?: string;
@@ -170,6 +186,7 @@ const mapFileSystemError = (cause: unknown, message: string): AuthStateError =>
     ? cause
     : new AuthStateError({
         message,
+        cause,
       });
 
 const resolveAuthRuntimeConfig = () =>
@@ -310,17 +327,129 @@ const persistConfigEffect = (
         .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
     }
 
+    const targetPath = yield* fs.realPath(effectiveConfigPath).pipe(
+      Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(effectiveConfigPath)),
+      Effect.mapError((error) => mapFileSystemError(error, message)),
+    );
+
     yield* fs
-      .makeDirectory(runtime.dirname(effectiveConfigPath), { recursive: true })
+      .makeDirectory(runtime.dirname(targetPath), { recursive: true })
       .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
+
+    const tempPath = `${targetPath}.${yield* makeUniqueToken}.tmp`;
+
     yield* fs
-      .writeFileString(effectiveConfigPath, `${JSON.stringify(state, null, 2)}\n`, {
+      .writeFileString(tempPath, `${JSON.stringify(state, null, 2)}\n`, {
+        flag: "wx",
         mode: CONFIG_FILE_MODE,
       })
-      .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
-    yield* fs
-      .chmod(effectiveConfigPath, CONFIG_FILE_MODE)
-      .pipe(Effect.mapError((error) => mapFileSystemError(error, message)));
+      .pipe(
+        Effect.andThen(fs.chmod(tempPath, CONFIG_FILE_MODE)),
+        Effect.andThen(fs.rename(tempPath, targetPath)),
+        Effect.onError(() => fs.remove(tempPath, { force: true }).pipe(Effect.ignore)),
+        Effect.mapError((error) => mapFileSystemError(error, message)),
+      );
+  });
+
+const makeUniqueToken = Effect.map(Random.nextIntBetween(0, Number.MAX_SAFE_INTEGER), (value) =>
+  value.toString(36),
+);
+
+class ConfigLockBusy extends Data.TaggedError("ConfigLockBusy")<{
+  readonly lockPath: string;
+}> {}
+
+const isStaleLockFile = (fs: FileSystem.FileSystem, path: string) =>
+  Effect.gen(function* () {
+    const info = yield* fs
+      .stat(path)
+      .pipe(Effect.catchReason("PlatformError", "NotFound", () => Effect.succeed(null)));
+
+    if (info === null || Option.isNone(info.mtime)) {
+      return false;
+    }
+
+    const now = yield* Clock.currentTimeMillis;
+
+    return now - info.mtime.value.getTime() > CONFIG_LOCK_STALE_AFTER_MS;
+  });
+
+const removeIfStale = (fs: FileSystem.FileSystem, path: string) =>
+  Effect.gen(function* () {
+    if (yield* isStaleLockFile(fs, path)) {
+      yield* fs.remove(path, { force: true });
+    }
+  });
+
+const breakStaleConfigLock = (fs: FileSystem.FileSystem, lockPath: string) => {
+  const breakerPath = `${lockPath}.break`;
+
+  return Effect.gen(function* () {
+    if (!(yield* isStaleLockFile(fs, lockPath))) {
+      return;
+    }
+
+    yield* fs.writeFileString(breakerPath, "", { flag: "wx", mode: CONFIG_FILE_MODE }).pipe(
+      Effect.andThen(
+        removeIfStale(fs, lockPath).pipe(
+          Effect.ensuring(fs.remove(breakerPath, { force: true }).pipe(Effect.ignore)),
+        ),
+      ),
+      Effect.catchReason("PlatformError", "AlreadyExists", () => removeIfStale(fs, breakerPath)),
+    );
+  });
+};
+
+const acquireConfigLock = (fs: FileSystem.FileSystem, lockPath: string, token: string) =>
+  fs.writeFileString(lockPath, token, { flag: "wx", mode: CONFIG_FILE_MODE }).pipe(
+    Effect.catchReason("PlatformError", "AlreadyExists", () =>
+      breakStaleConfigLock(fs, lockPath).pipe(
+        Effect.andThen(Effect.fail(new ConfigLockBusy({ lockPath }))),
+      ),
+    ),
+    Effect.retry({
+      schedule: Schedule.spaced(CONFIG_LOCK_RETRY_INTERVAL),
+      times: CONFIG_LOCK_MAX_RETRIES,
+      while: (error) => error instanceof ConfigLockBusy,
+    }),
+  );
+
+const releaseConfigLock = (fs: FileSystem.FileSystem, lockPath: string, token: string) =>
+  fs.readFileString(lockPath, "utf8").pipe(
+    Effect.flatMap((owner) =>
+      owner === token ? fs.remove(lockPath, { force: true }) : Effect.void,
+    ),
+    Effect.ignore,
+  );
+
+const withConfigLock = <A, E, R>(
+  effectiveConfigPath: string,
+  message: string,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | AuthStateError, R | FileSystem.FileSystem | CliRuntime> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const runtime = yield* CliRuntime;
+    const lockPath = `${effectiveConfigPath}.lock`;
+    const token = yield* makeUniqueToken;
+
+    return yield* Effect.acquireUseRelease(
+      fs.makeDirectory(runtime.dirname(effectiveConfigPath), { recursive: true }).pipe(
+        Effect.andThen(acquireConfigLock(fs, lockPath, token)),
+        Effect.mapError(
+          (cause) =>
+            new AuthStateError({
+              message:
+                cause instanceof ConfigLockBusy
+                  ? `${message} Another putio process is updating the config; if none is running, remove ${lockPath}.`
+                  : message,
+              cause,
+            }),
+        ),
+      ),
+      () => effect,
+      () => releaseConfigLock(fs, lockPath, token),
+    );
   });
 
 const makeEmptyState = (apiBaseUrl = DEFAULT_PUTIO_API_BASE_URL): PutioCliConfig => ({
@@ -380,17 +509,20 @@ const setTelemetryEnabledEffect = (
 > =>
   Effect.gen(function* () {
     const configPath = yield* resolveTelemetryConfigPath();
-    const state = (yield* loadPersistedStateEffect(configPath)) ?? makeEmptyState();
+    const message = `Unable to update telemetry preference at ${configPath}.`;
 
-    const nextState: PutioCliConfig = {
-      ...state,
-      telemetry_disabled: enabled ? undefined : true,
-    };
-
-    yield* persistConfigEffect(
+    yield* withConfigLock(
       configPath,
-      nextState,
-      `Unable to update telemetry preference at ${configPath}.`,
+      message,
+      Effect.gen(function* () {
+        const state = (yield* loadPersistedStateEffect(configPath)) ?? makeEmptyState();
+
+        yield* persistConfigEffect(
+          configPath,
+          { ...state, telemetry_disabled: enabled ? undefined : true },
+          message,
+        );
+      }),
     );
 
     return { configPath, enabled };
@@ -416,66 +548,73 @@ const savePersistedStateEffect = (
   Effect.gen(function* () {
     const runtime = yield* resolveAuthRuntimeConfig();
     const effectiveConfigPath = configPath ?? runtime.configPath;
-    const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
 
-    const selectedProfile = yield* selectProfileNameEffect({
-      explicitProfile: selection.profile,
-      runtimeProfile: runtime.profile,
-      state: existingConfig,
-    });
-
-    const persistedState = existingConfig ?? makeEmptyState(state.apiBaseUrl);
-
-    if (selectedProfile) {
-      const existingProfiles = persistedState.profiles ?? {};
-      const existingProfile = existingProfiles[selectedProfile];
-
-      const nextProfile: PutioCliProfileConfig = {
-        api_base_url:
-          state.apiBaseUrl ?? existingProfile?.api_base_url ?? persistedState.api_base_url,
-        auth_method: state.authMethod,
-        auth_token: state.token,
-      };
-
-      const nextState: PutioCliConfig = {
-        ...persistedState,
-        profiles: {
-          ...existingProfiles,
-          [selectedProfile]: nextProfile,
-        },
-      };
-
-      yield* persistConfigEffect(
-        effectiveConfigPath,
-        nextState,
-        `Unable to write CLI config to ${effectiveConfigPath}.`,
-      );
-
-      return {
-        configPath: effectiveConfigPath,
-        profile: selectedProfile,
-        state: nextState,
-      };
-    }
-
-    const nextState: PutioCliConfig = {
-      ...persistedState,
-      api_base_url: state.apiBaseUrl ?? persistedState.api_base_url,
-      auth_method: state.authMethod,
-      auth_token: state.token,
-    };
-
-    yield* persistConfigEffect(
+    return yield* withConfigLock(
       effectiveConfigPath,
-      nextState,
       `Unable to write CLI config to ${effectiveConfigPath}.`,
-    );
+      Effect.gen(function* () {
+        const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
 
-    return {
-      configPath: effectiveConfigPath,
-      profile: null,
-      state: nextState,
-    };
+        const selectedProfile = yield* selectProfileNameEffect({
+          explicitProfile: selection.profile,
+          runtimeProfile: runtime.profile,
+          state: existingConfig,
+        });
+
+        const persistedState = existingConfig ?? makeEmptyState(state.apiBaseUrl);
+
+        if (selectedProfile) {
+          const existingProfiles = persistedState.profiles ?? {};
+          const existingProfile = existingProfiles[selectedProfile];
+
+          const nextProfile: PutioCliProfileConfig = {
+            api_base_url:
+              state.apiBaseUrl ?? existingProfile?.api_base_url ?? persistedState.api_base_url,
+            auth_method: state.authMethod,
+            auth_token: state.token,
+          };
+
+          const nextState: PutioCliConfig = {
+            ...persistedState,
+            profiles: {
+              ...existingProfiles,
+              [selectedProfile]: nextProfile,
+            },
+          };
+
+          yield* persistConfigEffect(
+            effectiveConfigPath,
+            nextState,
+            `Unable to write CLI config to ${effectiveConfigPath}.`,
+          );
+
+          return {
+            configPath: effectiveConfigPath,
+            profile: selectedProfile,
+            state: nextState,
+          };
+        }
+
+        const nextState: PutioCliConfig = {
+          ...persistedState,
+          api_base_url: state.apiBaseUrl ?? persistedState.api_base_url,
+          auth_method: state.authMethod,
+          auth_token: state.token,
+        };
+
+        yield* persistConfigEffect(
+          effectiveConfigPath,
+          nextState,
+          `Unable to write CLI config to ${effectiveConfigPath}.`,
+        );
+
+        return {
+          configPath: effectiveConfigPath,
+          profile: null,
+          state: nextState,
+        };
+      }),
+    );
   });
 
 const clearPersistedStateEffect = (
@@ -489,66 +628,77 @@ const clearPersistedStateEffect = (
   Effect.gen(function* () {
     const runtime = yield* resolveAuthRuntimeConfig();
     const effectiveConfigPath = configPath ?? runtime.configPath;
-    const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
 
-    const selectedProfile = yield* selectProfileNameEffect({
-      explicitProfile: selection.profile,
-      runtimeProfile: runtime.profile,
-      state: existingConfig,
-    });
-
-    if (existingConfig === null) {
-      return { cleared: false, configPath: effectiveConfigPath, profile: selectedProfile ?? null };
-    }
-
-    if (selectedProfile) {
-      const existingProfiles = existingConfig.profiles ?? {};
-      const existingProfile = existingProfiles[selectedProfile];
-
-      if (existingProfile === undefined) {
-        return { cleared: false, configPath: effectiveConfigPath, profile: selectedProfile };
-      }
-
-      const nextProfile: PutioCliProfileConfig = {
-        api_base_url: existingProfile.api_base_url ?? existingConfig.api_base_url,
-      };
-
-      const nextState: PutioCliConfig = {
-        ...existingConfig,
-        profiles: {
-          ...existingProfiles,
-          [selectedProfile]: nextProfile,
-        },
-      };
-
-      yield* persistConfigEffect(
-        effectiveConfigPath,
-        nextState,
-        `Unable to clear CLI auth state at ${effectiveConfigPath}.`,
-      );
-
-      return {
-        cleared: Predicate.isString(existingProfile.auth_token),
-        configPath: effectiveConfigPath,
-        profile: selectedProfile,
-      };
-    }
-
-    const hadLegacyToken = Predicate.isString(existingConfig.auth_token);
-
-    const nextState: PutioCliConfig = {
-      ...existingConfig,
-      auth_method: undefined,
-      auth_token: undefined,
-    };
-
-    yield* persistConfigEffect(
+    return yield* withConfigLock(
       effectiveConfigPath,
-      nextState,
       `Unable to clear CLI auth state at ${effectiveConfigPath}.`,
-    );
+      Effect.gen(function* () {
+        const existingConfig = yield* loadPersistedStateEffect(effectiveConfigPath);
 
-    return { cleared: hadLegacyToken, configPath: effectiveConfigPath, profile: null };
+        const selectedProfile = yield* selectProfileNameEffect({
+          explicitProfile: selection.profile,
+          runtimeProfile: runtime.profile,
+          state: existingConfig,
+        });
+
+        if (existingConfig === null) {
+          return {
+            cleared: false,
+            configPath: effectiveConfigPath,
+            profile: selectedProfile ?? null,
+          };
+        }
+
+        if (selectedProfile) {
+          const existingProfiles = existingConfig.profiles ?? {};
+          const existingProfile = existingProfiles[selectedProfile];
+
+          if (existingProfile === undefined) {
+            return { cleared: false, configPath: effectiveConfigPath, profile: selectedProfile };
+          }
+
+          const nextProfile: PutioCliProfileConfig = {
+            api_base_url: existingProfile.api_base_url ?? existingConfig.api_base_url,
+          };
+
+          const nextState: PutioCliConfig = {
+            ...existingConfig,
+            profiles: {
+              ...existingProfiles,
+              [selectedProfile]: nextProfile,
+            },
+          };
+
+          yield* persistConfigEffect(
+            effectiveConfigPath,
+            nextState,
+            `Unable to clear CLI auth state at ${effectiveConfigPath}.`,
+          );
+
+          return {
+            cleared: Predicate.isString(existingProfile.auth_token),
+            configPath: effectiveConfigPath,
+            profile: selectedProfile,
+          };
+        }
+
+        const hadLegacyToken = Predicate.isString(existingConfig.auth_token);
+
+        const nextState: PutioCliConfig = {
+          ...existingConfig,
+          auth_method: undefined,
+          auth_token: undefined,
+        };
+
+        yield* persistConfigEffect(
+          effectiveConfigPath,
+          nextState,
+          `Unable to clear CLI auth state at ${effectiveConfigPath}.`,
+        );
+
+        return { cleared: hadLegacyToken, configPath: effectiveConfigPath, profile: null };
+      }),
+    );
   });
 
 const listProfilesEffect = (): Effect.Effect<
@@ -679,35 +829,43 @@ const removeProfileEffect = (
   Effect.gen(function* () {
     const profileName = yield* validateProfileNameEffect(profile);
     const runtime = yield* resolveAuthRuntimeConfig();
-    const state = yield* loadPersistedStateEffect(runtime.configPath);
 
-    if (state === null || state.profiles?.[profileName] === undefined) {
-      return {
-        configPath: runtime.configPath,
-        profile: profileName,
-        removed: false,
-      };
-    }
-
-    const { [profileName]: _removed, ...remainingProfiles } = state.profiles;
-
-    const nextState: PutioCliConfig = {
-      ...state,
-      default_profile: state.default_profile === profileName ? undefined : state.default_profile,
-      profiles: Object.keys(remainingProfiles).length > 0 ? remainingProfiles : undefined,
-    };
-
-    yield* persistConfigEffect(
+    return yield* withConfigLock(
       runtime.configPath,
-      nextState,
       `Unable to remove auth profile \`${profileName}\` at ${runtime.configPath}.`,
-    );
+      Effect.gen(function* () {
+        const state = yield* loadPersistedStateEffect(runtime.configPath);
 
-    return {
-      configPath: runtime.configPath,
-      profile: profileName,
-      removed: true,
-    };
+        if (state === null || state.profiles?.[profileName] === undefined) {
+          return {
+            configPath: runtime.configPath,
+            profile: profileName,
+            removed: false,
+          };
+        }
+
+        const { [profileName]: _removed, ...remainingProfiles } = state.profiles;
+
+        const nextState: PutioCliConfig = {
+          ...state,
+          default_profile:
+            state.default_profile === profileName ? undefined : state.default_profile,
+          profiles: Object.keys(remainingProfiles).length > 0 ? remainingProfiles : undefined,
+        };
+
+        yield* persistConfigEffect(
+          runtime.configPath,
+          nextState,
+          `Unable to remove auth profile \`${profileName}\` at ${runtime.configPath}.`,
+        );
+
+        return {
+          configPath: runtime.configPath,
+          profile: profileName,
+          removed: true,
+        };
+      }),
+    );
   });
 
 const resolveAuthStateEffect = (
@@ -798,31 +956,38 @@ const useProfileEffect = (
   Effect.gen(function* () {
     const profileName = yield* validateProfileNameEffect(profile);
     const runtime = yield* resolveAuthRuntimeConfig();
-    const state = yield* loadPersistedStateEffect(runtime.configPath);
 
-    if (state?.profiles?.[profileName] === undefined) {
-      return yield* Effect.fail(
-        new AuthStateError({
-          message: `Auth profile \`${profileName}\` does not exist. Run \`putio auth login --profile ${profileName}\` first.`,
-        }),
-      );
-    }
-
-    const nextState: PutioCliConfig = {
-      ...state,
-      default_profile: profileName,
-    };
-
-    yield* persistConfigEffect(
+    return yield* withConfigLock(
       runtime.configPath,
-      nextState,
       `Unable to set the default auth profile at ${runtime.configPath}.`,
-    );
+      Effect.gen(function* () {
+        const state = yield* loadPersistedStateEffect(runtime.configPath);
 
-    return {
-      configPath: runtime.configPath,
-      profile: profileName,
-    };
+        if (state?.profiles?.[profileName] === undefined) {
+          return yield* Effect.fail(
+            new AuthStateError({
+              message: `Auth profile \`${profileName}\` does not exist. Run \`putio auth login --profile ${profileName}\` first.`,
+            }),
+          );
+        }
+
+        const nextState: PutioCliConfig = {
+          ...state,
+          default_profile: profileName,
+        };
+
+        yield* persistConfigEffect(
+          runtime.configPath,
+          nextState,
+          `Unable to set the default auth profile at ${runtime.configPath}.`,
+        );
+
+        return {
+          configPath: runtime.configPath,
+          profile: profileName,
+        };
+      }),
+    );
   });
 
 const makeCliState = (): CliStateService => ({
