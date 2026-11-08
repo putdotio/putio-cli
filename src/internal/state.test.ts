@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -18,6 +18,7 @@ import {
   getTelemetryStatus,
   listProfiles,
   loadPersistedState,
+  parsePersistedConfig,
   removeProfile,
   resolveAuthState,
   savePersistedState,
@@ -122,6 +123,80 @@ describe("resolveConfigPath", () => {
     });
   });
 
+  it("keeps every concurrent config update and never exposes a partial file", async () => {
+    const dir = await makeTempDirectory();
+    const configPath = join(dir, "config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify({ api_base_url: "https://api.put.io", auth_token: "stored-token" }),
+      "utf8",
+    );
+
+    const provideConfig = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect.pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({ PUTIO_CLI_CONFIG_PATH: configPath }),
+        ),
+        makeRuntimeLayer(),
+      );
+
+    const profileNames = Array.from({ length: 12 }, (_, index) => `writer-${index}`);
+
+    const writers = [
+      Effect.asVoid(setTelemetryEnabled(false)),
+      ...profileNames.map((profile) =>
+        Effect.asVoid(
+          savePersistedState({ authMethod: "token", token: `${profile}-token` }, configPath, {
+            profile,
+          }),
+        ),
+      ),
+    ];
+
+    const readers = Array.from({ length: 4 }, () =>
+      Effect.asVoid(loadPersistedState(configPath).pipe(Effect.repeat({ times: 200 }))),
+    );
+
+    const exits = await Effect.runPromise(
+      provideConfig(
+        Effect.all(
+          [...writers, ...readers].map((effect) => Effect.exit(effect)),
+          { concurrency: "unbounded" },
+        ),
+      ),
+    );
+
+    expect(exits.filter(Exit.isFailure)).toEqual([]);
+
+    const persisted = parsePersistedConfig(await readFile(configPath, "utf8"));
+
+    expect(persisted.telemetry_disabled).toBe(true);
+    expect(Object.keys(persisted.profiles ?? {}).sort()).toEqual([...profileNames].sort());
+  });
+
+  it("recovers from a lock left behind by a dead process", async () => {
+    const dir = await makeTempDirectory();
+    const configPath = join(dir, "config.json");
+    const lockPath = `${configPath}.lock`;
+    const abandonedAt = new Date(Date.now() - 60_000);
+    await writeFile(lockPath, "", "utf8");
+    await utimes(lockPath, abandonedAt, abandonedAt);
+
+    await Effect.runPromise(
+      setTelemetryEnabled(false).pipe(
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          ConfigProvider.fromUnknown({ PUTIO_CLI_CONFIG_PATH: configPath }),
+        ),
+        makeRuntimeLayer(),
+      ),
+    );
+
+    expect(parsePersistedConfig(await readFile(configPath, "utf8")).telemetry_disabled).toBe(true);
+    await expect(stat(lockPath)).rejects.toThrow();
+  });
+
   it("persists and clears the telemetry opt-out without changing auth state", async () => {
     const dir = await makeTempDirectory();
     const configPath = join(dir, "config.json");
@@ -168,6 +243,8 @@ describe("resolveConfigPath", () => {
           chmodModes.push(mode);
         }),
       makeDirectory: () => Effect.void,
+      remove: () => Effect.void,
+      rename: () => Effect.void,
       readFileString: (path) =>
         Effect.fail(
           PlatformError.systemError({
@@ -197,7 +274,7 @@ describe("resolveConfigPath", () => {
       ),
     );
 
-    expect(writeModes).toEqual([0o600]);
+    expect(writeModes).toEqual([0o600, 0o600]);
     expect(chmodModes).toEqual([0o600]);
   });
 
