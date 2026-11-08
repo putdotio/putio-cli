@@ -174,6 +174,12 @@ export const en = {
         retrySoon: "Wait a moment and try again.",
         avoidRepeating: "Avoid repeating the same command rapidly, especially `putio auth login`.",
       },
+      sdkArguments: {
+        title: "Invalid SDK arguments",
+        argsHint:
+          'Pass `--args` as a JSON array of the SDK function\'s positional parameters, for example `[{"id":1}]` for `files.get`.',
+        dryRunHint: "Check the arguments with `--dry-run` before `--execute`.",
+      },
       transfers: {
         add: {
           emptyUrl: {

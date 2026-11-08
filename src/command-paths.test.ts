@@ -1250,14 +1250,69 @@ describe("sdk call", () => {
     expect(api.requests).toEqual([]);
   });
 
+  it.each([
+    ["--execute", "positional id", "files.get", "[1607632314]", "Expected object at [0]"],
+    ["--execute", "extra element", "files.get", '[{"id":1},{"media_info":1}]', /at \[1\]/],
+    [
+      "--execute",
+      "unknown query key",
+      "files.get",
+      '[{"id":1,"querry":{"media_info":1}}]',
+      'Expected no excess property at [0]["querry"]',
+    ],
+    ["--dry-run", "missing argument", "transfers.get", "[]", "Missing key at [0]"],
+    ["--dry-run", "argument for a nullary operation", "zips.list", "[1]", /at \[0\]/],
+  ])("rejects %s args with %s before any request", async (mode, _label, operation, args, issue) => {
+    const run = await putio(
+      "sdk",
+      "call",
+      "--operation",
+      operation,
+      "--args",
+      args,
+      mode,
+      "--output",
+      "json",
+    );
+
+    expectFailure(
+      run,
+      `Expected \`sdk call\` arguments to match the \`${operation}\` input schema.`,
+    );
+    expect(stderrJson(run).error).toMatchObject({
+      details: [
+        ["operation", operation],
+        ["issue", Predicate.isString(issue) ? issue : expect.stringMatching(issue)],
+      ],
+      title: "Invalid SDK arguments",
+    });
+    expect(api.requests).toEqual([]);
+  });
+
+  it("validates raw-json args against the operation schema", async () => {
+    expectFailure(
+      await putio(
+        "sdk",
+        "call",
+        "--json",
+        '{"operation":"files.list","args":["root"]}',
+        "--execute",
+        "--output",
+        "json",
+      ),
+      "Expected `sdk call` arguments to match the `files.list` input schema.",
+    );
+    expect(api.requests).toEqual([]);
+  });
+
   it("redacts sentinel-looking secrets in dry-run plans", async () => {
     const run = await putio(
       "sdk",
       "call",
       "--operation",
-      "files.list",
+      "files.extract",
       "--args",
-      '[0,{"password":"null"}]',
+      '[{"ids":[7],"password":"null"}]',
       "--dry-run",
       "--output",
       "json",
@@ -1266,7 +1321,7 @@ describe("sdk call", () => {
     expect(stdoutJson(run)).toEqual({
       command: "sdk call",
       dryRun: true,
-      request: { args: [0, { password: "[REDACTED]" }], operation: "files.list" },
+      request: { args: [{ ids: [7], password: "[REDACTED]" }], operation: "files.extract" },
     });
     expect(api.requests).toEqual([]);
   });

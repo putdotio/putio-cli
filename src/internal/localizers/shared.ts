@@ -182,6 +182,37 @@ const validationLocalizer: MatchConditionLocalizer<unknown> = {
   }),
 };
 
+const sdkArgumentsLocalizer: MatchConditionLocalizer<unknown> = {
+  kind: "match_condition",
+  match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "CliSdkArgumentsError"),
+  localize: (error) => {
+    const value = isPlainRecord(error) ? error : {};
+
+    const operation =
+      "operation" in value && isNonEmptyString(value.operation) ? value.operation : undefined;
+
+    const issue = "issue" in value && isNonEmptyString(value.issue) ? value.issue : undefined;
+
+    return {
+      message: translate("cli.error.sdkArguments.title"),
+      recoverySuggestion: {
+        type: "instruction",
+        description: getNestedErrorMessage(error) ?? translate("cli.error.sdkArguments.title"),
+      },
+      meta: {
+        details: [
+          ...(operation ? ([["operation", operation]] as const) : []),
+          ...(issue ? ([["issue", issue]] as const) : []),
+        ],
+        hints: [
+          translate("cli.error.sdkArguments.argsHint"),
+          translate("cli.error.sdkArguments.dryRunHint"),
+        ],
+      },
+    };
+  },
+};
+
 const authFlowLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
   match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "PutioCliAuthFlowError"),
@@ -232,6 +263,7 @@ export const cliSharedErrorLocalizers = [
   forbiddenLocalizer,
   transportLocalizer,
   validationLocalizer,
+  sdkArgumentsLocalizer,
   authFlowLocalizer,
   configLocalizer,
   genericLocalizer,
