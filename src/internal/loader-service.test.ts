@@ -32,7 +32,7 @@ describe("shouldUseTerminalLoader", () => {
       };
 
       const exit = yield* withTerminalLoader(
-        { message: "Loading", output: "terminal" },
+        { message: "Loading", output: "text" },
         Effect.fail("boom"),
       ).pipe(Effect.provideService(CliRuntime, runtime), Effect.exit);
 
@@ -56,7 +56,7 @@ describe("shouldUseTerminalLoader", () => {
       };
 
       const fiber = yield* withTerminalLoader(
-        { message: "Loading", output: "terminal" },
+        { message: "Loading", output: "text" },
         Effect.never,
       ).pipe(Effect.provideService(CliRuntime, runtime), Effect.forkChild);
 

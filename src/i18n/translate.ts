@@ -60,7 +60,6 @@ const instance = i18next.createInstance();
 void instance.init({
   lng: "en",
   fallbackLng: "en",
-  showSupportNotice: false,
   interpolation: {
     escapeValue: false,
   },

@@ -1,6 +1,6 @@
 import { Command } from "effect/cli";
 import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
-import { Data, Effect, Option, Schema } from "effect";
+import { Data, Effect, Option, Predicate, Schema } from "effect";
 
 import {
   defineIntegerOption,
@@ -51,11 +51,14 @@ export { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
 
 export type DownloadLinksCreateInput = Schema.Schema.Type<typeof DownloadLinksCreateInputSchema>;
 
+const selectionIds = (value: ReadonlyArray<number> | string | undefined) =>
+  value === undefined || Predicate.isString(value) ? [] : value;
+
 export const resolveDownloadLinksCreateInput = (input: DownloadLinksCreateInput) => {
   const normalized = {
     cursor: input.cursor,
-    excludeIds: toOptionalIds(input.excludeIds ?? []),
-    ids: toOptionalIds(input.ids ?? []),
+    excludeIds: toOptionalIds(selectionIds(input.excludeIds)),
+    ids: toOptionalIds(selectionIds(input.ids)),
   };
 
   if (!normalized.cursor && !normalized.ids) {

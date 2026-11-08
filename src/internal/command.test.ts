@@ -282,7 +282,11 @@ describe("selectTopLevelFields", () => {
 });
 
 describe("collectAllCursorPages", () => {
-  type Page = { readonly cursor: string | null; readonly files: ReadonlyArray<number> };
+  type Page = {
+    readonly cursor: string | null;
+    readonly files: ReadonlyArray<number>;
+    readonly total?: number;
+  };
 
   const MAX_ITEMS = 100_000;
 

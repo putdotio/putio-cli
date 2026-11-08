@@ -387,7 +387,7 @@ describe("makeCrashReporter", () => {
       throw new Error("beforeSend was not installed");
     }
 
-    const sanitized = await beforeSend({
+    const sanitized = beforeSend({
       exception: { values: [{ value: "/private/file.mkv" }] },
       extra: { argv: ["--token", "secret"] },
       request: { url: "https://example.test/private" },
@@ -463,7 +463,7 @@ describe("makeCrashReporter", () => {
   });
 
   it("sends one allowlisted envelope through the concrete Sentry adapter", async () => {
-    const request = vi.fn(async () =>
+    const request = vi.fn(async (_url: string, _init?: RequestInit) =>
       Promise.resolve(
         new Response(undefined, {
           status: 202,

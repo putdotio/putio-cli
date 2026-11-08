@@ -8,13 +8,29 @@ import { CliRuntime, makeCliRuntime } from "./runtime.js";
 
 describe("handleCliCause", () => {
   it("preserves interrupt-only causes for NodeRuntime signal handling", async () => {
-    const exit = await Effect.runPromiseExit(handleCliCause(Cause.interrupt()));
+    const writeError = vi.fn(() => Effect.void);
+    const capture = vi.fn(() => Promise.resolve());
+
+    const exit = await Effect.runPromiseExit(
+      handleCliCause(Cause.interrupt()).pipe(
+        Effect.provideService(CliOutput, {
+          error: writeError,
+          formatError: () => "unused",
+          write: () => Effect.void,
+        }),
+        Effect.provideService(CliCrashReporter, { capture, decision: { enabled: true } }),
+        Effect.provideService(CliRuntime, makeCliRuntime()),
+      ),
+    );
 
     expect(exit._tag).toBe("Failure");
 
     if (Exit.isFailure(exit)) {
       expect(Cause.hasInterruptsOnly(exit.cause)).toBe(true);
     }
+
+    expect(writeError).not.toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
   });
 
   it("renders ordinary failures and sets the process exit code", async () => {

@@ -43,6 +43,10 @@ export default defineConfig({
     ignorePatterns: agentToolingIgnores,
   },
   lint: {
+    options: {
+      typeAware: true,
+      typeCheck: true,
+    },
     ignorePatterns: agentToolingIgnores,
     jsPlugins: [
       { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },

@@ -35,15 +35,12 @@ import {
   stringArgument,
   type CommandSpec,
 } from "../internal/command-specs.js";
-import type { CliConfig } from "../internal/config.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
-import type { CliOutput } from "../internal/output-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
 import { CliRuntime } from "../internal/runtime.js";
-import { provideSdk, sdk, type CliSdk } from "../internal/sdk.js";
+import { provideSdk, sdk } from "../internal/sdk.js";
 import {
-  type CliState,
   type AuthStatus,
   clearPersistedState,
   getAuthStatus,
@@ -87,24 +84,6 @@ const NonBlankStringSchema = Schema.String.check(
 const AuthApproveInputSchema = Schema.Struct({
   code: NonBlankStringSchema,
 });
-
-type AuthCommandEnvironment =
-  | Command.Environment
-  | CliConfig
-  | CliOutput
-  | CliRuntime
-  | CliSdk
-  | CliState;
-
-type EmptyCommandConfig = Record<string, never>;
-
-type AuthCommand = Command.Command<
-  "auth",
-  EmptyCommandConfig,
-  EmptyCommandConfig,
-  unknown,
-  AuthCommandEnvironment
->;
 
 const waitForOpenShortcut = (url: string) =>
   Effect.gen(function* () {
@@ -450,7 +429,7 @@ const authProfiles = Command.make("profiles", {}, () => Effect.void).pipe(
   Command.withSubcommands([authProfilesList, authProfilesUse, authProfilesRemove]),
 );
 
-export const authCommand: AuthCommand = Command.make("auth", {}, () =>
+export const authCommand = Command.make("auth", {}, () =>
   Console.log(translate("cli.root.chooseAuthSubcommand")),
 ).pipe(
   Command.withSubcommands([

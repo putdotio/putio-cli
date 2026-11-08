@@ -676,7 +676,7 @@ const smokeAuthProfiles = (binaryPath: string) => {
 };
 
 let mockApiProcess: ChildProcess | undefined;
-let didCreateInstallDir = false;
+let createdInstallDir: string | undefined;
 let interruptedBy: NodeJS.Signals | undefined;
 const commandController = new AbortController();
 const interruptHandlers = new Map<NodeJS.Signals, () => void>();
@@ -696,7 +696,7 @@ let cleanupError: unknown;
 
 try {
   installDir = mkdtempSync(join(tmpdir(), "putio-cli-install-"));
-  didCreateInstallDir = true;
+  createdInstallDir = installDir;
   configPath = join(installDir, "putio-config.json");
   rmSync(artifactsDir, { force: true, recursive: true });
   run("pnpm", ["pack", "--pack-destination", artifactsDir]);
@@ -887,16 +887,16 @@ try {
     }
   }
 
-  if (didCreateInstallDir) rmSync(installDir, { force: true, recursive: true });
+  if (createdInstallDir !== undefined) rmSync(createdInstallDir, { force: true, recursive: true });
 
   for (const [signal, handler] of interruptHandlers) process.off(signal, handler);
 }
 
 if (interruptedBy !== undefined) {
-  if (cleanupError !== undefined) console.error(`Packed-install cleanup failed: ${cleanupError}`);
+  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
   process.exitCode = interruptedBy === "SIGINT" ? 130 : 143;
 } else if (primaryError !== undefined) {
-  if (cleanupError !== undefined) console.error(`Packed-install cleanup failed: ${cleanupError}`);
+  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
   throw primaryError;
 } else if (cleanupError !== undefined) {
   throw cleanupError;

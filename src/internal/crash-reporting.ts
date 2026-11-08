@@ -51,7 +51,7 @@ export type CrashReporterService = {
 };
 
 type CrashSentryOptions = {
-  readonly beforeSend: (event: Sentry.Event) => Sentry.Event;
+  readonly beforeSend: (event: Sentry.Event) => Sentry.ErrorEvent;
   readonly dsn: string;
   readonly environment: string;
   readonly release: string;
@@ -104,17 +104,19 @@ const sentryAdapter: SentryAdapter = {
   captureEvent: Sentry.captureEvent,
   flush: Sentry.flush,
   init: ({ sanitizeEnvelope, ...options }) => {
-    Sentry.initAndBind(Sentry.ServerRuntimeClient, {
-      ...options,
-      attachStacktrace: false,
-      includeServerName: false,
-      integrations: [],
-      maxBreadcrumbs: 0,
-      platform: "node",
-      sendClientReports: false,
-      stackParser: () => [],
-      transport: (transportOptions) => makeFetchTransport(transportOptions, sanitizeEnvelope),
-    });
+    Sentry.initAndBind<Sentry.ServerRuntimeClient, Sentry.ServerRuntimeClientOptions>(
+      Sentry.ServerRuntimeClient,
+      {
+        ...options,
+        attachStacktrace: false,
+        integrations: [],
+        maxBreadcrumbs: 0,
+        platform: "node",
+        sendClientReports: false,
+        stackParser: () => [],
+        transport: (transportOptions) => makeFetchTransport(transportOptions, sanitizeEnvelope),
+      },
+    );
   },
 };
 
@@ -166,7 +168,7 @@ export const resolveCrashReporting = (
 ): CrashReportingDecision =>
   preference.disabled ? { enabled: false, reason: preference.reason } : { enabled: true };
 
-export const sanitizeCrashEvent = (event: Sentry.Event, kind: CrashKind): Sentry.Event => ({
+export const sanitizeCrashEvent = (event: Sentry.Event, kind: CrashKind): Sentry.ErrorEvent => ({
   environment: SENTRY_ENVIRONMENT,
   event_id: event.event_id,
   fingerprint: [SENTRY_MESSAGE, kind],
@@ -180,6 +182,7 @@ export const sanitizeCrashEvent = (event: Sentry.Event, kind: CrashKind): Sentry
     failure_kind: kind,
   },
   timestamp: event.timestamp,
+  type: undefined,
 });
 
 const EnvelopeCrashEvent = Schema.Struct({

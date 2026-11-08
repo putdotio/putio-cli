@@ -32,7 +32,7 @@ const seaConfig = join(buildDir, "sea-config.json");
 const seaSentinelFuse = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 const crashReportingBuildDefines = resolveCrashReportingBuildDefines(process.env);
 
-const localBin = (name) =>
+const localBin = (name: string) =>
   join(root, "node_modules", ".bin", `${name}${platform === "win32" ? ".cmd" : ""}`);
 
 type RunOptions = {

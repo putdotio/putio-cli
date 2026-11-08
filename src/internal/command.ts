@@ -236,12 +236,11 @@ const TOP_LEVEL_FIELD_PATTERN = /^[A-Za-z0-9_-]+$/u;
 const MAX_CURSOR_PAGES = 1_000;
 const MAX_CURSOR_ITEMS = 100_000;
 
-const hasControlCharacters = (value: string) =>
-  [...value].some((character) => {
-    const codePoint = character.codePointAt(0);
+const isControlCodePoint = (codePoint: number | undefined) =>
+  codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
 
-    return codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f);
-  });
+const hasControlCharacters = (value: string) =>
+  Array.from(value, (character) => character.codePointAt(0)).some(isControlCodePoint);
 
 const validateSafeString = (input: {
   readonly allowPathTraversal?: boolean;

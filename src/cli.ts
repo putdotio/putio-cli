@@ -1,5 +1,5 @@
 import { CliError, Command } from "effect/cli";
-import { Console, Effect, Predicate, Result } from "effect";
+import { Console, Effect, Predicate, Result, type Scope } from "effect";
 import packageJson from "../package.json";
 
 import { authCommand } from "./commands/auth.js";
@@ -156,7 +156,8 @@ type CliCommandEnvironment =
   | CliOutput
   | CliRuntime
   | CliSdk
-  | CliState;
+  | CliState
+  | Scope.Scope;
 
 export const runCli: (
   args: ReadonlyArray<string>,
