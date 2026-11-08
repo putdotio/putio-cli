@@ -104,6 +104,17 @@ Login hands approval to the put.io web app (`app.put.io` by default) and stores
 only the returned OAuth token; the CLI never takes account credentials.
 `--timeout-seconds` bounds the wait; a timeout leaves saved auth unchanged.
 
+Save an existing token as a profile instead. The CLI validates it with put.io
+first and never takes it as an argument:
+
+```bash
+putio auth login --profile web --token
+printf '%s' "$TOKEN" | putio auth login --profile ci --token-stdin --output json
+```
+
+`--token` prompts without echo and needs a terminal. `auth status` and
+`auth profiles list` report `authMethod` as `token` or `device`.
+
 Check auth without exposing the token:
 
 ```bash

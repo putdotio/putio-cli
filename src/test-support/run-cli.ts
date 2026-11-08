@@ -3,7 +3,20 @@ import { createServer, type IncomingMessage } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { Console, ConfigProvider, Effect, Layer, Predicate, Schema } from "effect";
+import * as Stdio from "effect/Stdio";
+import * as Terminal from "effect/Terminal";
+import {
+  type Cause,
+  Console,
+  ConfigProvider,
+  Effect,
+  Layer,
+  Option,
+  Predicate,
+  Queue,
+  Schema,
+  Stream,
+} from "effect";
 
 import { runCli } from "../cli.js";
 import { CliServicesLive } from "../internal/app-layer.js";
@@ -167,6 +180,32 @@ export const startFixtureApi = async () => {
 
 export type FixtureApi = Awaited<ReturnType<typeof startFixtureApi>>;
 
+const keyPress = (name: string, input?: string): Terminal.UserInput => ({
+  input: Option.fromUndefinedOr(input),
+  key: { ctrl: false, meta: false, name, shift: false },
+});
+
+const scriptedTerminalLayer = (typed: string, displayed: string[]) =>
+  Layer.succeed(
+    Terminal.Terminal,
+    Terminal.make({
+      columns: Effect.succeed(80),
+      display: (text) => Effect.sync(() => void displayed.push(text)),
+      readInput: Effect.gen(function* () {
+        const input = yield* Queue.unbounded<Terminal.UserInput, Cause.Done>();
+        yield* Queue.offerAll(input, [
+          ...typed.split("").map((character) => keyPress(character, character)),
+          keyPress("enter"),
+        ]);
+
+        return input;
+      }),
+      readLine: Effect.succeed(typed),
+      rows: Effect.succeed(24),
+      size: Queue.unbounded<Terminal.Size, Cause.Done>(),
+    }),
+  );
+
 export type CliRun = {
   /** The persisted config after the run, parsed; undefined when no file exists. */
   readonly config: unknown;
@@ -175,6 +214,7 @@ export type CliRun = {
   readonly openedUrls: ReadonlyArray<string>;
   readonly stderr: string;
   readonly stdout: string;
+  readonly terminalDisplay: string;
 };
 
 /**
@@ -188,6 +228,8 @@ export const runPutio = async (
     readonly configContents?: string;
     readonly env?: Record<string, string | undefined>;
     readonly isInteractiveTerminal?: boolean;
+    readonly stdin?: string;
+    readonly terminalInput?: string;
   } = {},
 ): Promise<CliRun> => {
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-test-"));
@@ -196,6 +238,7 @@ export const runPutio = async (
   const stdout: string[] = [];
   const stderr: string[] = [];
   const openedUrls: string[] = [];
+  const terminalDisplay: string[] = [];
   let exitCode = 0;
 
   const env = Object.fromEntries(
@@ -237,6 +280,18 @@ export const runPutio = async (
     writeStdout: (message) => stdout.push(message),
   });
 
+  const stdioLayer = Stdio.layerTest({
+    stdin:
+      options.stdin === undefined
+        ? Stream.empty
+        : Stream.make(new TextEncoder().encode(options.stdin)),
+  });
+
+  const terminalLayer =
+    options.terminalInput === undefined
+      ? Layer.empty
+      : scriptedTerminalLayer(options.terminalInput, terminalDisplay);
+
   try {
     if (options.configContents !== undefined) {
       await writeFile(configPath, options.configContents, "utf8");
@@ -250,6 +305,8 @@ export const runPutio = async (
             CliServicesLive.pipe(
               Layer.provideMerge(runtimeLayer),
               Layer.merge(CrashReportingDisabledLive),
+              Layer.merge(stdioLayer),
+              Layer.merge(terminalLayer),
             ),
           ),
         ),
@@ -271,6 +328,7 @@ export const runPutio = async (
       openedUrls,
       stderr: stderr.join(""),
       stdout: stdout.join(""),
+      terminalDisplay: terminalDisplay.join(""),
     };
   } finally {
     await rm(configDir, { force: true, recursive: true });

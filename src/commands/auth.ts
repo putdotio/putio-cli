@@ -1,6 +1,7 @@
-import { Argument, Command } from "effect/cli";
+import { Argument, Command, Prompt } from "effect/cli";
+import * as Stdio from "effect/Stdio";
 import * as Terminal from "effect/Terminal";
-import { Cause, Console, Effect, Fiber, Option, Queue, Schema } from "effect";
+import { Cause, Console, Effect, Fiber, Option, Queue, Redacted, Schema, Stream } from "effect";
 
 import { translate } from "../i18n/index.js";
 import {
@@ -41,6 +42,7 @@ import { normalizeOutputMode, writeOutput } from "../internal/output-service.js"
 import { CliRuntime } from "../internal/runtime.js";
 import { provideSdk, sdk } from "../internal/sdk.js";
 import {
+  AuthStateError,
   type AuthStatus,
   clearPersistedState,
   getAuthStatus,
@@ -58,6 +60,16 @@ const openConfig = defineBooleanOption("open", { defaultValue: false });
 const timeoutSecondsConfig = defineIntegerOption("timeout-seconds", { optional: true });
 const previewCodeConfig = defineTextOption("code", { defaultValue: "PUTIO1" });
 
+const tokenConfig = defineBooleanOption("token", {
+  defaultValue: false,
+  description: "Prompt for an existing put.io token without echoing it, then save it.",
+});
+
+const tokenStdinConfig = defineBooleanOption("token-stdin", {
+  defaultValue: false,
+  description: "Read an existing put.io token from standard input, then save it.",
+});
+
 const profileConfig = defineTextOption("profile", {
   description: AUTH_PROFILE_NAME_DESCRIPTION,
   optional: true,
@@ -67,6 +79,8 @@ const openOption = openConfig.option;
 const timeoutSecondsOption = timeoutSecondsConfig.option;
 const previewCodeOption = previewCodeConfig.option;
 const profileOption = profileConfig.option;
+const tokenOption = tokenConfig.option;
+const tokenStdinOption = tokenStdinConfig.option;
 const profileArgument = Argument.String("profile");
 const approveCodeArgument = Argument.String("code").pipe(Argument.optional);
 
@@ -134,6 +148,125 @@ const validateProfileArgument = (profile: string) => {
   return normalized;
 };
 
+const TOKEN_FLAGS = ["--token", "--token-stdin"] as const;
+
+const isTokenFlag = (arg: string | undefined) => TOKEN_FLAGS.some((flag) => arg === flag);
+
+const hasInlineTokenValue = (args: ReadonlyArray<string>) =>
+  args.some(
+    (arg, index) =>
+      TOKEN_FLAGS.some((flag) => arg.startsWith(`${flag}=`)) ||
+      (isTokenFlag(args[index - 1]) && !arg.startsWith("-")),
+  );
+
+export const rejectInlineAuthToken = (commandArgs: ReadonlyArray<string>) =>
+  commandArgs[0] === "auth" && commandArgs[1] === "login" && hasInlineTokenValue(commandArgs)
+    ? Effect.fail(
+        new CliCommandInputError({
+          message:
+            "`--token` and `--token-stdin` take no value. Run `putio auth login --token` to be prompted, or pipe the token into `putio auth login --token-stdin`.",
+        }),
+      )
+    : Effect.void;
+
+const readTokenFromStdin = Effect.gen(function* () {
+  const stdio = yield* Stdio.Stdio;
+
+  return yield* stdio.stdin.pipe(
+    Stream.decodeText(),
+    Stream.mkString,
+    Effect.mapError(
+      () => new CliCommandInputError({ message: "Unable to read the token from standard input." }),
+    ),
+  );
+});
+
+const promptForToken = Effect.gen(function* () {
+  const runtimeService = yield* CliRuntime;
+
+  if (!runtimeService.isInteractiveTerminal) {
+    return yield* Effect.fail(
+      new CliCommandInputError({
+        message:
+          "`auth login --token` needs an interactive terminal. Pipe the token into `auth login --token-stdin` instead.",
+      }),
+    );
+  }
+
+  const token = yield* Prompt.run(
+    Prompt.Hidden({ message: translate("cli.auth.login.tokenPrompt") }),
+  );
+
+  return Redacted.value(token);
+});
+
+const validateExistingToken = (apiBaseUrl: string, token: string) =>
+  provideSdk({ apiBaseUrl }, sdk.auth.validateToken(token)).pipe(
+    Effect.mapError(
+      () =>
+        new AuthStateError({
+          message: "Unable to validate the token with put.io. Check your connection and retry.",
+        }),
+    ),
+    Effect.flatMap((result) =>
+      result.result
+        ? Effect.void
+        : Effect.fail(
+            new AuthStateError({
+              message: "put.io rejected the token. Check that it is current and complete.",
+            }),
+          ),
+    ),
+  );
+
+const loginWithExistingToken = (options: {
+  readonly output: Option.Option<"json" | "text" | "ndjson">;
+  readonly profile: Option.Option<string>;
+  readonly source: "prompt" | "stdin";
+}) =>
+  Effect.gen(function* () {
+    const runtime = yield* resolveCliRuntimeConfig();
+    const apiBaseUrl = runtime.apiBaseUrl;
+
+    const selectedProfile = yield* Effect.try({
+      try: () => resolveProfileInput(options.profile),
+      catch: (error) => error,
+    });
+
+    const rawToken = yield* options.source === "stdin" ? readTokenFromStdin : promptForToken;
+    const token = rawToken.trim();
+
+    if (token.length === 0) {
+      return yield* Effect.fail(
+        new CliCommandInputError({ message: "No token was provided to `auth login`." }),
+      );
+    }
+
+    yield* validateExistingToken(apiBaseUrl, token);
+
+    const {
+      configPath,
+      profile: savedProfile,
+      state,
+    } = yield* savePersistedState({ apiBaseUrl, authMethod: "token", token }, undefined, {
+      profile: selectedProfile,
+    });
+
+    yield* writeOutput(
+      {
+        apiBaseUrl: savedProfile
+          ? (state.profiles?.[savedProfile]?.api_base_url ?? state.api_base_url)
+          : state.api_base_url,
+        authMethod: "token" as const,
+        authenticated: true,
+        configPath,
+        profile: savedProfile,
+      },
+      getOption(options.output),
+      renderAuthLoginSuccessTerminal,
+    );
+  });
+
 const renderAuthStatus = (status: AuthStatus) =>
   status.authenticated
     ? [
@@ -141,6 +274,9 @@ const renderAuthStatus = (status: AuthStatus) =>
         translate("cli.auth.status.source", {
           value: status.source ?? translate("cli.auth.status.unknown"),
         }),
+        ...(status.authMethod === null
+          ? []
+          : [translate("cli.auth.status.authMethod", { value: status.authMethod })]),
         translate("cli.auth.status.profile", {
           value: status.profile ?? translate("cli.common.none"),
         }),
@@ -185,9 +321,36 @@ const authLogin = Command.make(
     output: outputOption,
     profile: profileOption,
     timeoutSeconds: timeoutSecondsOption,
+    token: tokenOption,
+    tokenStdin: tokenStdinOption,
   },
-  ({ open, output, profile, timeoutSeconds }) =>
+  ({ open, output, profile, timeoutSeconds, token: tokenPrompt, tokenStdin }) =>
     Effect.gen(function* () {
+      if (tokenPrompt || tokenStdin) {
+        if (tokenPrompt && tokenStdin) {
+          return yield* Effect.fail(
+            new CliCommandInputError({
+              message: "Use either `--token` or `--token-stdin` for `auth login`, not both.",
+            }),
+          );
+        }
+
+        if (open || Option.isSome(timeoutSeconds)) {
+          return yield* Effect.fail(
+            new CliCommandInputError({
+              message:
+                "`--open` and `--timeout-seconds` apply to the device-link flow, not to `--token` or `--token-stdin`.",
+            }),
+          );
+        }
+
+        return yield* loginWithExistingToken({
+          output,
+          profile,
+          source: tokenStdin ? "stdin" : "prompt",
+        });
+      }
+
       const runtimeService = yield* CliRuntime;
 
       const outputMode = normalizeOutputMode(
@@ -263,13 +426,16 @@ const authLogin = Command.make(
         configPath,
         profile: savedProfile,
         state,
-      } = yield* savePersistedState({ apiBaseUrl, token }, undefined, { profile: selectedProfile });
+      } = yield* savePersistedState({ apiBaseUrl, authMethod: "device", token }, undefined, {
+        profile: selectedProfile,
+      });
 
       yield* writeOutput(
         {
           apiBaseUrl: savedProfile
             ? (state.profiles?.[savedProfile]?.api_base_url ?? state.api_base_url)
             : state.api_base_url,
+          authMethod: "device" as const,
           authenticated: true,
           browserOpened,
           configPath,
@@ -387,6 +553,7 @@ const authProfilesList = Command.make("list", { output: outputOption }, ({ outpu
                 profile.current ? "*" : "-",
                 profile.name,
                 profile.authenticated ? translate("cli.common.yes") : translate("cli.common.no"),
+                profile.authMethod ?? translate("cli.common.none"),
                 profile.apiBaseUrl,
               ].join("\t"),
             )
@@ -475,7 +642,14 @@ export const authCommandSpecs = [
     },
     command: "auth login",
     input: {
-      flags: [openConfig.flag, outputFlag(), profileConfig.flag, timeoutSecondsConfig.flag],
+      flags: [
+        openConfig.flag,
+        outputFlag(),
+        profileConfig.flag,
+        timeoutSecondsConfig.flag,
+        tokenConfig.flag,
+        tokenStdinConfig.flag,
+      ],
     },
     kind: "auth",
     purpose: translate("cli.metadata.authLogin"),

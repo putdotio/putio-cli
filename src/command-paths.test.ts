@@ -304,6 +304,141 @@ describe("auth", () => {
     });
   });
 
+  const routeTokenValidation = (validToken: string) => {
+    api.route("GET /v2/oauth2/validate", (request) =>
+      ok({
+        result: request.query["oauth_token"] === validToken,
+        token_id: null,
+        token_scope: "default",
+        user_id: request.query["oauth_token"] === validToken ? 1 : null,
+      }),
+    );
+  };
+
+  const anonymousLogin = (args: ReadonlyArray<string>, options: Parameters<typeof runPutio>[2]) =>
+    runPutio(api, ["auth", "login", ...args], {
+      ...options,
+      env: { PUTIO_CLI_TOKEN: undefined },
+    });
+
+  it("validates a token from stdin and saves it as a token-sourced profile", async () => {
+    routeTokenValidation("existing-token");
+
+    const run = await anonymousLogin(["--profile", "ci", "--token-stdin", "--output", "json"], {
+      stdin: "existing-token\n",
+    });
+
+    expect(run.exitCode).toBe(0);
+    expect(stdoutJson(run)).toEqual({
+      apiBaseUrl: api.baseUrl,
+      authMethod: "token",
+      authenticated: true,
+      configPath: run.configPath,
+      profile: "ci",
+    });
+    expect(run.stdout + run.stderr).not.toContain("existing-token");
+    expect(run.config).toEqual({
+      api_base_url: api.baseUrl,
+      profiles: {
+        ci: { api_base_url: api.baseUrl, auth_method: "token", auth_token: "existing-token" },
+      },
+    });
+    expect(api.requests.map(({ method, path, query }) => ({ method, path, query }))).toEqual([
+      { method: "GET", path: "/v2/oauth2/validate", query: { oauth_token: "existing-token" } },
+    ]);
+  });
+
+  it("prompts for a hidden token in an interactive terminal", async () => {
+    routeTokenValidation("typed-token");
+
+    const run = await anonymousLogin(["--profile", "web", "--token", "--output", "json"], {
+      isInteractiveTerminal: true,
+      terminalInput: "typed-token",
+    });
+
+    expect(run.exitCode).toBe(0);
+    expect(stdoutJson(run)).toMatchObject({ authMethod: "token", profile: "web" });
+    expect(run.terminalDisplay).not.toContain("typed-token");
+    expect(run.config).toMatchObject({
+      profiles: { web: { auth_method: "token", auth_token: "typed-token" } },
+    });
+  });
+
+  it("rejects an invalid token without saving or echoing it", async () => {
+    routeTokenValidation("existing-token");
+
+    const run = await anonymousLogin(["--profile", "ci", "--token-stdin", "--output", "json"], {
+      stdin: "wrong-token",
+    });
+
+    expect(run.exitCode).toBe(1);
+    expect(stderrJson(run).error).toMatchObject({
+      recoverySuggestion: { description: expect.stringContaining("rejected the token") },
+    });
+    expect(run.stdout + run.stderr).not.toContain("wrong-token");
+    expect(run.config).toBeUndefined();
+  });
+
+  it("refuses the hidden token prompt outside an interactive terminal", async () => {
+    const run = await anonymousLogin(["--token", "--output", "json"], {});
+
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain("--token-stdin");
+    expect(api.requests).toEqual([]);
+    expect(run.config).toBeUndefined();
+  });
+
+  it.each([
+    ["--token", "argv-token"],
+    ["--token-stdin", "argv-token"],
+    ["--token=argv-token"],
+    ["--token-stdin=argv-token"],
+  ])("refuses a token passed as an argument: %s", async (...tokenArgs) => {
+    const run = await anonymousLogin([...tokenArgs, "--output", "json"], {});
+
+    expect(run.exitCode).toBe(1);
+    expect(stderrJson(run).error).toMatchObject({
+      message: expect.stringContaining("take no value"),
+    });
+    expect(run.stdout + run.stderr).not.toContain("argv-token");
+    expect(api.requests).toEqual([]);
+    expect(run.config).toBeUndefined();
+  });
+
+  it("marks token-sourced profiles in status and profile listings", async () => {
+    const configContents = JSON.stringify({
+      api_base_url: api.baseUrl,
+      default_profile: "ci",
+      profiles: {
+        ci: { auth_method: "token", auth_token: "existing-token" },
+        device: { auth_token: "device-token" },
+      },
+    });
+
+    const status = await runPutio(api, ["auth", "status", "--output", "json"], {
+      configContents,
+      env: { PUTIO_CLI_TOKEN: undefined },
+    });
+
+    const profiles = await runPutio(api, ["auth", "profiles", "list", "--output", "json"], {
+      configContents,
+      env: { PUTIO_CLI_TOKEN: undefined },
+    });
+
+    expect(stdoutJson(status)).toMatchObject({
+      authMethod: "token",
+      profile: "ci",
+      source: "profile",
+    });
+    expect(stdoutJson(profiles)).toMatchObject({
+      profiles: [
+        { authMethod: "token", name: "ci" },
+        { authMethod: "device", name: "device" },
+      ],
+    });
+    expect(status.stdout + profiles.stdout).not.toContain("existing-token");
+  });
+
   it("logs out of the legacy token without touching named profiles", async () => {
     const run = await runPutio(api, ["auth", "logout", "--output", "json"], {
       configContents: JSON.stringify({

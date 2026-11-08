@@ -51,6 +51,7 @@ export const en = {
         directLinkPrompt: "Open this URL to authorize the CLI on any device:",
         openShortcut: "press {{key}} to open browser",
         title: "┌( ಠ‿ಠ)┘ welcome!",
+        tokenPrompt: "Paste your put.io token (input is hidden)",
         waiting: "Waiting for authorization...",
       },
       logout: {
@@ -68,6 +69,7 @@ export const en = {
       },
       status: {
         apiBaseUrl: "api base url: {{value}}",
+        authMethod: "auth method: {{value}}",
         authenticatedNo: "authenticated: no",
         authenticatedYes: "authenticated: yes",
         configPath: "config path: {{value}}",
@@ -78,6 +80,7 @@ export const en = {
       },
       success: {
         apiBaseUrl: "api base url   {{value}}",
+        authMethod: "auth method    {{value}}",
         browserOpened: "browser opened {{value}}",
         configPath: "config path    {{value}}",
         profile: "profile        {{value}}",
@@ -254,7 +257,7 @@ export const en = {
     metadata: {
       authApprove: "Approve a pending device-link code with the authenticated account.",
       authLogin:
-        "Authorize the CLI through the put.io device-link flow and persist the resulting token.",
+        "Authorize the CLI through the put.io device-link flow, or validate an existing token with `--token` or `--token-stdin`, and persist the token.",
       authLogout: "Remove the persisted CLI auth state.",
       authPreview: "Render the auth screen locally without requesting a real device code.",
       authProfilesList: "List configured auth profiles without exposing token material.",

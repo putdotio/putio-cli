@@ -103,6 +103,7 @@ describe("resolveConfigPath", () => {
     await Effect.runPromise(
       savePersistedState(
         {
+          authMethod: "device",
           token: "dummy-token",
           apiBaseUrl: "https://api.put.io",
         },
@@ -185,6 +186,7 @@ describe("resolveConfigPath", () => {
     await Effect.runPromise(
       savePersistedState(
         {
+          authMethod: "device",
           token: "dummy-token",
           apiBaseUrl: "https://api.put.io",
         },
@@ -208,6 +210,7 @@ describe("resolveConfigPath", () => {
         Effect.flatMap(CliState, (state) =>
           state.savePersistedState(
             {
+              authMethod: "device",
               token: "service-token",
               apiBaseUrl: "https://api.put.io",
             },
@@ -219,6 +222,7 @@ describe("resolveConfigPath", () => {
 
     expect(result.state).toEqual({
       api_base_url: "https://api.put.io",
+      auth_method: "device",
       auth_token: "service-token",
     });
 
@@ -244,6 +248,7 @@ describe("resolveConfigPath", () => {
     );
 
     expect(status).toEqual({
+      authMethod: null,
       authenticated: true,
       source: "env",
       apiBaseUrl: "https://api.put.io",
@@ -335,6 +340,7 @@ describe("resolveConfigPath", () => {
     const result = await Effect.runPromise(
       savePersistedState(
         {
+          authMethod: "device",
           token: "fresh-token",
         },
         configPath,
@@ -343,6 +349,7 @@ describe("resolveConfigPath", () => {
 
     expect(result.state).toEqual({
       api_base_url: "https://staging.put.io",
+      auth_method: "device",
       auth_token: "fresh-token",
     });
   });
@@ -363,6 +370,7 @@ describe("resolveConfigPath", () => {
     const result = await Effect.runPromise(
       savePersistedState(
         {
+          authMethod: "device",
           token: "profile-token",
           apiBaseUrl: "https://staging.put.io",
         },
@@ -378,6 +386,7 @@ describe("resolveConfigPath", () => {
       profiles: {
         automation: {
           api_base_url: "https://staging.put.io",
+          auth_method: "device",
           auth_token: "profile-token",
         },
       },
@@ -521,6 +530,7 @@ describe("resolveConfigPath", () => {
     );
 
     expect(status).toEqual({
+      authMethod: null,
       authenticated: true,
       source: "env",
       apiBaseUrl: "https://api.put.io",
@@ -566,6 +576,7 @@ describe("resolveConfigPath", () => {
       profiles: [
         {
           apiBaseUrl: "https://api.put.io",
+          authMethod: "device",
           authenticated: true,
           current: true,
           name: "automation",
@@ -611,12 +622,14 @@ describe("resolveConfigPath", () => {
     expect(result.profiles).toEqual([
       {
         apiBaseUrl: "https://api.put.io",
+        authMethod: "device",
         authenticated: true,
         current: true,
         name: "automation",
       },
       {
         apiBaseUrl: "https://api.put.io",
+        authMethod: "device",
         authenticated: true,
         current: false,
         name: "human",
@@ -835,6 +848,7 @@ describe("resolveConfigPath", () => {
     await Effect.runPromise(
       savePersistedState(
         {
+          authMethod: "device",
           token: "stored-token",
           apiBaseUrl: "https://api.put.io",
         },
@@ -891,6 +905,7 @@ describe("resolveConfigPath", () => {
     );
 
     expect(status).toEqual({
+      authMethod: "device",
       authenticated: true,
       source: "config",
       apiBaseUrl: "https://staging.put.io",
@@ -926,6 +941,7 @@ describe("resolveConfigPath", () => {
     );
 
     expect(status).toEqual({
+      authMethod: null,
       authenticated: false,
       source: null,
       apiBaseUrl: "https://staging.put.io",
