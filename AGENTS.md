@@ -19,11 +19,9 @@
 
 ## Effect
 
-- Effect setup and guidance routing: `effect-ts` skill; keep the pinned `effect` version.
-
 The installed version's guide is `node_modules/effect/AGENTS.md`; consult it for
 the APIs the change touches, and search `node_modules/effect/src` for anything it
-does not cover.
+does not cover. Keep the pinned `effect` version.
 
 ## Proof
 
