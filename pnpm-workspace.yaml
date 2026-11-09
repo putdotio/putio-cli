@@ -7,7 +7,7 @@ allowBuilds:
   esbuild: true
 
 minimumReleaseAgeExclude:
-  - "@putdotio/sdk@15.0.1"
+  - "@putdotio/*"
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.5.0
   vitest: 5.1.0
