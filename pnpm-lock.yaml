@@ -212,8 +212,8 @@ importers:
         specifier: ^26.1.0
         version: 26.6.6
       '@uinaf/oxlint-plugin-no-comments':
-        specifier: 1.0.1
-        version: 1.0.1
+        specifier: 1.1.0
+        version: 1.1.0
       '@uinaf/skillcheck':
         specifier: 1.7.7
         version: 1.7.7
@@ -1203,8 +1203,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@uinaf/oxlint-plugin-no-comments@1.0.1':
-    resolution: {integrity: sha512-wIN4iBzty0t2xuFUjn/6xSIyhZIk1ZxTn97F4qvsqVXT69ryNERtHRuWJBA0UK/PIuwexrbs7qXzKMGxL5nnrg==}
+  '@uinaf/oxlint-plugin-no-comments@1.1.0':
+    resolution: {integrity: sha512-Jc1LomQyspHZCKNRX+5OLXqzWgz+Z1Jey1JxpbBITSxTrQ7RLR3JmWsSpbReyP8p6Xa/Bzx1+tVJJ67tD57kPw==}
     engines: {node: '>=20.19.0'}
 
   '@uinaf/skillcheck@1.7.7':
@@ -2521,7 +2521,7 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@uinaf/oxlint-plugin-no-comments@1.0.1': {}
+  '@uinaf/oxlint-plugin-no-comments@1.1.0': {}
 
   '@uinaf/skillcheck@1.7.7': {}
 

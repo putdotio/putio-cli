@@ -61,7 +61,7 @@
     "@oxlint/plugins": "1.91.0",
     "@putdotio/sdk": "15.0.1",
     "@types/node": "^26.1.0",
-    "@uinaf/oxlint-plugin-no-comments": "1.0.1",
+    "@uinaf/oxlint-plugin-no-comments": "1.1.0",
     "@uinaf/skillcheck": "1.7.7",
     "@vitest/coverage-v8": "catalog:",
     "esbuild": "^0.28.1",
