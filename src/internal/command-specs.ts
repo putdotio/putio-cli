@@ -27,7 +27,7 @@ const JsonScalarSchema = Schema.Struct({
 
 const JsonEnumValueSchema = Schema.Union([
   Schema.String,
-  Schema.Number,
+  Schema.Finite,
   Schema.Boolean,
   Schema.Null,
 ] as const);
@@ -88,7 +88,7 @@ const JsonInputSpecSchema: Schema.Codec<JsonInputSpec> = Schema.Union([
 const CommandOptionSchema = Schema.Struct({
   choices: Schema.optional(Schema.Array(NonEmptyStringSchema)),
   defaultValue: Schema.optional(
-    Schema.Union([NonEmptyStringSchema, Schema.Number, Schema.Boolean] as const),
+    Schema.Union([NonEmptyStringSchema, Schema.Finite, Schema.Boolean] as const),
   ),
   description: Schema.optional(NonEmptyStringSchema),
   name: NonEmptyStringSchema,

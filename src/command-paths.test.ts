@@ -206,6 +206,7 @@ const expectFailure = (run: CliRun, message: string | RegExp) => {
   expect(stderrJson(run).error).toMatchObject({
     message: Predicate.isString(message) ? message : expect.stringMatching(message),
   });
+  expect(run.crashReports).toEqual([]);
 };
 
 let api: FixtureApi;
@@ -778,6 +779,15 @@ describe("pagination", () => {
       message: "`files list` pagination returned a repeated cursor.",
     });
     expect(requestsTo("POST", "/v2/files/list/continue")).toHaveLength(1);
+  });
+});
+
+describe("download links", () => {
+  it("asks for a selection when download-links create has none", async () => {
+    const run = await putio("download-links", "create", "--output", "json");
+
+    expectFailure(run, "Provide at least one --id or a --cursor to create download links.");
+    expect(api.requests).toEqual([]);
   });
 });
 

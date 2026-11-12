@@ -35,7 +35,7 @@
   "scripts": {
     "build": "vp pack",
     "build:sea": "node ./scripts/build-sea.mts",
-    "check": "vp check .",
+    "check": "effect-tsgo vp check .",
     "check:architecture": "node ./scripts/check-architecture.mts",
     "check:dead-code": "knip",
     "coverage": "vp test run --coverage",
@@ -46,7 +46,7 @@
     "test": "vp test",
     "prepublishOnly": "npm run build",
     "verify:sea": "node ./scripts/verify-sea.mjs",
-    "verify": "node ./scripts/check-architecture.mts && knip && vp check . && vp run skills:lint && vp run smoke:pack && vp test run --coverage"
+    "verify": "node ./scripts/check-architecture.mts && knip && effect-tsgo vp check . && vp run skills:lint && vp run smoke:pack && vp test run --coverage"
   },
   "dependencies": {
     "@effect/platform-node": "4.1.4",
@@ -57,6 +57,7 @@
     "i18next": "^26.7.2"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.68.1",
     "@effect/vitest": "4.1.4",
     "@oxlint/plugins": "1.91.0",
     "@putdotio/sdk": "16.0.1",

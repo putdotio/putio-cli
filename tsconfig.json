@@ -11,12 +11,26 @@
     "types": ["node"],
     "strict": true,
     "noUnusedLocals": true,
-    "declaration": true,
-    "emitDeclarationOnly": true,
+    "noEmit": true,
     "esModuleInterop": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "allowedUnstableApis": [
+          "@effect/platform-node",
+          "@effect/vitest",
+          "effect/cli",
+          "effect/FileSystem",
+          "effect/Path",
+          "effect/PlatformError",
+          "effect/Stdio",
+          "effect/Terminal"
+        ]
+      }
+    ]
   },
   "include": ["src", "scripts/**/*.ts", "scripts/**/*.mts", "vite.config.ts"]
 }

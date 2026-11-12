@@ -27,6 +27,7 @@ import {
   withAuthedSdk,
   writeDryRunPlan,
   CliCommandInputError,
+  checkCommandInput,
 } from "../internal/command.js";
 import {
   dryRunFlag,
@@ -185,12 +186,10 @@ const promptForToken = Effect.gen(function* () {
   const runtimeService = yield* CliRuntime;
 
   if (!runtimeService.isInteractiveTerminal) {
-    return yield* Effect.fail(
-      new CliCommandInputError({
-        message:
-          "`auth login --token` needs an interactive terminal. Pipe the token into `auth login --token-stdin` instead.",
-      }),
-    );
+    return yield* new CliCommandInputError({
+      message:
+        "`auth login --token` needs an interactive terminal. Pipe the token into `auth login --token-stdin` instead.",
+    });
   }
 
   const token = yield* Prompt.run(
@@ -228,18 +227,13 @@ const loginWithExistingToken = (options: {
     const runtime = yield* resolveCliRuntimeConfig();
     const apiBaseUrl = runtime.apiBaseUrl;
 
-    const selectedProfile = yield* Effect.try({
-      try: () => resolveProfileInput(options.profile),
-      catch: (error) => error,
-    });
+    const selectedProfile = yield* checkCommandInput(() => resolveProfileInput(options.profile));
 
     const rawToken = yield* options.source === "stdin" ? readTokenFromStdin : promptForToken;
     const token = rawToken.trim();
 
     if (token.length === 0) {
-      return yield* Effect.fail(
-        new CliCommandInputError({ message: "No token was provided to `auth login`." }),
-      );
+      return yield* new CliCommandInputError({ message: "No token was provided to `auth login`." });
     }
 
     yield* validateExistingToken(apiBaseUrl, token);
@@ -303,10 +297,7 @@ const authStatus = Command.make(
   { output: outputOption, profile: profileOption },
   ({ output, profile }) =>
     Effect.gen(function* () {
-      const selectedProfile = yield* Effect.try({
-        try: () => resolveProfileInput(profile),
-        catch: (error) => error,
-      });
+      const selectedProfile = yield* checkCommandInput(() => resolveProfileInput(profile));
 
       const status = yield* getAuthStatus({ profile: selectedProfile });
 
@@ -328,20 +319,16 @@ const authLogin = Command.make(
     Effect.gen(function* () {
       if (tokenPrompt || tokenStdin) {
         if (tokenPrompt && tokenStdin) {
-          return yield* Effect.fail(
-            new CliCommandInputError({
-              message: "Use either `--token` or `--token-stdin` for `auth login`, not both.",
-            }),
-          );
+          return yield* new CliCommandInputError({
+            message: "Use either `--token` or `--token-stdin` for `auth login`, not both.",
+          });
         }
 
         if (open || Option.isSome(timeoutSeconds)) {
-          return yield* Effect.fail(
-            new CliCommandInputError({
-              message:
-                "`--open` and `--timeout-seconds` apply to the device-link flow, not to `--token` or `--token-stdin`.",
-            }),
-          );
+          return yield* new CliCommandInputError({
+            message:
+              "`--open` and `--timeout-seconds` apply to the device-link flow, not to `--token` or `--token-stdin`.",
+          });
         }
 
         return yield* loginWithExistingToken({
@@ -361,10 +348,7 @@ const authLogin = Command.make(
       const runtime = yield* resolveCliRuntimeConfig();
       const apiBaseUrl = runtime.apiBaseUrl;
 
-      const selectedProfile = yield* Effect.try({
-        try: () => resolveProfileInput(profile),
-        catch: (error) => error,
-      });
+      const selectedProfile = yield* checkCommandInput(() => resolveProfileInput(profile));
 
       const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1_000;
       const authFlow = yield* resolveAuthFlowConfig();
@@ -453,10 +437,7 @@ const authLogout = Command.make(
   { output: outputOption, profile: profileOption },
   ({ output, profile }) =>
     Effect.gen(function* () {
-      const selectedProfile = yield* Effect.try({
-        try: () => resolveProfileInput(profile),
-        catch: (error) => error,
-      });
+      const selectedProfile = yield* checkCommandInput(() => resolveProfileInput(profile));
 
       const {
         cleared,
@@ -485,7 +466,11 @@ const authPreview = Command.make(
   ({ code, open, output }) =>
     Effect.gen(function* () {
       const authFlow = yield* resolveAuthFlowConfig();
-      const previewCode = validateResourceIdentifier("`auth preview --code`", code);
+
+      const previewCode = yield* checkCommandInput(() =>
+        validateResourceIdentifier("`auth preview --code`", code),
+      );
+
       const linkUrl = buildDeviceLinkUrl(previewCode, authFlow.webAppUrl);
 
       yield* writeOutput(
@@ -526,7 +511,9 @@ const authApprove = Command.make(
         schema: AuthApproveInputSchema,
       });
 
-      const approvedCode = validateResourceIdentifier("`auth approve` code", input.code.trim());
+      const approvedCode = yield* checkCommandInput(() =>
+        validateResourceIdentifier("`auth approve` code", input.code.trim()),
+      );
 
       if (dryRun) {
         return yield* writeDryRunPlan("auth approve", { code: approvedCode }, getOption(output));
@@ -567,7 +554,7 @@ const authProfilesUse = Command.make(
   { output: outputOption, profile: profileArgument },
   ({ output, profile }) =>
     Effect.gen(function* () {
-      const selectedProfile = validateProfileArgument(profile);
+      const selectedProfile = yield* checkCommandInput(() => validateProfileArgument(profile));
       const result = yield* useProfile(selectedProfile);
 
       yield* writeOutput(result, getOption(output), (value) =>
@@ -581,7 +568,7 @@ const authProfilesRemove = Command.make(
   { output: outputOption, profile: profileArgument },
   ({ output, profile }) =>
     Effect.gen(function* () {
-      const selectedProfile = validateProfileArgument(profile);
+      const selectedProfile = yield* checkCommandInput(() => validateProfileArgument(profile));
       const result = yield* removeProfile(selectedProfile);
 
       yield* writeOutput(result, getOption(output), (value) =>

@@ -449,8 +449,11 @@ const tryCommandInput = <A>(try_: () => A, fallbackMessage: string) =>
     catch: (error) => mapInputError(error, fallbackMessage),
   });
 
+export const checkCommandInput = <A>(check: () => A) =>
+  tryCommandInput(check, "Unable to resolve the command input.");
+
 export const decodeJsonOption = <A>(schema: Schema.Codec<A>, raw: string) =>
-  Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(raw).pipe(
+  Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(raw).pipe(
     Effect.mapError(
       () =>
         new CliCommandInputError({
@@ -458,13 +461,14 @@ export const decodeJsonOption = <A>(schema: Schema.Codec<A>, raw: string) =>
         }),
     ),
     Effect.flatMap((value) =>
-      Effect.try({
-        try: () => Schema.decodeUnknownSync(schema)(value),
-        catch: () =>
-          new CliCommandInputError({
-            message: "Expected `--json` to match the command input schema.",
-          }),
-      }),
+      Schema.decodeUnknownEffect(schema)(value).pipe(
+        Effect.mapError(
+          () =>
+            new CliCommandInputError({
+              message: "Expected `--json` to match the command input schema.",
+            }),
+        ),
+      ),
     ),
   );
 
@@ -474,11 +478,7 @@ export const resolveMutationInput = <A>(input: {
   readonly json: Option.Option<string>;
 }) =>
   Option.match(input.json, {
-    onNone: () =>
-      Effect.try({
-        try: input.buildFromFlags,
-        catch: (error) => mapInputError(error, "Unable to resolve the command input."),
-      }),
+    onNone: () => checkCommandInput(input.buildFromFlags),
     onSome: (raw) => decodeJsonOption(input.schema, raw),
   });
 
@@ -825,11 +825,9 @@ export const withAuthedUploadSdk = <A, E, R>(program: AuthedSdkProgram<A, E, R>)
       (isDefaultApiBaseUrl(auth.apiBaseUrl) ? DEFAULT_PUTIO_UPLOAD_BASE_URL : undefined);
 
     if (uploadBaseUrl === undefined) {
-      return yield* Effect.fail(
-        new CliCommandInputError({
-          message: `Set ${ENV_UPLOAD_BASE_URL} to upload while the API base URL is ${auth.apiBaseUrl}.`,
-        }),
-      );
+      return yield* new CliCommandInputError({
+        message: `Set ${ENV_UPLOAD_BASE_URL} to upload while the API base URL is ${auth.apiBaseUrl}.`,
+      });
     }
 
     return yield* provideAuthedSdk(auth, uploadBaseUrl, program);

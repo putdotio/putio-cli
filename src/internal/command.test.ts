@@ -43,7 +43,7 @@ describe("parseRepeatedIntegers", () => {
 
 describe("decodeJsonOption", () => {
   const schema = Schema.Struct({
-    ids: Schema.Array(Schema.Number),
+    ids: Schema.Array(Schema.Finite),
   });
 
   it("decodes valid json input", async () => {

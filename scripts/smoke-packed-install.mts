@@ -47,7 +47,7 @@ const UseResult = Schema.Struct({
 
 const TransfersList = Schema.Struct({
   cursor: Schema.NullOr(Schema.String),
-  total: Schema.Number,
+  total: Schema.Finite,
   transfers: Schema.Array(Schema.Unknown),
 });
 

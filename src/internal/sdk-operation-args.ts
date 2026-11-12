@@ -427,7 +427,7 @@ export const decodeSdkOperationArgs = (operation: string, args: ReadonlyArray<un
     return Effect.fail(argumentsError(operation, "No argument schema is defined for it."));
   }
 
-  return Schema.decodeUnknownEffect(schema)(args, { onExcessProperty: "error" }).pipe(
+  return Schema.decodeEffect(schema)(args, { onExcessProperty: "error" }).pipe(
     Effect.mapError((error) =>
       argumentsError(operation, formatIssue(error.issue).replaceAll(/\n\s*/gu, " ")),
     ),

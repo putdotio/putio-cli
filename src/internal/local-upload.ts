@@ -21,11 +21,9 @@ export const inspectLocalUpload = (inputPath: string) =>
     const info = yield* fileSystem.stat(resolvedPath).pipe(Effect.mapError(unreadableUploadFile));
 
     if (info.type !== "File") {
-      return yield* Effect.fail(
-        new CliCommandInputError({
-          message: "Expected the upload path to point to a regular file.",
-        }),
-      );
+      return yield* new CliCommandInputError({
+        message: "Expected the upload path to point to a regular file.",
+      });
     }
 
     yield* fileSystem
