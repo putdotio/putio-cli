@@ -407,6 +407,15 @@ describe("localizeCliError", () => {
     });
   });
 
+  it("localizes a rate limit whose body carries no status code", () => {
+    const localized = localizeCliError(
+      new PutioRateLimitError({ body: { error_message: "slow down" }, status: 429 }),
+    );
+
+    expect(localized.message).toBe("Rate limited");
+    expect(localized.recoverySuggestion.description).toBe("Wait a moment and try again.");
+  });
+
   it("localizes rate-limit errors without retry metadata", () => {
     const localized = localizeCliError(
       new PutioRateLimitError({

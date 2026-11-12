@@ -31,3 +31,4 @@ Each feature file starts with an H1 and one paragraph of user-visible behavior, 
 - [Auth login](./auth-login.md): token from stdin, hidden prompt, device link, profiles, rejected tokens.
 - [Account reads](./account-reads.md): `whoami`, `auth status`, and `files list` with saved or missing auth.
 - [SDK call](./sdk-call.md): `sdk call` argument validation, dry run, and execution.
+- [Transfers watch](./transfers-watch.md): `transfers watch` until a transfer finishes or the deadline passes.
