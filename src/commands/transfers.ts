@@ -1,6 +1,6 @@
 import { Command, Flag } from "effect/cli";
-import { TransferAddInputSchema } from "@putdotio/sdk";
-import { Clock, Duration, Effect, Option, Schema } from "effect";
+import { TransferAddInputSchema, type Transfer } from "@putdotio/sdk";
+import { Effect, Option, Schema } from "effect";
 
 import {
   CliCommandInputError,
@@ -34,6 +34,7 @@ import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderTransfersTerminal } from "../internal/terminal/transfers-terminal.js";
+import { type TransferWatchResult, watchTransfer } from "../internal/transfer-watch.js";
 
 const perPageConfig = defineIntegerOption("per-page", { optional: true });
 const callbackUrlConfig = defineTextOption("callback-url", { optional: true });
@@ -413,124 +414,43 @@ const transfersWatch = Command.make(
           Option.getOrElse(timeoutSeconds, () => 300),
         ) * 1_000;
 
-      const startedAt = yield* Clock.currentTimeMillis;
+      const writeWatchOutput = (value: TransferWatchResult<Transfer>) =>
+        writeReadOutput({
+          command: "transfers watch",
+          output: controls.output,
+          outputMode: controls.outputMode,
+          renderTerminalValue: (terminalValue) =>
+            [
+              renderTransferWatchFinishedTerminal({
+                id: terminalValue.transfer.id,
+                status: terminalValue.transfer.status,
+                timedOut: terminalValue.timedOut,
+              }),
+              "",
+              renderTransfersTerminal({ transfers: [terminalValue.transfer] }),
+            ].join("\n"),
+          requestedFields: controls.requestedFields,
+          value,
+        });
 
       const result = yield* withTerminalLoader(
         {
           message: translate("cli.transfers.command.watching", { id }),
           output: controls.output,
         },
-        Effect.gen(function* () {
-          while (true) {
-            const current = yield* withAuthedSdk(({ sdk }) => sdk.transfers.get(id));
-
-            if (isTerminalTransferStatus(current.status)) {
-              const value = {
-                timedOut: false,
-                transfer: current,
-              } as const;
-
-              if (controls.outputMode === "ndjson") {
-                yield* writeReadOutput({
-                  command: "transfers watch",
-                  output: controls.output,
-                  outputMode: controls.outputMode,
-                  renderTerminalValue: (terminalValue) =>
-                    [
-                      renderTransferWatchFinishedTerminal({
-                        id: terminalValue.transfer.id,
-                        status: terminalValue.transfer.status,
-                        timedOut: terminalValue.timedOut,
-                      }),
-                      "",
-                      renderTransfersTerminal({ transfers: [terminalValue.transfer] }),
-                    ].join("\n"),
-                  requestedFields: controls.requestedFields,
-                  value,
-                });
-              }
-
-              return value;
-            }
-
-            if ((yield* Clock.currentTimeMillis) - startedAt >= timeoutMs) {
-              const value = {
-                timedOut: true,
-                transfer: current,
-              } as const;
-
-              if (controls.outputMode === "ndjson") {
-                yield* writeReadOutput({
-                  command: "transfers watch",
-                  output: controls.output,
-                  outputMode: controls.outputMode,
-                  renderTerminalValue: (terminalValue) =>
-                    [
-                      renderTransferWatchFinishedTerminal({
-                        id: terminalValue.transfer.id,
-                        status: terminalValue.transfer.status,
-                        timedOut: terminalValue.timedOut,
-                      }),
-                      "",
-                      renderTransfersTerminal({ transfers: [terminalValue.transfer] }),
-                    ].join("\n"),
-                  requestedFields: controls.requestedFields,
-                  value,
-                });
-              }
-
-              return value;
-            }
-
-            if (controls.outputMode === "ndjson") {
-              yield* writeReadOutput({
-                command: "transfers watch",
-                output: controls.output,
-                outputMode: controls.outputMode,
-                renderTerminalValue: (terminalValue) =>
-                  [
-                    renderTransferWatchFinishedTerminal({
-                      id: terminalValue.transfer.id,
-                      status: terminalValue.transfer.status,
-                      timedOut: terminalValue.timedOut,
-                    }),
-                    "",
-                    renderTransfersTerminal({ transfers: [terminalValue.transfer] }),
-                  ].join("\n"),
-                requestedFields: controls.requestedFields,
-                value: {
-                  timedOut: false,
-                  transfer: current,
-                },
-              });
-            }
-
-            yield* Effect.sleep(Duration.millis(intervalMs));
-          }
+        watchTransfer({
+          intervalMs,
+          isTerminal: (transfer: Transfer) => isTerminalTransferStatus(transfer.status),
+          onUpdate: (update) =>
+            controls.outputMode === "ndjson" ? writeWatchOutput(update) : Effect.void,
+          poll: withAuthedSdk(({ sdk }) => sdk.transfers.get(id)),
+          timeoutMs,
         }),
       );
 
-      if (controls.outputMode === "ndjson") {
-        return;
+      if (controls.outputMode !== "ndjson") {
+        yield* writeWatchOutput(result);
       }
-
-      yield* writeReadOutput({
-        command: "transfers watch",
-        output: controls.output,
-        outputMode: controls.outputMode,
-        renderTerminalValue: (value) =>
-          [
-            renderTransferWatchFinishedTerminal({
-              id: value.transfer.id,
-              status: value.transfer.status,
-              timedOut: value.timedOut,
-            }),
-            "",
-            renderTransfersTerminal({ transfers: [value.transfer] }),
-          ].join("\n"),
-        requestedFields: controls.requestedFields,
-        value: result,
-      });
     }),
 );
 

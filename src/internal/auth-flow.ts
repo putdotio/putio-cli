@@ -1,4 +1,4 @@
-import { DEFAULT_PUTIO_WEB_APP_URL } from "@putdotio/sdk";
+import { DEFAULT_PUTIO_WEB_APP_URL, isPutioRateLimitError } from "@putdotio/sdk";
 import { Data, Duration, Effect } from "effect";
 
 export { resolveCliAuthFlowConfig as resolveAuthFlowConfig } from "./config.js";
@@ -24,17 +24,18 @@ export const waitForDeviceToken = <E, R>(options: {
   readonly checkCodeMatch: (code: string) => Effect.Effect<string | null, E, R>;
   readonly pollIntervalMs?: number;
   readonly timeoutMs?: number;
-}): Effect.Effect<string, PutioCliAuthFlowError, R> =>
+}) =>
   Effect.gen(function* () {
     const pollIntervalMs = options.pollIntervalMs ?? 2_000;
 
     while (true) {
       const token = yield* options.checkCodeMatch(options.code).pipe(
-        Effect.mapError(
-          () =>
-            new PutioCliAuthFlowError({
-              message: "Unable to poll put.io for the device authorization result.",
-            }),
+        Effect.mapError((error) =>
+          isPutioRateLimitError(error)
+            ? error
+            : new PutioCliAuthFlowError({
+                message: "Unable to poll put.io for the device authorization result.",
+              }),
         ),
       );
 

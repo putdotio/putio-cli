@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Fiber, Result } from "effect";
+import { ConfigProvider, Data, Effect, Fiber, Result } from "effect";
 import { TestClock } from "effect/testing";
 
 import { makeCliAppLayer } from "./app-layer.js";
@@ -29,6 +29,8 @@ const mockRuntime: CliRuntimeService = {
       stop: Effect.void,
     }),
 };
+
+class PollFailure extends Data.TaggedError("PollFailure") {}
 
 describe("resolveAuthFlowConfig", () => {
   it.effect("uses the built-in CLI app id and sensible defaults", () =>
@@ -204,7 +206,7 @@ describe("waitForDeviceToken", () => {
       const result = yield* Effect.result(
         waitForDeviceToken({
           code: "ABCD1234",
-          checkCodeMatch: () => Effect.fail("boom"),
+          checkCodeMatch: () => Effect.fail(new PollFailure()),
         }),
       );
 

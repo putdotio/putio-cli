@@ -1,6 +1,6 @@
 import { DEFAULT_PUTIO_API_BASE_URL, DEFAULT_PUTIO_UPLOAD_BASE_URL } from "@putdotio/sdk";
 import { Flag } from "effect/cli";
-import { Data, Effect, Option, Predicate, Schema } from "effect";
+import { Data, Effect, Option, Predicate, Schema, SchemaIssue } from "effect";
 
 import type { ResolvedAuthState } from "./state.js";
 import {
@@ -449,6 +449,8 @@ const tryCommandInput = <A>(try_: () => A, fallbackMessage: string) =>
     catch: (error) => mapInputError(error, fallbackMessage),
   });
 
+const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
+
 export const checkCommandInput = <A>(check: () => A) =>
   tryCommandInput(check, "Unable to resolve the command input.");
 
@@ -463,9 +465,9 @@ export const decodeJsonOption = <A>(schema: Schema.Codec<A>, raw: string) =>
     Effect.flatMap((value) =>
       Schema.decodeUnknownEffect(schema)(value).pipe(
         Effect.mapError(
-          () =>
+          (error) =>
             new CliCommandInputError({
-              message: "Expected `--json` to match the command input schema.",
+              message: `Expected \`--json\` to match the command input schema: ${formatSchemaIssue(error.issue).replaceAll(/\n\s*/gu, " ")}`,
             }),
         ),
       ),

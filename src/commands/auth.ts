@@ -1,4 +1,5 @@
 import { Argument, Command, Prompt } from "effect/cli";
+import { isPutioRateLimitError } from "@putdotio/sdk";
 import * as Stdio from "effect/Stdio";
 import * as Terminal from "effect/Terminal";
 import { Cause, Console, Effect, Fiber, Option, Queue, Redacted, Schema, Stream } from "effect";
@@ -201,11 +202,12 @@ const promptForToken = Effect.gen(function* () {
 
 const validateExistingToken = (apiBaseUrl: string, token: string) =>
   provideSdk({ apiBaseUrl }, sdk.auth.validateToken(token)).pipe(
-    Effect.mapError(
-      () =>
-        new AuthStateError({
-          message: "Unable to validate the token with put.io. Check your connection and retry.",
-        }),
+    Effect.mapError((error) =>
+      isPutioRateLimitError(error)
+        ? error
+        : new AuthStateError({
+            message: "Unable to validate the token with put.io. Check your connection and retry.",
+          }),
     ),
     Effect.flatMap((result) =>
       result.result

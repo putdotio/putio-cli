@@ -325,6 +325,43 @@ describe("auth", () => {
       env: { PUTIO_CLI_TOKEN: undefined },
     });
 
+  const rateLimited = {
+    body: {
+      error_message: "Too many requests",
+      error_type: "RATE_LIMIT_ERROR",
+      status: "ERROR",
+      status_code: 429,
+    },
+    status: 429,
+  };
+
+  it("reports a rate limit while validating a token", async () => {
+    api.route("GET /v2/oauth2/validate", rateLimited);
+
+    const run = await anonymousLogin(["--token-stdin", "--output", "json"], {
+      stdin: "existing-token\n",
+    });
+
+    expect(run.exitCode).toBe(1);
+    expect(stderrJson(run).error).toMatchObject({ httpStatusCode: 429, title: "Rate limited" });
+    expect(run.config).toBeUndefined();
+  });
+
+  it("reports a rate limit while polling the device link", async () => {
+    api.route(
+      "GET /v2/oauth2/oob/code",
+      ok({ code: "PUTIO1", qr_code_url: "https://example.invalid/qr" }),
+    );
+    api.route("GET /v2/oauth2/oob/code/PUTIO1", rateLimited);
+
+    const run = await anonymousLogin(["--output", "json", "--timeout-seconds", "1"], {});
+
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain('"title": "Rate limited"');
+    expect(run.stderr).not.toContain("Device login failed");
+    expect(run.config).toBeUndefined();
+  });
+
   it("validates a token from stdin and saves it as a token-sourced profile", async () => {
     routeTokenValidation("existing-token");
 
@@ -1169,7 +1206,7 @@ describe("files upload", () => {
     ],
     [
       ["--json", '{"path":"/missing/upload-fixture","parent_id":-1}'],
-      "Expected `--json` to match the command input schema.",
+      /^Expected `--json` to match the command input schema: .*\["parent_id"\]$/u,
     ],
   ])("rejects invalid upload options before filesystem work: %j", async (args, message) => {
     expectFailure(await putio("files", "upload", ...args, "--output", "json"), message);
