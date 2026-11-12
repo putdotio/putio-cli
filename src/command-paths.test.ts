@@ -1302,6 +1302,10 @@ describe("sdk call", () => {
       /Missing key/,
     ],
     ["--dry-run", "no selection", "zips.create", '[{"exclude_ids":[1]}]', /Missing key/],
+    ["--dry-run", "empty ids", "downloadLinks.create", '[{"ids":[]}]', /length of at least 1/],
+    ["--dry-run", "non-positive id", "sharing.clone", '[{"ids":[0]}]', /greater than 0/],
+    ["--dry-run", "empty cursor", "zips.create", '[{"cursor":""}]', /length of at least 1/],
+    ["--dry-run", "negative parent", "sharing.clone", '[{"ids":[1],"parentId":-1}]', /parentId/],
   ])("rejects %s args with %s before any request", async (mode, _label, operation, args, issue) => {
     const run = await putio(
       "sdk",

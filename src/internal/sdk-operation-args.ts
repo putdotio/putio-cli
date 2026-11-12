@@ -97,6 +97,12 @@ const Id = Schema.Int;
 const Ids = Schema.Array(Schema.Int);
 const PerPageQuery = Schema.Struct({ per_page: Schema.optionalKey(Schema.Int) });
 
+const SelectionIds = Schema.Array(Schema.Int.check(Schema.isGreaterThan(0))).check(
+  Schema.isMinLength(1),
+);
+
+const SelectionCursor = Schema.String.check(Schema.isMinLength(1));
+
 const none = Schema.Tuple([]);
 const byId = Schema.Tuple([Id]);
 const byText = Schema.Tuple([Schema.String]);
@@ -107,15 +113,15 @@ const bulkSelection = <const Extra extends Schema.Struct.Fields>(extra: Extra) =
   Schema.Union([
     Schema.Struct({
       ...extra,
-      cursor: Schema.String,
+      cursor: SelectionCursor,
       excludeIds: Schema.optionalKey(Ids),
-      ids: Schema.optionalKey(Ids),
+      ids: Schema.optionalKey(SelectionIds),
     }),
     Schema.Struct({
       ...extra,
-      cursor: Schema.optionalKey(Schema.String),
+      cursor: Schema.optionalKey(SelectionCursor),
       excludeIds: Schema.optionalKey(Ids),
-      ids: Ids,
+      ids: SelectionIds,
     }),
   ]);
 
@@ -344,7 +350,11 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   "rss.retryAll": byId,
   "rss.retryItem": Schema.Tuple([Id, Id]),
   "rss.update": Schema.Tuple([Id, RssFeedParamsSchema]),
-  "sharing.clone": Schema.Tuple([bulkSelection({ parentId: Schema.optionalKey(Id) })]),
+  "sharing.clone": Schema.Tuple([
+    bulkSelection({
+      parentId: Schema.optionalKey(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
+    }),
+  ]),
   "sharing.getCloneInfo": byId,
   "sharing.getSharedWith": byId,
   "sharing.listSharedFiles": none,
@@ -384,14 +394,14 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   "zips.create": Schema.Tuple([
     Schema.Union([
       Schema.Struct({
-        cursor: Schema.String,
+        cursor: SelectionCursor,
         exclude_ids: Schema.optionalKey(Ids),
-        file_ids: Schema.optionalKey(Ids),
+        file_ids: Schema.optionalKey(SelectionIds),
       }),
       Schema.Struct({
-        cursor: Schema.optionalKey(Schema.String),
+        cursor: Schema.optionalKey(SelectionCursor),
         exclude_ids: Schema.optionalKey(Ids),
-        file_ids: Ids,
+        file_ids: SelectionIds,
       }),
     ]),
   ]),

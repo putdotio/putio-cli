@@ -120,7 +120,7 @@ describe("localizeCliError", () => {
 
   it("localizes files operation errors with file-specific copy", () => {
     const localized = localizeCliError(
-      operationError("files", "list", {
+      operationError("files", "query", {
         errorMessage: "file lost",
         errorType: "FILE_LOST",
         status: 410,
@@ -167,7 +167,7 @@ describe("localizeCliError", () => {
   it.each([
     [
       "localizes file-not-reachable errors",
-      operationError("files", "list", {
+      operationError("files", "query", {
         errorMessage: "file not reachable",
         errorType: "FILE_NOT_REACHABLE",
         status: 503,

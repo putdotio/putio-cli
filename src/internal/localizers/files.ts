@@ -3,7 +3,7 @@ import { translate } from "../../i18n/index.js";
 import { createOperationLocalizer, hasOperationErrorType, hasOperationStatus } from "./helpers.js";
 
 const fileOperations = [
-  "list",
+  "query",
   "continue",
   "get",
   "search",
