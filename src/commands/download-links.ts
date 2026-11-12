@@ -1,8 +1,10 @@
 import { Command } from "effect/cli";
 import { DownloadLinksCreateInputSchema, type FilesBulkSelection } from "@putdotio/sdk";
-import { Data, Effect, Option, Predicate, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 
 import {
+  checkCommandInput,
+  CliCommandInputError,
   defineIntegerOption,
   defineRepeatedIntegerOption,
   defineTextOption,
@@ -29,10 +31,6 @@ import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderDownloadLinksTerminal } from "../internal/terminal/download-links-terminal.js";
-
-class DownloadLinksCommandError extends Data.TaggedError("DownloadLinksCommandError")<{
-  readonly message: string;
-}> {}
 
 const cursorConfig = defineTextOption("cursor", { optional: true });
 const downloadLinksIdConfig = defineIntegerOption("id");
@@ -68,7 +66,7 @@ export const resolveDownloadLinksCreateInput = (
     return { cursor: input.cursor, excludeIds, ids };
   }
 
-  throw new DownloadLinksCommandError({
+  throw new CliCommandInputError({
     message: "Provide at least one --id or a --cursor to create download links.",
   });
 };
@@ -94,7 +92,9 @@ const downloadLinksCreate = Command.make(
           }),
         json,
         schema: DownloadLinksCreateInputSchema,
-      }).pipe(Effect.map(resolveDownloadLinksCreateInput));
+      }).pipe(
+        Effect.flatMap((value) => checkCommandInput(() => resolveDownloadLinksCreateInput(value))),
+      );
 
       if (dryRun) {
         return yield* writeDryRunPlan("download-links create", input, getOption(output));

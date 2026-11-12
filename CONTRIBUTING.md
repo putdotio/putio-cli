@@ -40,8 +40,11 @@ in [AGENTS.md](AGENTS.md#proof).
 
 ## Effect Versions
 
-Keep `effect` and every `@effect/*` package in [`package.json`](package.json) on
-one exact version; Renovate's shared `effect` group moves them together. The
+Keep `effect` and every `@effect/*` runtime and test package in
+[`package.json`](package.json) on one exact version; Renovate's shared `effect`
+group moves them together. `@effect/tsgo` versions separately and moves in its
+own group, because each release supports a fixed set of Oxlint and TypeScript
+versions. The
 `@putdotio/sdk>effect` override in
 [`pnpm-workspace.yaml`](https://github.com/putdotio/putio-cli/blob/main/pnpm-workspace.yaml)
 holds the SDK on that version; `smoke:pack` fails if the packed install

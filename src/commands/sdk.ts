@@ -13,6 +13,7 @@ import {
   withAuthedSdk,
   writeDryRunPlan,
   CliCommandInputError,
+  checkCommandInput,
 } from "../internal/command.js";
 import {
   dryRunFlag,
@@ -138,10 +139,7 @@ const sdkCall = Command.make(
   },
   ({ args, dryRun, execute, json, operation, output }) =>
     Effect.gen(function* () {
-      const mode = yield* Effect.try({
-        try: () => resolveExecutionMode(dryRun, execute),
-        catch: (error) => error,
-      });
+      const mode = yield* checkCommandInput(() => resolveExecutionMode(dryRun, execute));
 
       const input = yield* resolveMutationInput({
         buildFromFlags: () => ({
@@ -158,10 +156,7 @@ const sdkCall = Command.make(
         schema: SdkCallInputSchema,
       }).pipe(Effect.map(resolveInput));
 
-      yield* Effect.try({
-        try: () => resolveSdkOperation(sdk, input.operation),
-        catch: (error) => error,
-      });
+      yield* checkCommandInput(() => resolveSdkOperation(sdk, input.operation));
 
       const operationArgs = yield* decodeSdkOperationArgs(input.operation, input.args);
 
@@ -186,10 +181,9 @@ const sdkCall = Command.make(
         ),
       );
 
-      const normalized = yield* Effect.try({
-        try: () => normalizeSdkOperationResult(input.operation, result),
-        catch: (error) => error,
-      });
+      const normalized = yield* checkCommandInput(() =>
+        normalizeSdkOperationResult(input.operation, result),
+      );
 
       yield* writeOutput(
         {

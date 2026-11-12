@@ -239,7 +239,7 @@ const validateProfileNameEffect = (profile: string) =>
   });
 
 const validateOptionalProfileNameEffect = (profile: string | undefined) =>
-  profile === undefined ? Effect.succeed(undefined) : validateProfileNameEffect(profile);
+  profile === undefined ? Effect.undefined : validateProfileNameEffect(profile);
 
 const validatePersistedConfig = (state: PutioCliConfig) => {
   validateOptionalProfileName(state.default_profile);
@@ -903,21 +903,17 @@ const resolveAuthStateEffect = (
 
     if (selectedProfile) {
       if (state === null) {
-        return yield* Effect.fail(
-          new AuthStateError({
-            message: `No put.io token is configured for profile \`${selectedProfile}\`. Set PUTIO_CLI_TOKEN or run \`putio auth login --profile ${selectedProfile}\`.`,
-          }),
-        );
+        return yield* new AuthStateError({
+          message: `No put.io token is configured for profile \`${selectedProfile}\`. Set PUTIO_CLI_TOKEN or run \`putio auth login --profile ${selectedProfile}\`.`,
+        });
       }
 
       const profile = state?.profiles?.[selectedProfile];
 
       if (profile === undefined || !Predicate.isString(profile.auth_token)) {
-        return yield* Effect.fail(
-          new AuthStateError({
-            message: `No put.io token is configured for profile \`${selectedProfile}\`. Set PUTIO_CLI_TOKEN or run \`putio auth login --profile ${selectedProfile}\`.`,
-          }),
-        );
+        return yield* new AuthStateError({
+          message: `No put.io token is configured for profile \`${selectedProfile}\`. Set PUTIO_CLI_TOKEN or run \`putio auth login --profile ${selectedProfile}\`.`,
+        });
       }
 
       return {
@@ -930,11 +926,9 @@ const resolveAuthStateEffect = (
     }
 
     if (state === null || !Predicate.isString(state.auth_token)) {
-      return yield* Effect.fail(
-        new AuthStateError({
-          message: "No put.io token is configured. Set PUTIO_CLI_TOKEN or run `putio auth login`.",
-        }),
-      );
+      return yield* new AuthStateError({
+        message: "No put.io token is configured. Set PUTIO_CLI_TOKEN or run `putio auth login`.",
+      });
     }
 
     return {
@@ -964,11 +958,9 @@ const useProfileEffect = (
         const state = yield* loadPersistedStateEffect(runtime.configPath);
 
         if (state?.profiles?.[profileName] === undefined) {
-          return yield* Effect.fail(
-            new AuthStateError({
-              message: `Auth profile \`${profileName}\` does not exist. Run \`putio auth login --profile ${profileName}\` first.`,
-            }),
-          );
+          return yield* new AuthStateError({
+            message: `Auth profile \`${profileName}\` does not exist. Run \`putio auth login --profile ${profileName}\` first.`,
+          });
         }
 
         const nextState: PutioCliConfig = {

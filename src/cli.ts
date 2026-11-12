@@ -1,5 +1,5 @@
 import { CliError, Command } from "effect/cli";
-import { Console, Effect, Predicate, Result, type Scope } from "effect";
+import { Console, Data, Effect, Predicate, Result, type Scope } from "effect";
 import packageJson from "../package.json";
 
 import { authCommand, rejectInlineAuthToken } from "./commands/auth.js";
@@ -159,6 +159,10 @@ type CliCommandEnvironment =
   | CliState
   | Scope.Scope;
 
+class CliUsageError extends Data.TaggedError("CliUsageError")<{
+  readonly message: string;
+}> {}
+
 export const runCli: (
   args: ReadonlyArray<string>,
 ) => Effect.Effect<void, unknown, CliCommandEnvironment> = Effect.fn("putio.cli.run")(function* (
@@ -199,7 +203,7 @@ export const runCli: (
             return replayBufferedConsole(currentConsole, entries);
           }
 
-          return Effect.fail(new Error(formatCliParserError(error)));
+          return Effect.fail(new CliUsageError({ message: formatCliParserError(error) }));
         },
         (error) => Effect.fail(error),
       ),

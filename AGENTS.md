@@ -23,9 +23,14 @@ The installed version's guide is `node_modules/effect/AGENTS.md`; consult it for
 the APIs the change touches, and search `node_modules/effect/src` for anything it
 does not cover. Keep the pinned `effect` version.
 
+`@effect/tsgo` adds Effect diagnostics to lint. Bare `vp check` cannot load them
+and stops at `Unknown plugin: effecttsgo`; use `pnpm exec vp run check`. Rule
+overrides are in [vite.config.ts](https://github.com/putdotio/putio-cli/blob/main/vite.config.ts), the unstable modules the CLI
+accepts in [tsconfig.json](https://github.com/putdotio/putio-cli/blob/main/tsconfig.json).
+
 ## Proof
 
-- Docs only: `pnpm exec vp check .`, plus `pnpm exec vp run skills:lint` for `skills/*`; no runtime proof.
+- Docs only: `pnpm exec vp run check`, plus `pnpm exec vp run skills:lint` for `skills/*`; no runtime proof.
 - Source change: `pnpm exec vp run verify`. Prefer in-process tests unless the process boundary is the behavior under test; add command-path coverage when the `effect/cli` command boundary changes.
 - Commands, flags, output, auth, or config persistence: also `pnpm exec vp run build`, then drive the changed command with the `verify-putio-cli` skill, which sandboxes the binary against a fixture API.
 - Standalone binary bundling: `pnpm exec vp run build:sea`, then `pnpm exec vp run verify:sea`.

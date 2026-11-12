@@ -397,7 +397,7 @@ describe("cli argv parsing", () => {
       profile: "automation",
     });
 
-    const afterUse = Schema.decodeUnknownSync(PersistedProfileSelectionSchema)(
+    const afterUse = Schema.decodeSync(PersistedProfileSelectionSchema)(
       await readFile(useResult.configPath, "utf8"),
     );
 

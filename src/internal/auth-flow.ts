@@ -19,9 +19,9 @@ export const buildDeviceLinkUrl = (code: string, webAppUrl: string = DEFAULT_PUT
 export const openBrowser = (url: string): Effect.Effect<boolean, never, CliRuntime> =>
   Effect.flatMap(CliRuntime, (runtime) => runtime.openExternal(url));
 
-export const waitForDeviceToken = <R>(options: {
+export const waitForDeviceToken = <E, R>(options: {
   readonly code: string;
-  readonly checkCodeMatch: (code: string) => Effect.Effect<string | null, unknown, R>;
+  readonly checkCodeMatch: (code: string) => Effect.Effect<string | null, E, R>;
   readonly pollIntervalMs?: number;
   readonly timeoutMs?: number;
 }): Effect.Effect<string, PutioCliAuthFlowError, R> =>

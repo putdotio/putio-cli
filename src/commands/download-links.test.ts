@@ -63,7 +63,7 @@ describe("resolveDownloadLinksCreateInput", () => {
   });
 
   it("accepts raw json that matches the create schema", () => {
-    const input = Schema.decodeUnknownSync(DownloadLinksCreateInputSchema)({
+    const input = Schema.decodeSync(DownloadLinksCreateInputSchema)({
       cursor: "cursor-1",
       excludeIds: [2],
       ids: [1],

@@ -204,7 +204,7 @@ describe("waitForDeviceToken", () => {
       const result = yield* Effect.result(
         waitForDeviceToken({
           code: "ABCD1234",
-          checkCodeMatch: () => Effect.fail(new Error("boom")),
+          checkCodeMatch: () => Effect.fail("boom"),
         }),
       );
 

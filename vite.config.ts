@@ -1,3 +1,4 @@
+import { correctness, strict } from "@effect/tsgo/oxlint-presets";
 import { defineConfig } from "vite-plus";
 
 import { resolveCrashReportingBuildDefines } from "./src/internal/crash-reporting-config.ts";
@@ -43,6 +44,7 @@ export default defineConfig({
     ignorePatterns: agentToolingIgnores,
   },
   lint: {
+    extends: [correctness, strict],
     options: {
       typeAware: true,
       typeCheck: true,
@@ -53,7 +55,39 @@ export default defineConfig({
       { name: "anti-slop-effect", specifier: "./tools/oxlint/anti-slop/effect/index.ts" },
       { name: "uinaf", specifier: "@uinaf/oxlint-plugin-no-comments" },
     ],
+    overrides: [
+      {
+        files: [
+          "**/*.test.ts",
+          "src/test-support/**",
+          "src/bin.ts",
+          "src/sea.ts",
+          "src/cli.ts",
+          "src/commands/sdk.ts",
+          "src/internal/main.ts",
+          "src/internal/sdk-operations.ts",
+        ],
+        rules: {
+          "effecttsgo/any-unknown-in-error-context": "off",
+        },
+      },
+      {
+        files: ["src/internal/sdk-operations.ts"],
+        rules: {
+          "effecttsgo/unsafe-effect-type-assertion": "off",
+        },
+      },
+      {
+        files: ["src/internal/state.ts"],
+        rules: {
+          "effecttsgo/leaking-requirements": "off",
+        },
+      },
+    ],
     rules: {
+      "effecttsgo/any-unknown-in-error-context": "error",
+      "effecttsgo/lazy-effect": "off",
+      "effecttsgo/unsafe-effect-type-assertion": "error",
       "oxc/no-accumulating-spread": "error",
       "anti-slop/no-array-filter-map": "error",
       "anti-slop/no-reduce-accumulator-copy": "error",
@@ -100,7 +134,7 @@ export default defineConfig({
     },
   },
   staged: {
-    "*.{js,ts,tsx,mjs,cjs,mts,cts}": "vp check --fix",
+    "*.{js,ts,tsx,mjs,cjs,mts,cts}": "effect-tsgo vp check --fix",
   },
   test: {
     exclude: ["**/node_modules/**", "**/.git/**", ".claude/worktrees/**", "scripts/**/*.test.ts"],

@@ -160,10 +160,9 @@ describe("resolveConfigPath", () => {
 
     const exits = await Effect.runPromise(
       provideConfig(
-        Effect.all(
-          [...writers, ...readers].map((effect) => Effect.exit(effect)),
-          { concurrency: "unbounded" },
-        ),
+        Effect.forEach([...writers, ...readers], (effect) => Effect.exit(effect), {
+          concurrency: "unbounded",
+        }),
       ),
     );
 

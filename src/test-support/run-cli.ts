@@ -20,7 +20,7 @@ import {
 
 import { runCli } from "../cli.js";
 import { CliServicesLive } from "../internal/app-layer.js";
-import { CrashReportingDisabledLive } from "../internal/crash-reporting.js";
+import { CliCrashReporter, type CrashKind } from "../internal/crash-reporting.js";
 import { handleCliCause } from "../internal/main.js";
 import { cliRuntimeLayer } from "../internal/runtime.js";
 
@@ -210,6 +210,7 @@ export type CliRun = {
   /** The persisted config after the run, parsed; undefined when no file exists. */
   readonly config: unknown;
   readonly configPath: string;
+  readonly crashReports: ReadonlyArray<CrashKind>;
   readonly exitCode: number;
   readonly openedUrls: ReadonlyArray<string>;
   readonly stderr: string;
@@ -280,6 +281,17 @@ export const runPutio = async (
     writeStdout: (message) => stdout.push(message),
   });
 
+  const crashReports: CrashKind[] = [];
+
+  const crashReporterLayer = Layer.succeed(CliCrashReporter, {
+    capture: (kind) => {
+      crashReports.push(kind);
+
+      return Promise.resolve();
+    },
+    decision: { enabled: true },
+  });
+
   const stdioLayer = Stdio.layerTest({
     stdin:
       options.stdin === undefined
@@ -304,7 +316,7 @@ export const runPutio = async (
           Effect.provide(
             CliServicesLive.pipe(
               Layer.provideMerge(runtimeLayer),
-              Layer.merge(CrashReportingDisabledLive),
+              Layer.merge(crashReporterLayer),
               Layer.merge(stdioLayer),
               Layer.merge(terminalLayer),
             ),
@@ -324,6 +336,7 @@ export const runPutio = async (
     return {
       config,
       configPath,
+      crashReports,
       exitCode,
       openedUrls,
       stderr: stderr.join(""),

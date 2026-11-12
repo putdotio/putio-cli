@@ -24,6 +24,7 @@ import {
   writeDryRunPlan,
   writeReadOutput,
   writeReadPages,
+  checkCommandInput,
 } from "../internal/command.js";
 import {
   dryRunFlag,
@@ -355,10 +356,12 @@ const filesMkdir = Command.make(
         json,
         schema: FilesMkdirInputSchema,
       }).pipe(
-        Effect.map((value) => ({
-          ...value,
-          name: validateNameLikeInput("`files mkdir --name`", value.name),
-        })),
+        Effect.flatMap((value) =>
+          checkCommandInput(() => ({
+            ...value,
+            name: validateNameLikeInput("`files mkdir --name`", value.name),
+          })),
+        ),
       );
 
       if (dryRun) {
@@ -401,31 +404,32 @@ const filesUpload = Command.make(
         json,
         schema: FilesUploadInputSchema,
       }).pipe(
-        Effect.map((value) => ({
-          ...value,
-          file_name:
-            value.file_name === undefined
-              ? undefined
-              : validateNameLikeInput(
-                  "`files upload --file-name`",
-                  requiredNonEmptyText(
-                    value.file_name,
-                    "Expected `files upload --file-name` to be a non-empty string.",
+        Effect.flatMap((value) =>
+          checkCommandInput(() => ({
+            ...value,
+            file_name:
+              value.file_name === undefined
+                ? undefined
+                : validateNameLikeInput(
+                    "`files upload --file-name`",
+                    requiredNonEmptyText(
+                      value.file_name,
+                      "Expected `files upload --file-name` to be a non-empty string.",
+                    ),
                   ),
-                ),
-          parent_id: optionalNonNegativeInteger(
-            value.parent_id,
-            "Expected `files upload --parent-id` to be a non-negative integer.",
-          ),
-          path: validateLocalPathInput("`files upload --path`", value.path),
-        })),
+            parent_id: optionalNonNegativeInteger(
+              value.parent_id,
+              "Expected `files upload --parent-id` to be a non-negative integer.",
+            ),
+            path: validateLocalPathInput("`files upload --path`", value.path),
+          })),
+        ),
       );
 
       const prepared = yield* inspectLocalUpload(input.path);
 
-      const resolvedFileName = validateNameLikeInput(
-        "`files upload --file-name`",
-        input.file_name ?? prepared.fileName,
+      const resolvedFileName = yield* checkCommandInput(() =>
+        validateNameLikeInput("`files upload --file-name`", input.file_name ?? prepared.fileName),
       );
 
       const plan = {
@@ -481,10 +485,12 @@ const filesRename = Command.make(
         json,
         schema: FilesRenameInputSchema,
       }).pipe(
-        Effect.map((value) => ({
-          ...value,
-          name: validateNameLikeInput("`files rename --name`", value.name),
-        })),
+        Effect.flatMap((value) =>
+          checkCommandInput(() => ({
+            ...value,
+            name: validateNameLikeInput("`files rename --name`", value.name),
+          })),
+        ),
       );
 
       if (dryRun) {
@@ -659,9 +665,11 @@ const filesStartFromGet = Command.make(
   },
   ({ fields, fileId, output }) =>
     Effect.gen(function* () {
-      const validatedFileId = requiredPositiveInteger(
-        fileId,
-        "Expected `files start-from get` file-id to be a positive integer.",
+      const validatedFileId = yield* checkCommandInput(() =>
+        requiredPositiveInteger(
+          fileId,
+          "Expected `files start-from get` file-id to be a positive integer.",
+        ),
       );
 
       const controls = yield* resolveReadOutputControls({
@@ -796,9 +804,11 @@ const filesHlsManifest = Command.make(
   },
   ({ fields, fileId, maxSubtitleCount, original, output, subtitleLanguages }) =>
     Effect.gen(function* () {
-      const validatedFileId = requiredPositiveInteger(
-        fileId,
-        "Expected `files hls-manifest` file-id to be a positive integer.",
+      const validatedFileId = yield* checkCommandInput(() =>
+        requiredPositiveInteger(
+          fileId,
+          "Expected `files hls-manifest` file-id to be a positive integer.",
+        ),
       );
 
       const controls = yield* resolveReadOutputControls({
