@@ -85,7 +85,9 @@ export default defineConfig({
       },
     ],
     rules: {
+      "effecttsgo/any-unknown-in-error-context": "error",
       "effecttsgo/lazy-effect": "off",
+      "effecttsgo/unsafe-effect-type-assertion": "error",
       "oxc/no-accumulating-spread": "error",
       "anti-slop/no-array-filter-map": "error",
       "anti-slop/no-reduce-accumulator-copy": "error",

@@ -25,8 +25,8 @@ does not cover. Keep the pinned `effect` version.
 
 `@effect/tsgo` adds Effect diagnostics to lint. Bare `vp check` cannot load them
 and stops at `Unknown plugin: effecttsgo`; use `pnpm exec vp run check`. Rule
-overrides are in [vite.config.ts](vite.config.ts), the unstable modules the CLI
-accepts in [tsconfig.json](tsconfig.json).
+overrides are in [vite.config.ts](https://github.com/putdotio/putio-cli/blob/main/vite.config.ts), the unstable modules the CLI
+accepts in [tsconfig.json](https://github.com/putdotio/putio-cli/blob/main/tsconfig.json).
 
 ## Proof
 
