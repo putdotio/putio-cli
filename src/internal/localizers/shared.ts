@@ -46,10 +46,7 @@ const rateLimitLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
   match: (error) =>
     isPlainRecord(error) &&
-    ((Predicate.isTagged(error, "PutioRateLimitError") &&
-      "body" in error &&
-      isPlainRecord(error.body) &&
-      error.body.status_code === 429) ||
+    (Predicate.isTagged(error, "PutioRateLimitError") ||
       ("body" in error &&
         isPlainRecord(error.body) &&
         error.body.status_code === 429 &&
