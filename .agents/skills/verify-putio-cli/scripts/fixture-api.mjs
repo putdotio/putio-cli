@@ -89,6 +89,45 @@ const accountInfo = {
   warnings: {},
 };
 
+const transfer = (id, name, status) => ({
+  availability: null,
+  callback_url: null,
+  client_ip: null,
+  completion_percent: null,
+  created_at: TIMESTAMP,
+  created_torrent: false,
+  current_ratio: null,
+  down_speed: null,
+  download_id: null,
+  downloaded: null,
+  error_message: null,
+  estimated_time: null,
+  file_id: null,
+  finished_at: null,
+  hash: null,
+  id,
+  is_private: false,
+  name,
+  peers_connected: null,
+  peers_getting_from_us: null,
+  peers_sending_to_us: null,
+  percent_done: status === "COMPLETED" ? 100 : 50,
+  save_parent_id: 0,
+  seconds_seeding: null,
+  simulated: false,
+  size: null,
+  source: `https://example.invalid/${name}.torrent`,
+  started_at: null,
+  status,
+  subscription_id: null,
+  torrent_link: null,
+  tracker: null,
+  tracker_message: null,
+  type: "URL",
+  up_speed: null,
+  uploaded: null,
+});
+
 const ok = (body = {}) => ({ status: 200, body: { status: "OK", ...body } });
 
 const error = (status, errorType, message) => ({
@@ -118,6 +157,14 @@ const routes = {
   "GET /v2/files/list": (request) =>
     authorized(request)
       ? ok({ cursor: null, files: [file(1, "Movies")], parent: file(0, "Your Files"), total: 1 })
+      : error(401, "invalid_grant", "Invalid token"),
+  "GET /v2/transfers/7": (request) =>
+    authorized(request)
+      ? ok({ transfer: transfer(7, "stuck.iso", "DOWNLOADING") })
+      : error(401, "invalid_grant", "Invalid token"),
+  "GET /v2/transfers/8": (request) =>
+    authorized(request)
+      ? ok({ transfer: transfer(8, "done.iso", "COMPLETED") })
       : error(401, "invalid_grant", "Invalid token"),
 };
 
