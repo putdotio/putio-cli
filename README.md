@@ -29,7 +29,8 @@ brew install putio-cli
 curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | sh
 ```
 
-Installs the latest release to `~/.local/bin/putio`. Pick another directory:
+Installs the latest release to `~/.local/bin/putio`. Prebuilt binaries cover Apple
+silicon macOS and x86-64 Linux; use npm elsewhere. Pick another directory:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/putdotio/putio-cli/main/install.sh | INSTALL_DIR=/usr/local/bin sh
@@ -186,6 +187,8 @@ command arguments, request data, paths, or device or user identifiers.
 
 ## Docs
 
+- [put.io API reference for agents](https://devs.put.io/llms.txt)
+- [put.io product guide for agents](https://put.io/llms.txt)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](https://github.com/putdotio/.github/blob/main/SECURITY.md)
 

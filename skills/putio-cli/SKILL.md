@@ -26,3 +26,8 @@ Load only the reference the task needs:
 - `--fields`, `--page-all`, and `ndjson` reads: [`references/reads.md`](references/reads.md)
 - `--json` and `--dry-run` writes, and `sdk call` argument validation: [`references/writes.md`](references/writes.md)
 - error classification, input and output safety: [`references/guardrails.md`](references/guardrails.md)
+
+Outside the CLI:
+
+- put.io API endpoints, parameters, and errors behind `sdk call`: [devs.put.io/llms.txt](https://devs.put.io/llms.txt)
+- put.io plans, pricing, and support: [put.io/llms.txt](https://put.io/llms.txt)
