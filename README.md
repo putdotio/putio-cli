@@ -186,6 +186,8 @@ command arguments, request data, paths, or device or user identifiers.
 
 ## Docs
 
+- [put.io API reference for agents](https://devs.put.io/llms.txt)
+- [put.io product guide for agents](https://put.io/llms.txt)
 - [Contributing](./CONTRIBUTING.md)
 - [Security](https://github.com/putdotio/.github/blob/main/SECURITY.md)
 
