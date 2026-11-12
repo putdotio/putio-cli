@@ -50,7 +50,8 @@ export const cliTransfersErrorLocalizers = [
     }),
   ),
   createOperationLocalizer(
-    (error) => hasOperationStatus(error, "transfers", ["list", "add", "addMany", "retry"], 400),
+    (error) =>
+      hasOperationStatus(error, "transfers", ["list", "continue", "add", "addMany", "retry"], 400),
     () => ({
       message: translate("cli.error.transfers.badRequest.title"),
       recoverySuggestion: {

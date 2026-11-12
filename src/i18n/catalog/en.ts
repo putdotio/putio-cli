@@ -125,6 +125,12 @@ export const en = {
         title: "Permission denied",
         message: "You don't have permission to do that.",
       },
+      contract: {
+        title: "Unexpected response from put.io",
+        message: "put.io returned data the CLI did not expect.",
+        retryHint: "Retry the command once in case the response was transient.",
+        reportHint: "If it keeps happening, report it with the command and output.",
+      },
       config: {
         title: "Configuration error",
         message: "The CLI configuration is invalid or incomplete.",
@@ -208,10 +214,10 @@ export const en = {
         },
       },
       validation: {
-        title: "Unexpected response from put.io",
-        message: "put.io returned data the CLI did not expect.",
-        retryHint: "Retry the command once in case the response was transient.",
-        reportHint: "If it keeps happening, report it with the command and output.",
+        title: "Invalid request",
+        message: "The request input was rejected before it was sent.",
+        checkHint: "Check the flag values or JSON input and try again.",
+        describeHint: "Run `putio describe` to see what the command accepts.",
       },
       terminal: {
         tryThis: "Try this",

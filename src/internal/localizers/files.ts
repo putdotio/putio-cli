@@ -2,7 +2,15 @@ import { translate } from "../../i18n/index.js";
 
 import { createOperationLocalizer, hasOperationErrorType, hasOperationStatus } from "./helpers.js";
 
-const fileOperations = ["list", "continue", "get", "search", "createFolder", "rename"] as const;
+const fileOperations = [
+  "list",
+  "continue",
+  "get",
+  "search",
+  "continueSearch",
+  "createFolder",
+  "rename",
+] as const;
 
 export const cliFilesErrorLocalizers = [
   createOperationLocalizer(

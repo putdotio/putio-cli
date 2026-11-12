@@ -116,17 +116,17 @@ const NonBlankStringSchema = Schema.String.check(
   ),
 );
 
-const NonEmptyIdsSchema = Schema.Array(Schema.Number).check(Schema.isNonEmpty());
+const NonEmptyIdsSchema = Schema.Array(Schema.Finite).check(Schema.isNonEmpty());
 const PositiveIntegerSchema = Schema.Int.check(Schema.isGreaterThan(0));
 const NonNegativeIntegerSchema = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
 const FilesMkdirInputSchema = Schema.Struct({
   name: NonBlankStringSchema,
-  parent_id: Schema.optional(Schema.Number),
+  parent_id: Schema.optional(Schema.Finite),
 });
 
 const FilesRenameInputSchema = Schema.Struct({
-  file_id: Schema.Number,
+  file_id: Schema.Finite,
   name: NonBlankStringSchema,
 });
 
@@ -137,7 +137,7 @@ const FilesDeleteInputSchema = Schema.Struct({
 
 const FilesMoveInputSchema = Schema.Struct({
   ids: NonEmptyIdsSchema,
-  parent_id: Schema.Number,
+  parent_id: Schema.Finite,
 });
 
 const FilesUploadInputSchema = Schema.Struct({

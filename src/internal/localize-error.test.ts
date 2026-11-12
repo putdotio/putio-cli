@@ -1,4 +1,6 @@
 import {
+  PutioConfigurationError,
+  PutioContractError,
   PutioOperationError,
   PutioRateLimitError,
   PutioTransportError,
@@ -230,6 +232,24 @@ describe("localizeCliError", () => {
       "Review the transfer id or input and try again.",
     ],
     [
+      "localizes transfer continuation bad requests",
+      operationError("transfers", "continue", {
+        errorMessage: "bad request",
+        status: 400,
+      }),
+      "That transfer request is not valid",
+      "Review the transfer id or input and try again.",
+    ],
+    [
+      "localizes search continuation not-found errors",
+      operationError("files", "continueSearch", {
+        errorMessage: "not found",
+        status: 404,
+      }),
+      "File not found",
+      "The file you requested is not available.",
+    ],
+    [
       "localizes concurrent download-links limits",
       operationError("downloadLinks", "create", {
         errorMessage: "concurrent limit",
@@ -323,10 +343,68 @@ describe("localizeCliError", () => {
       new PutioValidationError({ cause: new Error("bad payload") }),
     );
 
+    expect(localized.message).toBe("Invalid request");
+    expect(localized.recoverySuggestion.description).toBe(
+      "The request input was rejected before it was sent.",
+    );
+    expect(localized.meta).toEqual({
+      hints: [
+        "Check the flag values or JSON input and try again.",
+        "Run `putio describe` to see what the command accepts.",
+      ],
+    });
+  });
+
+  it("localizes a response that lacks a requested field", () => {
+    const localized = localizeCliError(new PutioContractError({ missingField: "total" }));
+
     expect(localized.message).toBe("Unexpected response from put.io");
     expect(localized.recoverySuggestion.description).toBe(
       "put.io returned data the CLI did not expect.",
     );
+    expect(localized.meta).toEqual({
+      details: [["missing field", "total"]],
+      hints: [
+        "Retry the command once in case the response was transient.",
+        "If it keeps happening, report it with the command and output.",
+      ],
+    });
+  });
+
+  it("localizes a response that is not valid JSON", () => {
+    const localized = localizeCliError(
+      new PutioContractError({
+        cause: new SyntaxError("The HTTP response body is not valid JSON"),
+      }),
+    );
+
+    expect(localized.message).toBe("Unexpected response from put.io");
+    expect(localized.recoverySuggestion.description).toBe(
+      "put.io returned data the CLI did not expect.",
+    );
+    expect(localized.meta).toEqual({
+      details: undefined,
+      hints: [
+        "Retry the command once in case the response was transient.",
+        "If it keeps happening, report it with the command and output.",
+      ],
+    });
+  });
+
+  it("localizes SDK configuration errors", () => {
+    const localized = localizeCliError(
+      new PutioConfigurationError({
+        cause: "SDK request headers must be valid HTTP header values",
+      }),
+    );
+
+    expect(localized.message).toBe("Configuration error");
+    expect(localized.meta).toEqual({
+      hints: [
+        "Check the relevant `PUTIO_CLI_*` environment variables and try again.",
+        "If you use a persisted config file, verify that its JSON is valid.",
+      ],
+    });
   });
 
   it("localizes rate-limit errors without retry metadata", () => {

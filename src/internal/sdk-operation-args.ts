@@ -3,7 +3,6 @@ import {
   AccountConfirmationSchema,
   AccountInfoQuerySchema,
   CreateAppSpecificPasswordInputSchema,
-  DownloadLinksCreateInputSchema,
   EventsListQuerySchema,
   FileCopyInputSchema,
   FileGetChildInputSchema,
@@ -21,7 +20,6 @@ import {
   PublicShareListQuerySchema,
   RssFeedParamsSchema,
   SaveAccountSettingsPayloadSchema,
-  SharingCloneInputSchema,
   SharingShareInputSchema,
   SharingUnshareInputSchema,
   TransferAddInputSchema,
@@ -147,7 +145,7 @@ const TrashBulkInputSchema = Schema.Union([
   Schema.Struct({ file_ids: Ids, useCursor: Schema.optionalKey(Schema.Literal(false)) }),
 ]);
 
-const QueryValueSchema = Schema.Union([Schema.String, Schema.Number, Schema.Boolean, Schema.Null]);
+const QueryValueSchema = Schema.Union([Schema.String, Schema.Finite, Schema.Boolean, Schema.Null]);
 
 const sdkOperationArgsSchemas = defineArgsSchemas({
   "account.appSpecificPasswords.create": Schema.Tuple([CreateAppSpecificPasswordInputSchema]),
@@ -162,7 +160,7 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   ]),
   "account.listSubtitleLanguages": none,
   "account.saveSettings": Schema.Tuple([SaveAccountSettingsPayloadSchema]),
-  "downloadLinks.create": Schema.Tuple([Schema.optionalKey(DownloadLinksCreateInputSchema)]),
+  "downloadLinks.create": Schema.Tuple([FilesBulkSelectionSchema]),
   "downloadLinks.get": byId,
   "events.clear": none,
   "events.delete": byId,
@@ -256,7 +254,7 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   "files.resetStartFrom": byId,
   "files.search": Schema.Tuple([FilesSearchQuerySchema]),
   "files.setSort": Schema.Tuple([FileSetSortInputSchema]),
-  "files.setStartFrom": Schema.Tuple([Schema.Struct({ file_id: Id, time: Schema.Number })]),
+  "files.setStartFrom": Schema.Tuple([Schema.Struct({ file_id: Id, time: Schema.Finite })]),
   "files.setWatchStatus": Schema.Tuple([bulkSelection({ watched: Schema.Boolean })]),
   "files.touch": Schema.Tuple([FileTouchInputSchema]),
   "friendInvites.create": none,
@@ -346,7 +344,7 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   "rss.retryAll": byId,
   "rss.retryItem": Schema.Tuple([Id, Id]),
   "rss.update": Schema.Tuple([Id, RssFeedParamsSchema]),
-  "sharing.clone": Schema.Tuple([Schema.optionalKey(SharingCloneInputSchema)]),
+  "sharing.clone": Schema.Tuple([bulkSelection({ parentId: Schema.optionalKey(Id) })]),
   "sharing.getCloneInfo": byId,
   "sharing.getSharedWith": byId,
   "sharing.listSharedFiles": none,
@@ -357,7 +355,9 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   "sharing.publicShares.create": byId,
   "sharing.publicShares.delete": byId,
   "sharing.publicShares.list": none,
-  "sharing.shareFiles": Schema.Tuple([SharingShareInputSchema]),
+  "sharing.shareFiles": Schema.Tuple([
+    bulkSelection({ target: SharingShareInputSchema.fields.target }),
+  ]),
   "sharing.unshare": Schema.Tuple([SharingUnshareInputSchema]),
   "transfers.add": Schema.Tuple([TransferAddInputSchema]),
   "transfers.addMany": Schema.Tuple([Schema.Array(TransferAddInputSchema)]),
@@ -382,11 +382,18 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   "tunnel.listRoutes": none,
   "zips.cancel": byId,
   "zips.create": Schema.Tuple([
-    Schema.Struct({
-      cursor: Schema.optionalKey(Schema.String),
-      exclude_ids: Schema.optionalKey(Ids),
-      file_ids: Schema.optionalKey(Ids),
-    }),
+    Schema.Union([
+      Schema.Struct({
+        cursor: Schema.String,
+        exclude_ids: Schema.optionalKey(Ids),
+        file_ids: Schema.optionalKey(Ids),
+      }),
+      Schema.Struct({
+        cursor: Schema.optionalKey(Schema.String),
+        exclude_ids: Schema.optionalKey(Ids),
+        file_ids: Ids,
+      }),
+    ]),
   ]),
   "zips.get": byId,
   "zips.list": none,

@@ -193,7 +193,10 @@ const routeReads = (api: FixtureApi) => {
     "GET /v2/files/search",
     ok({ cursor: null, files: [file(2, "movie.mkv", { file_type: "VIDEO", size: 42 })], total: 1 }),
   );
-  api.route("GET /v2/transfers/list", ok({ cursor: null, transfers: [transfer(7, "ubuntu.iso")] }));
+  api.route(
+    "GET /v2/transfers/list",
+    ok({ cursor: null, total: 1, transfers: [transfer(7, "ubuntu.iso")] }),
+  );
   api.route("GET /v2/transfers/7", ok({ transfer: transfer(7, "ubuntu.iso", "COMPLETED") }));
 };
 
@@ -612,6 +615,33 @@ describe("reads", () => {
     ]);
   });
 
+  it("names the missing field when a transfers page omits its total", async () => {
+    api.route("GET /v2/transfers/list", ok({ cursor: null, transfers: [] }));
+
+    const run = await putio("transfers", "list", "--output", "json");
+
+    expect(run.exitCode).toBe(1);
+    expect(run.stdout).toBe("");
+    expect(stderrJson(run).error).toMatchObject({
+      details: [["missing field", "total"]],
+      message: "put.io returned data the CLI did not expect.",
+      title: "Unexpected response from put.io",
+    });
+  });
+
+  it("reports a successful response that is not JSON as an unexpected response", async () => {
+    api.route("GET /v2/files/list", () => ({ body: "<html>", contentType: "text/html" }));
+
+    const run = await putio("files", "list", "--output", "json");
+
+    expect(run.exitCode).toBe(1);
+    expect(run.stdout).toBe("");
+    expect(stderrJson(run).error).toMatchObject({
+      message: "put.io returned data the CLI did not expect.",
+      title: "Unexpected response from put.io",
+    });
+  });
+
   it.each([
     ["json", (run: CliRun) => stdoutJson(run)],
     ["ndjson", (run: CliRun) => stdoutLines(run)[0]],
@@ -687,7 +717,7 @@ describe("pagination", () => {
     {
       args: ["transfers", "list"],
       continuePath: "/v2/transfers/list/continue",
-      first: { path: "GET /v2/transfers/list", page: {} },
+      first: { path: "GET /v2/transfers/list", page: { total: 3 } },
       itemKey: "transfers",
       items: [transfer(7, "ubuntu.iso"), transfer(8, "fedora.iso"), transfer(9, "debian.iso")],
     },
@@ -1262,6 +1292,16 @@ describe("sdk call", () => {
     ],
     ["--dry-run", "missing argument", "transfers.get", "[]", "Missing key at [0]"],
     ["--dry-run", "argument for a nullary operation", "zips.list", "[1]", /at \[0\]/],
+    ["--dry-run", "no selection", "downloadLinks.create", "[{}]", /Missing key/],
+    ["--dry-run", "no selection", "sharing.clone", '[{"parentId":0}]', /Missing key/],
+    [
+      "--dry-run",
+      "no selection",
+      "sharing.shareFiles",
+      '[{"target":{"type":"everyone"}}]',
+      /Missing key/,
+    ],
+    ["--dry-run", "no selection", "zips.create", '[{"exclude_ids":[1]}]', /Missing key/],
   ])("rejects %s args with %s before any request", async (mode, _label, operation, args, issue) => {
     const run = await putio(
       "sdk",
