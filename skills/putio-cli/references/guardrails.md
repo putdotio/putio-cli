@@ -14,6 +14,11 @@ copies the HTTP status into `statusCode` when the body is malformed, so matching
 and `errorType` matching the operation's known missing-file type. Unknown,
 empty, or unrelated types do not qualify; neither does prose.
 
+Title `Unexpected response from put.io` means a successful response broke the
+API contract: malformed, not JSON, or missing a requested field, which
+`error.details` names as `["missing field", "<name>"]`. Retry once, then report
+it. Title `Invalid request` means the input was rejected before any request.
+
 If a command fails:
 
 1. Re-run with structured output.

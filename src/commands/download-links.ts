@@ -1,5 +1,5 @@
 import { Command } from "effect/cli";
-import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
+import { DownloadLinksCreateInputSchema, type FilesBulkSelection } from "@putdotio/sdk";
 import { Data, Effect, Option, Predicate, Schema } from "effect";
 
 import {
@@ -54,20 +54,23 @@ export type DownloadLinksCreateInput = Schema.Schema.Type<typeof DownloadLinksCr
 const selectionIds = (value: ReadonlyArray<number> | string | undefined) =>
   value === undefined || Predicate.isString(value) ? [] : value;
 
-export const resolveDownloadLinksCreateInput = (input: DownloadLinksCreateInput) => {
-  const normalized = {
-    cursor: input.cursor,
-    excludeIds: toOptionalIds(selectionIds(input.excludeIds)),
-    ids: toOptionalIds(selectionIds(input.ids)),
-  };
+export const resolveDownloadLinksCreateInput = (
+  input: DownloadLinksCreateInput,
+): FilesBulkSelection => {
+  const excludeIds = toOptionalIds(selectionIds(input.excludeIds));
+  const ids = toOptionalIds(selectionIds(input.ids));
 
-  if (!normalized.cursor && !normalized.ids) {
-    throw new DownloadLinksCommandError({
-      message: "Provide at least one --id or a --cursor to create download links.",
-    });
+  if (ids !== undefined) {
+    return { cursor: input.cursor, excludeIds, ids };
   }
 
-  return normalized;
+  if (input.cursor) {
+    return { cursor: input.cursor, excludeIds, ids };
+  }
+
+  throw new DownloadLinksCommandError({
+    message: "Provide at least one --id or a --cursor to create download links.",
+  });
 };
 
 const downloadLinksCreate = Command.make(

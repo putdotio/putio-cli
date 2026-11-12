@@ -57,7 +57,7 @@ const optionalTransferIdOption = optionalTransferIdConfig.option;
 
 const WATCH_TERMINAL_STATUSES = ["COMPLETED", "ERROR", "SEEDING"] as const;
 
-const NonEmptyIdsSchema = Schema.Array(Schema.Number).check(Schema.isNonEmpty());
+const NonEmptyIdsSchema = Schema.Array(Schema.Finite).check(Schema.isNonEmpty());
 
 const TransfersAddInputSchema = Schema.Array(TransferAddInputSchema).check(Schema.isNonEmpty());
 
@@ -66,7 +66,7 @@ const TransfersCancelInputSchema = Schema.Struct({
 });
 
 const TransfersSingleIdInputSchema = Schema.Struct({
-  id: Schema.Number,
+  id: Schema.Finite,
 });
 
 const TransfersCleanInputSchema = Schema.Struct({

@@ -29,4 +29,5 @@ Rules:
 - Take required keys from `describe`; never guess names.
 - Treat every `sdk call` operation as potentially mutating and inspect its dry-run before `--execute`.
 - `sdk call` args are the SDK function's positional parameters and must match its input schema. A mismatch fails with title `Invalid SDK arguments` before any request; `error.details` names the `operation` and the schema `issue` with its path.
+- Bulk selections (`downloadLinks.create`, `sharing.clone`, `sharing.shareFiles`, `zips.create`) need `ids` or a `cursor`; `zips.create` names them `file_ids`.
 - `files upload` sends to `PUTIO_CLI_UPLOAD_BASE_URL`, or upload.put.io with the default API base. With a custom `PUTIO_CLI_API_BASE_URL` and no upload base, it fails before sending anything; set both together.

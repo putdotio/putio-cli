@@ -175,11 +175,37 @@ const validationLocalizer: MatchConditionLocalizer<unknown> = {
     },
     meta: {
       hints: [
-        translate("cli.error.validation.retryHint"),
-        translate("cli.error.validation.reportHint"),
+        translate("cli.error.validation.checkHint"),
+        translate("cli.error.validation.describeHint"),
       ],
     },
   }),
+};
+
+const contractLocalizer: MatchConditionLocalizer<unknown> = {
+  kind: "match_condition",
+  match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "PutioContractError"),
+  localize: (error) => {
+    const missingField =
+      isPlainRecord(error) && "missingField" in error && isNonEmptyString(error.missingField)
+        ? error.missingField
+        : undefined;
+
+    return {
+      message: translate("cli.error.contract.title"),
+      recoverySuggestion: {
+        type: "instruction",
+        description: translate("cli.error.contract.message"),
+      },
+      meta: {
+        details: missingField ? ([["missing field", missingField]] as const) : undefined,
+        hints: [
+          translate("cli.error.contract.retryHint"),
+          translate("cli.error.contract.reportHint"),
+        ],
+      },
+    };
+  },
 };
 
 const sdkArgumentsLocalizer: MatchConditionLocalizer<unknown> = {
@@ -233,7 +259,10 @@ const authFlowLocalizer: MatchConditionLocalizer<unknown> = {
 
 const configLocalizer: MatchConditionLocalizer<unknown> = {
   kind: "match_condition",
-  match: (error) => isPlainRecord(error) && Predicate.isTagged(error, "CliConfigError"),
+  match: (error) =>
+    isPlainRecord(error) &&
+    (Predicate.isTagged(error, "CliConfigError") ||
+      Predicate.isTagged(error, "PutioConfigurationError")),
   localize: (error) => ({
     message: translate("cli.error.config.title"),
     recoverySuggestion: {
@@ -263,6 +292,7 @@ export const cliSharedErrorLocalizers = [
   forbiddenLocalizer,
   transportLocalizer,
   validationLocalizer,
+  contractLocalizer,
   sdkArgumentsLocalizer,
   authFlowLocalizer,
   configLocalizer,
