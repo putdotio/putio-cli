@@ -60,7 +60,7 @@
     "@effect/tsgo": "0.68.1",
     "@effect/vitest": "4.1.4",
     "@oxlint/plugins": "1.91.0",
-    "@putdotio/sdk": "16.0.1",
+    "@putdotio/sdk": "16.0.2",
     "@types/node": "^26.1.0",
     "@uinaf/oxlint-plugin-no-comments": "1.1.0",
     "@uinaf/skillcheck": "1.7.7",
