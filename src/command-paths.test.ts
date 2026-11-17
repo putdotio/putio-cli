@@ -1079,9 +1079,10 @@ describe("files upload", () => {
     expect(stdoutJson(run)).toMatchObject({ file: { id: 88, name: "movie.mp4" }, type: "file" });
     expect(api.requests).toEqual([
       expect.objectContaining({
+        authorization: AUTHORIZATION,
         body: { file: "video fixture", filename: "movie.mp4", parent_id: "42" },
         origin: "upload",
-        query: { oauth_token: FIXTURE_TOKEN },
+        query: {},
       }),
     ]);
   });
