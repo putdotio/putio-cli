@@ -57,7 +57,7 @@
     "i18next": "^26.7.2"
   },
   "devDependencies": {
-    "@effect/tsgo": "0.68.1",
+    "@effect/tsgo": "0.73.2",
     "@effect/vitest": "4.1.4",
     "@oxlint/plugins": "1.91.0",
     "@putdotio/sdk": "16.0.2",
