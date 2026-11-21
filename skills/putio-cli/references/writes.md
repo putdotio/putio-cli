@@ -30,5 +30,6 @@ Rules:
 - A `--json` payload that fails its schema exits 1; `error.message` names the failing path.
 - Treat every `sdk call` operation as potentially mutating and inspect its dry-run before `--execute`.
 - `sdk call` args are the SDK function's positional parameters and must match its input schema. A mismatch fails with title `Invalid SDK arguments` before any request; `error.details` names the `operation` and the schema `issue` with its path.
+- Media operations (`files.getHlsMasterPlaylist`, `files.getHlsStreamUrl`, `files.getXspfPlaylistUrl`, `files.getApi*Url`) authenticate with the account download token, not the OAuth token. `sdk call` fetches it when `downloadToken` is omitted.
 - Bulk selections (`downloadLinks.create`, `sharing.clone`, `sharing.shareFiles`, `zips.create`) need `ids` or a `cursor`; `zips.create` names them `file_ids`.
 - `files upload` sends to `PUTIO_CLI_UPLOAD_BASE_URL`, or upload.put.io with the default API base. With a custom `PUTIO_CLI_API_BASE_URL` and no upload base, it fails before sending anything; set both together.

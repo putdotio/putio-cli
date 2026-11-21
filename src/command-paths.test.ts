@@ -19,6 +19,7 @@ import {
 const decodeTopLevelFields = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
 
 const AUTHORIZATION = `Token ${FIXTURE_TOKEN}`;
+const DOWNLOAD_TOKEN = "fixture-download-token";
 const TIMESTAMP = "2026-03-15T12:00:00Z";
 
 type FileOverrides = {
@@ -139,10 +140,16 @@ const accountInfo = {
 const hlsManifest = [
   "#EXTM3U",
   '#EXT-X-STREAM-INF:BANDWIDTH=2376462,CODECS="avc1.42c01e,mp4a.40.2",VIDEO-RANGE=PQ',
-  `https://api.put.io/hls/playlist/abc/index-v1-a1.m3u8?oauth_token=${FIXTURE_TOKEN}`,
+  `https://api.put.io/hls/playlist/abc/index-v1-a1.m3u8?oauth_token=${DOWNLOAD_TOKEN}`,
 ].join("\n");
 
 const ok = (body = {}) => ({ body: { status: "OK", ...body } });
+
+const routeDownloadToken = (api: FixtureApi) =>
+  api.route(
+    "GET /v2/account/info",
+    ok({ info: { ...accountInfo, download_token: DOWNLOAD_TOKEN } }),
+  );
 
 const routeReads = (api: FixtureApi) => {
   api.route("GET /v2/account/info", ok({ info: accountInfo }));
@@ -983,7 +990,8 @@ describe("file writes", () => {
     expect(requestsTo("POST", "/v2/files/42/start-from/delete")).toHaveLength(1);
   });
 
-  it("fetches the MP4 HLS master playlist by default and redacts its token", async () => {
+  it("fetches the MP4 HLS master playlist with the download token and redacts it", async () => {
+    routeDownloadToken(api);
     api.route("GET /v2/files/42/hls/media.m3u8", {
       body: hlsManifest,
       contentType: "application/vnd.apple.mpegurl",
@@ -996,11 +1004,21 @@ describe("file writes", () => {
       manifest: expect.stringContaining('CODECS="avc1.42c01e,mp4a.40.2"'),
       original: false,
     });
-    expect(run.stdout).not.toContain(FIXTURE_TOKEN);
-    expect(api.requests).toEqual([expect.objectContaining({ query: { original: "0" } })]);
+    expect(run.stdout).not.toContain(DOWNLOAD_TOKEN);
+    expect(
+      api.requests.map(({ authorization, path, query }) => ({ authorization, path, query })),
+    ).toEqual([
+      { authorization: AUTHORIZATION, path: "/v2/account/info", query: { download_token: "1" } },
+      {
+        authorization: `Token ${DOWNLOAD_TOKEN}`,
+        path: "/v2/files/42/hls/media.m3u8",
+        query: { original: "0" },
+      },
+    ]);
   });
 
   it("fetches the original HLS master playlist with subtitle options", async () => {
+    routeDownloadToken(api);
     api.route("GET /v2/files/42/hls/media.m3u8", {
       body: hlsManifest,
       contentType: "application/vnd.apple.mpegurl",
@@ -1025,6 +1043,7 @@ describe("file writes", () => {
 
     expect(stdoutJson(run)).toEqual({ manifest: expect.stringContaining("#EXTM3U") });
     expect(api.requests).toEqual([
+      expect.objectContaining({ path: "/v2/account/info" }),
       expect.objectContaining({
         query: { max_subtitle_count: "2", original: "1", subtitle_languages: "en,tr" },
       }),
@@ -1416,6 +1435,32 @@ describe("sdk call", () => {
       request: { args: [{ ids: [7], password: "[REDACTED]" }], operation: "files.extract" },
     });
     expect(api.requests).toEqual([]);
+  });
+
+  it("fetches the download token for a media operation that omits it", async () => {
+    routeDownloadToken(api);
+    api.route("GET /v2/files/42/hls/media.m3u8", {
+      body: hlsManifest,
+      contentType: "application/vnd.apple.mpegurl",
+    });
+
+    const run = await putio(
+      "sdk",
+      "call",
+      "--operation",
+      "files.getHlsMasterPlaylist",
+      "--args",
+      "[42]",
+      "--execute",
+      "--output",
+      "json",
+    );
+
+    expect(run.stdout).not.toContain(DOWNLOAD_TOKEN);
+    expect(api.requests.map(({ authorization, path }) => ({ authorization, path }))).toEqual([
+      { authorization: AUTHORIZATION, path: "/v2/account/info" },
+      { authorization: `Token ${DOWNLOAD_TOKEN}`, path: "/v2/files/42/hls/media.m3u8" },
+    ]);
   });
 
   it("redacts sentinel-looking secrets in execution results", async () => {
