@@ -60,7 +60,7 @@
     "@effect/tsgo": "0.68.1",
     "@effect/vitest": "4.1.4",
     "@oxlint/plugins": "1.91.0",
-    "@putdotio/sdk": "16.0.2",
+    "@putdotio/sdk": "17.0.0",
     "@types/node": "^26.1.0",
     "@uinaf/oxlint-plugin-no-comments": "1.1.0",
     "@uinaf/skillcheck": "1.7.7",
@@ -79,6 +79,6 @@
   },
   "packageManager": "pnpm@12.21.0",
   "inlinedDependencies": {
-    "@putdotio/sdk": "16.0.2"
+    "@putdotio/sdk": "17.0.0"
   }
 }

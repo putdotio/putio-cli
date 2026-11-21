@@ -232,7 +232,10 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   ]),
   "files.getChild": Schema.Tuple([FileGetChildInputSchema]),
   "files.getDownloadUrl": byId,
-  "files.getHlsMasterPlaylist": Schema.Tuple([Id, Schema.optionalKey(Schema.Struct(HlsFields))]),
+  "files.getHlsMasterPlaylist": Schema.Tuple([
+    Id,
+    Schema.Struct({ ...HlsFields, downloadToken: Schema.String }),
+  ]),
   "files.getHlsStreamUrl": Schema.Tuple([
     Id,
     Schema.Struct({ ...HlsFields, downloadToken: Schema.String }),

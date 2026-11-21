@@ -824,11 +824,16 @@ const filesHlsManifest = Command.make(
           output: controls.output,
         },
         withAuthedSdk(({ sdk }) =>
-          sdk.files.getHlsMasterPlaylist(validatedFileId, {
-            maxSubtitleCount: Option.getOrUndefined(maxSubtitleCount),
-            playOriginal: original,
-            subtitleLanguages: languages.length > 0 ? languages : undefined,
-          }),
+          Effect.flatMap(
+            sdk.account.getInfo({ download_token: 1 }),
+            ({ download_token: downloadToken }) =>
+              sdk.files.getHlsMasterPlaylist(validatedFileId, {
+                downloadToken,
+                maxSubtitleCount: Option.getOrUndefined(maxSubtitleCount),
+                playOriginal: original,
+                subtitleLanguages: languages.length > 0 ? languages : undefined,
+              }),
+          ),
         ),
       );
 
