@@ -1437,6 +1437,32 @@ describe("sdk call", () => {
     expect(api.requests).toEqual([]);
   });
 
+  it("fetches the download token for a media operation that omits it", async () => {
+    routeDownloadToken(api);
+    api.route("GET /v2/files/42/hls/media.m3u8", {
+      body: hlsManifest,
+      contentType: "application/vnd.apple.mpegurl",
+    });
+
+    const run = await putio(
+      "sdk",
+      "call",
+      "--operation",
+      "files.getHlsMasterPlaylist",
+      "--args",
+      "[42]",
+      "--execute",
+      "--output",
+      "json",
+    );
+
+    expect(run.stdout).not.toContain(DOWNLOAD_TOKEN);
+    expect(api.requests.map(({ authorization, path }) => ({ authorization, path }))).toEqual([
+      { authorization: AUTHORIZATION, path: "/v2/account/info" },
+      { authorization: `Token ${DOWNLOAD_TOKEN}`, path: "/v2/files/42/hls/media.m3u8" },
+    ]);
+  });
+
   it("redacts sentinel-looking secrets in execution results", async () => {
     api.route("GET /v2/account/info", ok({ info: { ...accountInfo, download_token: "null" } }));
 

@@ -29,7 +29,11 @@ import {
   writeOutput,
 } from "../internal/output-service.js";
 import { sdk } from "../internal/sdk.js";
-import { decodeSdkOperationArgs } from "../internal/sdk-operation-args.js";
+import {
+  decodeSdkOperationArgs,
+  fillMissingDownloadToken,
+  setDownloadToken,
+} from "../internal/sdk-operation-args.js";
 import {
   invokeSdkOperation,
   listSdkOperations,
@@ -42,6 +46,8 @@ const NonBlankStringSchema = Schema.String.check(
     value.trim().length > 0 ? undefined : "Expected a non-empty string",
   ),
 );
+
+const DOWNLOAD_TOKEN_PLACEHOLDER = "[account download token]";
 
 const SdkCallInputSchema = Schema.Struct({
   args: Schema.optional(Schema.Array(Schema.Json)),
@@ -158,7 +164,16 @@ const sdkCall = Command.make(
 
       yield* checkCommandInput(() => resolveSdkOperation(sdk, input.operation));
 
-      const operationArgs = yield* decodeSdkOperationArgs(input.operation, input.args);
+      const filledArgs = fillMissingDownloadToken(
+        input.operation,
+        input.args,
+        DOWNLOAD_TOKEN_PLACEHOLDER,
+      );
+
+      const operationArgs = yield* decodeSdkOperationArgs(
+        input.operation,
+        filledArgs ?? input.args,
+      );
 
       if (mode === "dry-run") {
         return yield* writeDryRunPlan(
@@ -177,7 +192,17 @@ const sdkCall = Command.make(
           output: getOption(output),
         },
         withAuthedSdk(({ sdk: authedSdk }) =>
-          invokeSdkOperation(authedSdk, input.operation, operationArgs),
+          filledArgs === undefined
+            ? invokeSdkOperation(authedSdk, input.operation, operationArgs)
+            : Effect.flatMap(
+                authedSdk.account.getInfo({ download_token: 1 }),
+                ({ download_token: downloadToken }) =>
+                  invokeSdkOperation(
+                    authedSdk,
+                    input.operation,
+                    setDownloadToken(operationArgs, downloadToken) ?? operationArgs,
+                  ),
+              ),
         ),
       );
 

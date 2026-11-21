@@ -412,6 +412,37 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
   "zips.list": none,
 });
 
+const downloadTokenOperations = new Set([
+  "files.getApiContentUrl",
+  "files.getApiDownloadUrl",
+  "files.getApiMp4DownloadUrl",
+  "files.getHlsMasterPlaylist",
+  "files.getHlsStreamUrl",
+  "files.getXspfPlaylistUrl",
+]);
+
+const HasDownloadTokenSchema = Schema.Struct({ downloadToken: Schema.String });
+
+export const setDownloadToken = (
+  args: ReadonlyArray<unknown>,
+  downloadToken: string,
+): ReadonlyArray<unknown> | undefined => {
+  const [fileId, options = {}, ...rest] = args;
+
+  return Schema.is(JsonObjectSchema)(options)
+    ? [fileId, { ...options, downloadToken }, ...rest]
+    : undefined;
+};
+
+export const fillMissingDownloadToken = (
+  operation: string,
+  args: ReadonlyArray<unknown>,
+  downloadToken: string,
+) =>
+  downloadTokenOperations.has(operation) && !Schema.is(HasDownloadTokenSchema)(args[1])
+    ? setDownloadToken(args, downloadToken)
+    : undefined;
+
 const argsSchemas = new Map<string, ArgsSchema>(Object.entries(sdkOperationArgsSchemas));
 
 const formatIssue = SchemaIssue.makeFormatterDefault();
