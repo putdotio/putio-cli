@@ -2,22 +2,6 @@
 
 A user saves put.io credentials as the default auth or a named profile: by piping an existing token, typing it into a hidden prompt, or approving a device code in the browser. The CLI validates a supplied token before saving it and writes the config with mode `600`.
 
-## Sub-features
-
-- `login-stdin` saves a piped token after validating it.
-- `login-prompt` reads a token from a hidden prompt in a terminal.
-- `login-device` shows an activation code and link, polls, then saves the token.
-- `login-profile` saves under `--profile <name>` and keeps other profiles.
-- `login-rejected` refuses an invalid token and leaves the config untouched.
-- `login-inline-token` refuses a token value on the command line.
-
-## How to get to it (user POV)
-
-- `putio auth login --token-stdin` with the token on stdin.
-- `putio auth login --token` in a terminal.
-- `putio auth login`, then open the printed link.
-- Any of the above with `--profile <name>`.
-
 ## Driving it with verify.sh
 
 Preconditions: a fresh run, no config file (`verify.sh config` prints `no config file`).
@@ -32,6 +16,3 @@ Preconditions: a fresh run, no config file (`verify.sh config` prints `no config
 ## Gotchas
 
 - `--token` without a TTY fails by design; drive it only through `pty`.
-- Never press `o` or pass `--open` during device login: it opens a real browser window.
-- The device poll counter is per run; the second device login in a run succeeds on its first poll.
-- Some terminal boxes wrap at 120 columns in captures; match on labels, not layout.

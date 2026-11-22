@@ -2,17 +2,6 @@
 
 `putio sdk call` runs any SDK operation with JSON arguments. It validates the arguments against the operation's input schema before a dry run or a request, so a wrong shape fails locally with the operation and issue named.
 
-## Sub-features
-
-- `sdk-call` executes a read operation and prints its result.
-- `sdk-call-dry-run` previews the call without a request.
-- `sdk-call-invalid` rejects arguments that do not match the schema, before any request.
-
-## How to get to it (user POV)
-
-- `putio sdk call --operation <name> --args '<json array>'`, with exactly one of `--dry-run` or `--execute`.
-- `putio sdk operations` lists the names.
-
 ## Driving it with verify.sh
 
 Preconditions: a fresh run, signed in with `printf fixture-token | verify.sh cli login-stdin -- auth login --token-stdin --output json`.

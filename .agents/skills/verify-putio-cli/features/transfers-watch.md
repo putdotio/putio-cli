@@ -2,16 +2,6 @@
 
 `putio transfers watch` polls one transfer until it reaches a finished status or the deadline passes, then prints the last transfer it saw and whether it timed out.
 
-## Sub-features
-
-- `watch-finished` returns at once for a finished transfer.
-- `watch-deadline` stops at `--timeout-seconds`, even when `--interval-seconds` is longer.
-- `watch-ndjson` streams one line per poll.
-
-## How to get to it (user POV)
-
-- `putio transfers watch --id <id>`, optionally `--timeout-seconds` and `--interval-seconds`.
-
 ## Driving it with verify.sh
 
 Preconditions: a fresh run, signed in with `printf fixture-token | verify.sh cli login-stdin -- auth login --token-stdin --output json`. The fixture serves transfer `7` as always `DOWNLOADING` and transfer `8` as `COMPLETED`.
