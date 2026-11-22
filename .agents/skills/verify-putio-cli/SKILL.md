@@ -48,5 +48,5 @@ Report the run id, the revision from `run.txt`, and the step directories that ca
 
 - The fixture's device poll counter lives for the whole run: the second device login in one run gets the token on its first poll.
 - Never press `o` during device login and never pass `--open`: both call the OS browser opener (on a loopback URL, but still a real window on the user's desktop).
-- The sandbox proves CLI behavior against put.io's contract as the fixture models it, not against the live API. Say so when you report.
-- tmux sessions are 120×40; terminal boxes wider than that wrap in captures.
+- The sandbox proves CLI behavior against the fixture's model of put.io's contract; the live API stays unproven. Say so when you report.
+- tmux sessions are 120×40; terminal boxes wider than that wrap in captures, so match on labels.
