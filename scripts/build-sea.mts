@@ -222,7 +222,7 @@ buildSync({
   logLevel: "info",
   outfile: seaEntry,
   platform: "node",
-  target: "node24",
+  target: "node26",
 });
 
 writeFileSync(
