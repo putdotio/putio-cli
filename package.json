@@ -49,16 +49,16 @@
     "verify": "node ./scripts/check-architecture.mts && knip && effect-tsgo vp check . && vp run skills:lint && vp run smoke:pack && vp test run --coverage"
   },
   "dependencies": {
-    "@effect/platform-node": "4.1.4",
-    "@effect/platform-node-shared": "4.1.4",
+    "@effect/platform-node": "4.1.5",
+    "@effect/platform-node-shared": "4.1.5",
     "@sentry/core": "10.78.0",
     "cli-table3": "^0.6.5",
-    "effect": "4.1.4",
+    "effect": "4.1.5",
     "i18next": "^26.7.2"
   },
   "devDependencies": {
     "@effect/tsgo": "0.68.1",
-    "@effect/vitest": "4.1.4",
+    "@effect/vitest": "4.1.5",
     "@oxlint/plugins": "1.91.0",
     "@putdotio/sdk": "17.0.0",
     "@types/node": "^26.1.0",
