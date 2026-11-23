@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import { handleCliCause } from "./main.js";
 import { CliCrashReporter, type CrashReporterService } from "./crash-reporting.js";
 import { CliOutput, type CliOutputService } from "./output-service.js";
-import { CliRuntime, makeCliRuntime } from "./runtime.js";
+import { CliRuntime, makeCliRuntime, StdoutClosedError } from "./runtime.js";
 
 describe("handleCliCause", () => {
   it("preserves interrupt-only causes for NodeRuntime signal handling", async () => {
@@ -31,6 +31,39 @@ describe("handleCliCause", () => {
 
     expect(writeError).not.toHaveBeenCalled();
     expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("exits with the failure status but no crash report when the stdout reader goes away", async () => {
+    let exitCode: number | undefined;
+    const writeError = vi.fn(() => Effect.void);
+    const capture = vi.fn(() => Promise.resolve());
+
+    const runtime = {
+      ...makeCliRuntime({
+        argv: ["node", "putio", "files", "list", "--page-all", "--output", "ndjson"],
+        isInteractiveTerminal: false,
+      }),
+      setExitCode: (code: number) =>
+        Effect.sync(() => {
+          exitCode = code;
+        }),
+    };
+
+    await Effect.runPromise(
+      handleCliCause(Cause.die(new StdoutClosedError())).pipe(
+        Effect.provideService(CliOutput, {
+          error: writeError,
+          formatError: () => "unused",
+          write: () => Effect.void,
+        }),
+        Effect.provideService(CliCrashReporter, { capture, decision: { enabled: true } }),
+        Effect.provideService(CliRuntime, runtime),
+      ),
+    );
+
+    expect(writeError).not.toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+    expect(exitCode).toBe(1);
   });
 
   it("renders ordinary failures and sets the process exit code", async () => {

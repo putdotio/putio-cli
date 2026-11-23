@@ -1,4 +1,4 @@
-import { Effect, Fiber, Predicate } from "effect";
+import { Cause, Effect, Exit, Fiber, Predicate } from "effect";
 import { EventEmitter } from "node:events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -10,7 +10,7 @@ vi.mock("node:child_process", () => ({
   spawn: spawnMock,
 }));
 
-import { makeCliRuntime } from "./runtime.js";
+import { makeCliRuntime, StdoutClosedError } from "./runtime.js";
 
 class FakeOpenerProcess extends EventEmitter {
   readonly unref = vi.fn();
@@ -156,6 +156,17 @@ describe("makeCliRuntime", () => {
     const exit = await Effect.runPromise(Fiber.await(fiber));
     expect(exit._tag).toBe("Failure");
     expect(process.stdout.listenerCount("error")).toBe(before);
+  });
+
+  it("reports a broken stdout pipe as a closed reader", async () => {
+    const error = Object.assign(new Error("write EPIPE"), { code: "EPIPE" });
+    mockStdoutWrite((callback) => callback(error));
+    const fiber = Effect.runFork(makeCliRuntime().writeStdout("fixture output"));
+    process.stdout.emit("error", error);
+    const exit = await Effect.runPromise(Fiber.await(fiber));
+    expect(Exit.isFailure(exit) && Cause.squash(exit.cause) instanceof StdoutClosedError).toBe(
+      true,
+    );
   });
 
   it("finishes callback-only failures after stdout has already closed", async () => {

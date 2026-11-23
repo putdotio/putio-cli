@@ -2,11 +2,15 @@ import { Cause, Effect } from "effect";
 
 import { CliCrashReporter } from "./crash-reporting.js";
 import { CliOutput, detectOutputModeFromArgv } from "./output-service.js";
-import { CliRuntime } from "./runtime.js";
+import { CliRuntime, StdoutClosedError } from "./runtime.js";
 
 export const handleCliCause = (cause: Cause.Cause<unknown>) => {
   if (Cause.hasInterruptsOnly(cause)) {
     return Effect.failCause(cause);
+  }
+
+  if (Cause.squash(cause) instanceof StdoutClosedError) {
+    return Effect.flatMap(CliRuntime, (runtime) => runtime.setExitCode(1));
   }
 
   return Effect.gen(function* () {
