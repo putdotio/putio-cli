@@ -3,7 +3,7 @@ import { homedir, hostname } from "node:os";
 import { dirname, join } from "node:path";
 import { isSea } from "node:sea";
 
-import { Context, Effect, Layer, Match } from "effect";
+import { Context, Data, Effect, Layer, Match, Predicate } from "effect";
 
 type CliSpinner = {
   readonly stop: Effect.Effect<void>;
@@ -78,6 +78,13 @@ const openExternalWithPlatform = (platform: NodeJS.Platform, url: string) => {
   });
 };
 
+export class StdoutClosedError extends Data.TaggedError("StdoutClosedError")<{}> {}
+
+const closedStdoutErrorCodes = new Set<unknown>(["EPIPE", "ERR_STREAM_DESTROYED"]);
+
+const isClosedStdoutError = (error: Error) =>
+  Predicate.hasProperty(error, "code") && closedStdoutErrorCodes.has(error.code);
+
 const writeStdout = (message: string): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
     let waiterInterrupted = false;
@@ -95,10 +102,12 @@ const writeStdout = (message: string): Effect.Effect<void> =>
       settled = true;
       cleanup();
 
-      if (!waiterInterrupted) resume(Effect.die(error));
+      if (!waiterInterrupted) {
+        resume(Effect.die(isClosedStdoutError(error) ? new StdoutClosedError() : error));
+      }
     };
 
-    const onClose = () => onError(new Error("Standard output closed before the write completed"));
+    const onClose = () => onError(new StdoutClosedError());
 
     const failAfterPendingErrorEvent = (error: Error) => {
       callbackOnlyFailure = setImmediate(() => onError(error));
