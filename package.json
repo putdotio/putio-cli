@@ -60,14 +60,14 @@
     "@effect/tsgo": "0.68.1",
     "@effect/vitest": "4.1.5",
     "@oxlint/plugins": "1.91.0",
-    "@putdotio/sdk": "17.0.0",
+    "@putdotio/sdk": "17.0.1",
     "@types/node": "^26.1.0",
     "@uinaf/oxlint-plugin-no-comments": "1.1.0",
     "@uinaf/skillcheck": "1.7.7",
     "@vitest/coverage-v8": "catalog:",
     "esbuild": "^0.28.1",
     "fast-check": "4.11.0",
-    "knip": "6.47.0",
+    "knip": "6.48.0",
     "postject": "^1.0.0-alpha.6",
     "typescript": "^7.0.2",
     "vite": "catalog:",
@@ -77,7 +77,7 @@
   "engines": {
     "node": ">=24.19.0"
   },
-  "packageManager": "pnpm@12.21.0",
+  "packageManager": "pnpm@12.23.0",
   "inlinedDependencies": {
     "@putdotio/sdk": "17.0.0"
   }
