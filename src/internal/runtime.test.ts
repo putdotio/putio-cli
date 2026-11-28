@@ -24,7 +24,9 @@ const mockStdoutWrite = (onCallback: (callback: (error?: Error | null) => void) 
   vi.spyOn(process.stdout, "write").mockImplementation((_chunk, encodingOrCallback, callback) => {
     const writeCallback = callback ?? encodingOrCallback;
 
-    if (Predicate.isFunction(writeCallback)) onCallback(writeCallback);
+    if (Predicate.isFunction(writeCallback)) {
+      onCallback(writeCallback);
+    }
 
     return false;
   });

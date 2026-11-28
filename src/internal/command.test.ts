@@ -296,7 +296,9 @@ describe("collectAllCursorPages", () => {
     pages.forEach((page, index) => {
       const previous = pages[index - 1];
 
-      if (previous?.cursor) byCursor.set(previous.cursor, page);
+      if (previous?.cursor) {
+        byCursor.set(previous.cursor, page);
+      }
     });
 
     const effect = collectAllCursorPages({

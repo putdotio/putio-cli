@@ -77,7 +77,6 @@ export default defineConfig({
       "effecttsgo/lazy-effect": "off",
       "effecttsgo/unsafe-effect-type-assertion": "error",
       "@nkzw/no-instanceof": "off",
-      curly: "off",
       "import/consistent-type-specifier-style": "off",
       "import/no-namespace": "off",
       "no-console": "off",

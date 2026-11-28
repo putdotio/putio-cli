@@ -165,11 +165,12 @@ describe("waitForDeviceToken", () => {
       assert.isTrue(interrupted);
       assert.strictEqual(result._tag, "Failure");
 
-      if (Result.isFailure(result))
+      if (Result.isFailure(result)) {
         assert.strictEqual(
           result.failure.message,
           "Timed out waiting for device authorization to complete.",
         );
+      }
     }),
   );
 

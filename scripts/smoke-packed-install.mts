@@ -220,10 +220,16 @@ const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
     );
     const parsed: unknown = JSON.parse(result.stderr);
 
-    if (!Predicate.hasProperty(parsed, "error")) throw new Error("Missing error envelope.");
+    if (!Predicate.hasProperty(parsed, "error")) {
+      throw new Error("Missing error envelope.");
+    }
+
     const error = parsed.error;
 
-    if (!Predicate.isObjectOrArray(error)) throw new Error("Missing error metadata.");
+    if (!Predicate.isObjectOrArray(error)) {
+      throw new Error("Missing error metadata.");
+    }
+
     assert(
       "httpStatusCode" in error && error.httpStatusCode === httpStatus,
       "HTTP status was lost or conflated.",
@@ -271,7 +277,9 @@ const startMockApi = () => {
       stdout += String(chunk);
       const newline = stdout.indexOf("\n");
 
-      if (newline < 0) return;
+      if (newline < 0) {
+        return;
+      }
 
       const port = Number(stdout.slice(0, newline));
       clearTimeout(timer);
@@ -291,7 +299,9 @@ const startMockApi = () => {
 };
 
 const waitForExit = async (child: ChildProcess, timeoutMs: number) => {
-  if (child.exitCode !== null || child.signalCode !== null) return true;
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return true;
+  }
 
   return Promise.race([
     once(child, "exit").then(() => true),
@@ -300,10 +310,16 @@ const waitForExit = async (child: ChildProcess, timeoutMs: number) => {
 };
 
 const stopMockApi = async (child: ChildProcess) => {
-  if (child.exitCode !== null || child.signalCode !== null) return;
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
   child.kill("SIGTERM");
 
-  if (await waitForExit(child, 2000)) return;
+  if (await waitForExit(child, 2000)) {
+    return;
+  }
+
   child.kill("SIGKILL");
 
   if (!(await waitForExit(child, 2000))) {
@@ -487,7 +503,10 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
   } finally {
     clearTimeout(deadline);
 
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+    }
+
     await completed;
   }
 
@@ -510,7 +529,9 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
   } finally {
     clearTimeout(brokenDeadline);
 
-    if (brokenPipe.exitCode === null && brokenPipe.signalCode === null) brokenPipe.kill("SIGKILL");
+    if (brokenPipe.exitCode === null && brokenPipe.signalCode === null) {
+      brokenPipe.kill("SIGKILL");
+    }
   }
 };
 
@@ -887,16 +908,26 @@ try {
     }
   }
 
-  if (createdInstallDir !== undefined) rmSync(createdInstallDir, { force: true, recursive: true });
+  if (createdInstallDir !== undefined) {
+    rmSync(createdInstallDir, { force: true, recursive: true });
+  }
 
-  for (const [signal, handler] of interruptHandlers) process.off(signal, handler);
+  for (const [signal, handler] of interruptHandlers) {
+    process.off(signal, handler);
+  }
 }
 
 if (interruptedBy !== undefined) {
-  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
+  if (cleanupError !== undefined) {
+    console.error("Packed-install cleanup failed:", cleanupError);
+  }
+
   process.exitCode = interruptedBy === "SIGINT" ? 130 : 143;
 } else if (primaryError !== undefined) {
-  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
+  if (cleanupError !== undefined) {
+    console.error("Packed-install cleanup failed:", cleanupError);
+  }
+
   throw primaryError;
 } else if (cleanupError !== undefined) {
   throw cleanupError;

@@ -64,11 +64,16 @@ const notFound: FixtureResponse = {
 const readBody = async (request: IncomingMessage) => {
   const chunks: Buffer[] = [];
 
-  for await (const chunk of request) chunks.push(chunk);
+  for await (const chunk of request) {
+    chunks.push(chunk);
+  }
+
   const raw = Buffer.concat(chunks);
   const contentType = request.headers["content-type"] ?? "";
 
-  if (raw.length === 0) return {};
+  if (raw.length === 0) {
+    return {};
+  }
 
   if (contentType.startsWith("application/x-www-form-urlencoded")) {
     return Object.fromEntries(new URLSearchParams(raw.toString("utf8")));
@@ -138,7 +143,10 @@ export const startFixtureApi = async () => {
   globalThis.fetch = (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
 
-    if (url.origin === baseUrl || url.origin === uploadBaseUrl) return realFetch(input, init);
+    if (url.origin === baseUrl || url.origin === uploadBaseUrl) {
+      return realFetch(input, init);
+    }
+
     blocked.push(url.origin);
 
     return Promise.reject(new Error(`Fixture API blocks network access to ${url.origin}`));

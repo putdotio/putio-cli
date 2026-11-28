@@ -91,11 +91,16 @@ const writeStdout = (message: string): Effect.Effect<void> =>
     };
 
     const onError = (error: Error) => {
-      if (settled) return;
+      if (settled) {
+        return;
+      }
+
       settled = true;
       cleanup();
 
-      if (!waiterInterrupted) resume(Effect.die(error));
+      if (!waiterInterrupted) {
+        resume(Effect.die(error));
+      }
     };
 
     const onClose = () => onError(new Error("Standard output closed before the write completed"));
@@ -109,7 +114,9 @@ const writeStdout = (message: string): Effect.Effect<void> =>
 
     try {
       process.stdout.write(message, (error) => {
-        if (settled) return;
+        if (settled) {
+          return;
+        }
 
         if (error) {
           failAfterPendingErrorEvent(error);
@@ -120,7 +127,9 @@ const writeStdout = (message: string): Effect.Effect<void> =>
         settled = true;
         cleanup();
 
-        if (!waiterInterrupted) resume(Effect.void);
+        if (!waiterInterrupted) {
+          resume(Effect.void);
+        }
       });
     } catch (error) {
       cleanup();
