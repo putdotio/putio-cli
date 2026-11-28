@@ -334,7 +334,7 @@ const readPageItems = <A extends Record<string, unknown>>(
   value: A,
   itemKey: string,
   command: string,
-) => {
+): ReadonlyArray<unknown> => {
   const items = value[itemKey];
 
   if (!Array.isArray(items)) {

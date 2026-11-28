@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import type { IncomingMessage } from "node:http";
 import { tmpdir } from "node:os";
+import { buffer } from "node:stream/consumers";
 import { join } from "node:path";
 
 import {
@@ -64,13 +65,7 @@ const notFound: FixtureResponse = {
 };
 
 const readBody = async (request: IncomingMessage) => {
-  const chunks: Array<Buffer> = [];
-
-  for await (const chunk of request) {
-    chunks.push(chunk);
-  }
-
-  const raw = Buffer.concat(chunks);
+  const raw = await buffer(request);
   const contentType = request.headers["content-type"] ?? "";
 
   if (raw.length === 0) {
