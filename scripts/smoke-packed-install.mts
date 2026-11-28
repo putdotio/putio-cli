@@ -303,10 +303,10 @@ const stopMockApi = async (child: ChildProcess) => {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
 
-  if (await waitForExit(child, 2_000)) return;
+  if (await waitForExit(child, 2000)) return;
   child.kill("SIGKILL");
 
-  if (!(await waitForExit(child, 2_000))) {
+  if (!(await waitForExit(child, 2000))) {
     throw new Error(`Packed-install API server ${child.pid ?? "unknown"} did not stop.`);
   }
 };
@@ -375,7 +375,7 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
   const malformed = spawnSync(
     binaryPath,
     ["transfers", "list", "--per-page", "998", "--output", "json"],
-    { cwd: installDir, encoding: "utf8", env, timeout: 5_000 },
+    { cwd: installDir, encoding: "utf8", env, timeout: 5000 },
   );
 
   const malformedOutput = malformed.stdout + malformed.stderr;
@@ -408,7 +408,7 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
       cwd: installDir,
       encoding: "utf8",
       env: { ...env, PUTIO_CLI_TOKEN: "", PUTIO_SDK_BODY_STATE_PATH: statePath },
-      timeout: 5_000,
+      timeout: 5000,
     },
   );
 
@@ -456,11 +456,11 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     const startedAt = Date.now();
 
     while (Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text()) === 0) {
-      assert(Date.now() - startedAt < 5_000, "Streaming CLI never requested its first page.");
+      assert(Date.now() - startedAt < 5000, "Streaming CLI never requested its first page.");
       await new Promise((resolveWait) => setTimeout(resolveWait, 20));
     }
 
-    await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1000));
     const pausedPages = Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text());
     assert(
       pausedPages < 64,
@@ -497,7 +497,7 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  const brokenDeadline = setTimeout(() => brokenPipe.kill("SIGKILL"), 5_000);
+  const brokenDeadline = setTimeout(() => brokenPipe.kill("SIGKILL"), 5000);
   brokenPipe.stderr.resume();
   brokenPipe.stdout.once("data", () => brokenPipe.stdout.destroy());
 
@@ -809,7 +809,7 @@ try {
         PUTIO_CLI_API_BASE_URL: mockApiBaseUrl,
         PUTIO_CLI_TOKEN: "",
       },
-      timeout: 5_000,
+      timeout: 5000,
     },
   );
 
@@ -818,7 +818,7 @@ try {
     "Expected installed login to exit with failure before the process timeout.",
   );
   assert(
-    Date.now() - loginStartedAt >= 1_000 && timedOutLogin.stderr.includes("Device login failed"),
+    Date.now() - loginStartedAt >= 1000 && timedOutLogin.stderr.includes("Device login failed"),
     "Expected the pending poll to reach its deadline and retain the localized auth-flow error.",
   );
   assert(

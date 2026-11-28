@@ -93,7 +93,7 @@ const accountInfo = {
   account_status: "active",
   avatar_url: "https://example.invalid/avatar.png",
   can_create_sub_account: false,
-  disk: { avail: 700, size: 1_000, used: 300 },
+  disk: { avail: 700, size: 1000, used: 300 },
   files_will_be_deleted_at: null,
   is_eligible_for_friend_invitation: false,
   is_sub_account: false,

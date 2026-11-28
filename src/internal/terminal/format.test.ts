@@ -9,7 +9,7 @@ describe("humanFileSize", () => {
   });
 
   it("formats larger values with scaled units", () => {
-    expect(humanFileSize(1_536)).toBe("1.5 KB");
+    expect(humanFileSize(1536)).toBe("1.5 KB");
     expect(humanFileSize(12_582_912)).toBe("12 MB");
   });
 });

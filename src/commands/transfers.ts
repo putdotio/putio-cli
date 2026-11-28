@@ -406,13 +406,13 @@ const transfersWatch = Command.make(
         Math.max(
           1,
           Option.getOrElse(intervalSeconds, () => 2),
-        ) * 1_000;
+        ) * 1000;
 
       const timeoutMs =
         Math.max(
           1,
           Option.getOrElse(timeoutSeconds, () => 300),
-        ) * 1_000;
+        ) * 1000;
 
       const writeWatchOutput = (value: TransferWatchResult<Transfer>) =>
         writeReadOutput({

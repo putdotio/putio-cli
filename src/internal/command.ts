@@ -233,7 +233,7 @@ type ReadOutputControls = {
 const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e/iu;
 const QUERY_OR_FRAGMENT_PATTERN = /[?#]/u;
 const TOP_LEVEL_FIELD_PATTERN = /^[A-Za-z0-9_-]+$/u;
-const MAX_CURSOR_PAGES = 1_000;
+const MAX_CURSOR_PAGES = 1000;
 const MAX_CURSOR_ITEMS = 100_000;
 
 const isControlCodePoint = (codePoint: number | undefined) =>

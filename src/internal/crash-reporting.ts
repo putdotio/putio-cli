@@ -228,7 +228,7 @@ export const sanitizeCrashEnvelope = (
       Sentry.createEnvelope<Sentry.EventEnvelope>(
         {
           event_id: expected.eventId,
-          sent_at: new Date(expected.timestamp * 1_000).toISOString(),
+          sent_at: new Date(expected.timestamp * 1000).toISOString(),
         },
         [[{ type: "event" }, event]],
       ),
@@ -319,7 +319,7 @@ export const makeCrashReporter = (
           options.createEventIdentity ??
           (() => ({
             eventId: randomUUID().replaceAll("-", ""),
-            timestamp: Date.now() / 1_000,
+            timestamp: Date.now() / 1000,
           }))
         )();
 

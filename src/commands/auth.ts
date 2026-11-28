@@ -352,7 +352,7 @@ const authLogin = Command.make(
 
       const selectedProfile = yield* checkCommandInput(() => resolveProfileInput(profile));
 
-      const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1_000;
+      const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1000;
       const authFlow = yield* resolveAuthFlowConfig();
 
       const { code } = yield* provideSdk(

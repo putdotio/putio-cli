@@ -94,7 +94,6 @@ export default defineConfig({
       "unicorn/consistent-function-scoping": "off",
       "unicorn/no-hex-escape": "off",
       "unicorn/no-useless-promise-resolve-reject": "off",
-      "unicorn/numeric-separators-style": "off",
       "unicorn/prefer-number-properties": "off",
       "unicorn/prefer-string-raw": "off",
       "unicorn/prefer-string-replace-all": "off",
