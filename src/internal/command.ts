@@ -538,7 +538,7 @@ export const selectTopLevelFields = <A extends Record<string, unknown>>(input: {
       const validFields = Object.keys(input.value).sort((left, right) => left.localeCompare(right));
 
       const unknownFields = input.requestedFields.filter(
-        (field) => !Object.prototype.hasOwnProperty.call(input.value, field),
+        (field) => !Object.hasOwn(input.value, field),
       );
 
       if (unknownFields.length > 0) {
@@ -636,7 +636,7 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
       [input.itemKey]: collectedItems,
     };
 
-    if (!Object.prototype.hasOwnProperty.call(input.initial, "cursor")) {
+    if (!Object.hasOwn(input.initial, "cursor")) {
       return collected;
     }
 
