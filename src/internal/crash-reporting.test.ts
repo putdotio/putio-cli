@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import type { Server } from "node:http";
-import * as Sentry from "@sentry/core";
+import { close as closeSentry, parseEnvelope } from "@sentry/core";
 import { Predicate } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import packageJson from "../../package.json";
@@ -57,7 +57,7 @@ const close = (server: Server) =>
   });
 
 afterEach(async () => {
-  await Sentry.close(0);
+  await closeSentry(0);
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -210,7 +210,7 @@ describe("sanitizeCrashEnvelope", () => {
       throw new Error("Expected the authorized crash envelope to be rebuilt.");
     }
 
-    expect(Sentry.parseEnvelope(sanitized)).toEqual([
+    expect(parseEnvelope(sanitized)).toEqual([
       {
         event_id: expected.eventId,
         sent_at: "1970-01-01T00:02:03.000Z",
@@ -507,7 +507,7 @@ describe("makeCrashReporter", () => {
       throw new Error("Expected a serialized Sentry envelope request body.");
     }
 
-    expect(Sentry.parseEnvelope(body)).toEqual([
+    expect(parseEnvelope(body)).toEqual([
       {
         event_id: "0123456789abcdef0123456789abcdef",
         sent_at: "1970-01-01T00:02:03.000Z",

@@ -1,8 +1,18 @@
 import { Argument, Command, Prompt } from "effect/cli";
 import { isPutioRateLimitError } from "@putdotio/sdk";
-import * as Stdio from "effect/Stdio";
-import * as Terminal from "effect/Terminal";
-import { Cause, Console, Effect, Fiber, Option, Queue, Redacted, Schema, Stream } from "effect";
+import {
+  Cause,
+  Console,
+  Effect,
+  Fiber,
+  Option,
+  Queue,
+  Redacted,
+  Schema,
+  Stdio,
+  Stream,
+  Terminal,
+} from "effect";
 
 import { translate } from "../i18n/index.js";
 import {

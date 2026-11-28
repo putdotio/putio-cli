@@ -4,18 +4,18 @@ import type { IncomingMessage } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import * as Stdio from "effect/Stdio";
-import * as Terminal from "effect/Terminal";
 import {
-  Console,
   ConfigProvider,
+  Console,
   Effect,
   Layer,
   Option,
   Predicate,
   Queue,
   Schema,
+  Stdio,
   Stream,
+  Terminal,
 } from "effect";
 import type { Cause } from "effect";
 

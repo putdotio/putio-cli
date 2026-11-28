@@ -1,5 +1,4 @@
-import { Predicate, Schema } from "effect";
-import * as SchemaAST from "effect/SchemaAST";
+import { Predicate, Schema, SchemaAST } from "effect";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 

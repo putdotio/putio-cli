@@ -1,11 +1,10 @@
-import * as FileSystem from "effect/FileSystem";
-
 import { DEFAULT_PUTIO_API_BASE_URL } from "@putdotio/sdk";
 import {
   Clock,
   Context,
   Data,
   Effect,
+  FileSystem,
   Layer,
   Option,
   Predicate,
