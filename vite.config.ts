@@ -63,6 +63,13 @@ export default defineConfig({
         files: ["src/internal/sdk-operations.ts"],
         rules: {
           "effecttsgo/unsafe-effect-type-assertion": "off",
+          "typescript/no-unsafe-type-assertion": "off",
+        },
+      },
+      {
+        files: ["src/internal/output-service.ts", "src/test-support/run-cli.ts"],
+        rules: {
+          "typescript/no-unsafe-type-assertion": "off",
         },
       },
       {
@@ -78,7 +85,6 @@ export default defineConfig({
       "effecttsgo/unsafe-effect-type-assertion": "error",
       "@nkzw/no-instanceof": "off",
       "no-console": "off",
-      "typescript/no-unsafe-type-assertion": "off",
     },
   },
   pack: {
