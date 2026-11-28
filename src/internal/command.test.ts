@@ -281,6 +281,24 @@ describe("selectTopLevelFields", () => {
   });
 });
 
+const pageChain = (pageSizes: fc.Arbitrary<number>) =>
+  fc
+    .uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), { maxLength: 6 })
+    .chain((cursors) =>
+      fc.tuple(
+        fc.constant(cursors),
+        fc.array(pageSizes, { minLength: cursors.length + 1, maxLength: cursors.length + 1 }),
+      ),
+    )
+    .map(([cursors, sizes]) => {
+      let next = 0;
+
+      return sizes.map((size, index) => ({
+        cursor: cursors[index] ?? null,
+        files: Array.from({ length: size }, () => next++),
+      }));
+    });
+
 describe("collectAllCursorPages", () => {
   type Page = {
     readonly cursor: string | null;
@@ -316,24 +334,6 @@ describe("collectAllCursorPages", () => {
 
     return { effect, requested };
   };
-
-  const pageChain = (pageSizes: fc.Arbitrary<number>) =>
-    fc
-      .uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), { maxLength: 6 })
-      .chain((cursors) =>
-        fc.tuple(
-          fc.constant(cursors),
-          fc.array(pageSizes, { minLength: cursors.length + 1, maxLength: cursors.length + 1 }),
-        ),
-      )
-      .map(([cursors, sizes]) => {
-        let next = 0;
-
-        return sizes.map((size, index) => ({
-          cursor: cursors[index] ?? null,
-          files: Array.from({ length: size }, () => next++),
-        }));
-      });
 
   it("concatenates pages in order and stops at the null cursor", async () => {
     await fc.assert(
@@ -422,14 +422,14 @@ describe("collectAllCursorPages", () => {
   });
 });
 
+const page = (length: number, cursor: string | null) => ({
+  cursor,
+  files: Array.from({ length }, (_value, index) => index),
+});
+
 describe("writeReadPages", () => {
   it("stops streaming once the item total exceeds the cap", async () => {
     const lines: Array<string> = [];
-
-    const page = (length: number, cursor: string | null) => ({
-      cursor,
-      files: Array.from({ length }, (_value, index) => index),
-    });
 
     const exit = await Effect.runPromiseExit(
       writeReadPages({

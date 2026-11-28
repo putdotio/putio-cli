@@ -247,15 +247,32 @@ afterEach(async () => {
 
 afterAll(() => api.close());
 
-describe("auth", () => {
-  const routeDeviceLink = () => {
-    api.route(
-      "GET /v2/oauth2/oob/code",
-      ok({ code: "PUTIO1", qr_code_url: "https://example.invalid/qr" }),
-    );
-    api.route("GET /v2/oauth2/oob/code/PUTIO1", ok({ oauth_token: "linked-token" }));
-  };
+const routeDeviceLink = () => {
+  api.route(
+    "GET /v2/oauth2/oob/code",
+    ok({ code: "PUTIO1", qr_code_url: "https://example.invalid/qr" }),
+  );
+  api.route("GET /v2/oauth2/oob/code/PUTIO1", ok({ oauth_token: "linked-token" }));
+};
 
+const routeTokenValidation = (validToken: string) => {
+  api.route("GET /v2/oauth2/validate", (request) =>
+    ok({
+      result: request.query["oauth_token"] === validToken,
+      token_id: null,
+      token_scope: "default",
+      user_id: request.query["oauth_token"] === validToken ? 1 : null,
+    }),
+  );
+};
+
+const anonymousLogin = (args: ReadonlyArray<string>, options: Parameters<typeof runPutio>[2]) =>
+  runPutio(api, ["auth", "login", ...args], {
+    ...options,
+    env: { PUTIO_CLI_TOKEN: undefined },
+  });
+
+describe("auth", () => {
   it("logs in through the device link and saves the token", async () => {
     routeDeviceLink();
 
@@ -313,23 +330,6 @@ describe("auth", () => {
       profiles: { automation: { auth_token: "linked-token" } },
     });
   });
-
-  const routeTokenValidation = (validToken: string) => {
-    api.route("GET /v2/oauth2/validate", (request) =>
-      ok({
-        result: request.query["oauth_token"] === validToken,
-        token_id: null,
-        token_scope: "default",
-        user_id: request.query["oauth_token"] === validToken ? 1 : null,
-      }),
-    );
-  };
-
-  const anonymousLogin = (args: ReadonlyArray<string>, options: Parameters<typeof runPutio>[2]) =>
-    runPutio(api, ["auth", "login", ...args], {
-      ...options,
-      env: { PUTIO_CLI_TOKEN: undefined },
-    });
 
   const rateLimited = {
     body: {

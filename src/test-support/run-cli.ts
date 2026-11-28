@@ -230,6 +230,11 @@ export type CliRun = {
   readonly terminalDisplay: string;
 };
 
+const capture =
+  (chunks: Array<string>) =>
+  (...values: ReadonlyArray<unknown>) =>
+    chunks.push(`${values.map(String).join(" ")}\n`);
+
 /**
  * Runs the CLI entry the way `bin.ts` composes it, with captured streams,
  * a scratch config, and the API and upload base URLs pointed at the fixture API.
@@ -264,11 +269,6 @@ export const runPutio = async (
       ...options.env,
     }).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
-
-  const capture =
-    (chunks: Array<string>) =>
-    (...values: ReadonlyArray<unknown>) =>
-      chunks.push(`${values.map(String).join(" ")}\n`);
 
   const console_: Console.Console = Object.assign(Object.create(console), {
     error: capture(stderr),
