@@ -1,6 +1,7 @@
 import { Command } from "effect/cli";
 import { DownloadLinksCreateInputSchema, type FilesBulkSelection } from "@putdotio/sdk";
-import { Effect, Option, Predicate, Schema } from "effect";
+import type { Schema } from "effect";
+import { Effect, Option, Predicate } from "effect";
 
 import {
   checkCommandInput,

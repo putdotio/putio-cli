@@ -23,7 +23,8 @@ import {
 import { resolveCliRuntimeConfig } from "./config.js";
 import { ENV_UPLOAD_BASE_URL } from "./env.js";
 import { CliRuntime } from "./runtime.js";
-import { CliSdk, sdk } from "./sdk.js";
+import type { sdk } from "./sdk.js";
+import { CliSdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
 
 export const outputOption = Flag.Literals("output", ["json", "text", "ndjson"] as const).pipe(

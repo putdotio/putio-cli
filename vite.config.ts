@@ -82,7 +82,6 @@ export default defineConfig({
       "no-console": "off",
       "no-promise-executor-return": "off",
       "prefer-object-has-own": "off",
-      "typescript/consistent-type-imports": "off",
       "typescript/no-unnecessary-type-assertion": "off",
       "typescript/no-unsafe-argument": "off",
       "typescript/no-unsafe-assignment": "off",

@@ -4,7 +4,7 @@ import {
   isPutioOperationError,
   isPutioRateLimitError,
 } from "@putdotio/sdk";
-import { LocalizedError } from "@putdotio/sdk/utilities";
+import type { LocalizedError } from "@putdotio/sdk/utilities";
 import { Console, Context, Effect, Layer, Match, Option, Predicate, Schema } from "effect";
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";
