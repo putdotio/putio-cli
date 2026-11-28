@@ -75,7 +75,14 @@ export default defineConfig({
       {
         files: ["src/internal/state.ts"],
         rules: {
+          "@nkzw/no-instanceof": "off",
           "effecttsgo/leaking-requirements": "off",
+        },
+      },
+      {
+        files: ["src/internal/crash-reporting.test.ts", "src/test-support/run-cli.ts"],
+        rules: {
+          "@nkzw/no-instanceof": "off",
         },
       },
     ],
@@ -83,7 +90,6 @@ export default defineConfig({
       "effecttsgo/any-unknown-in-error-context": "error",
       "effecttsgo/lazy-effect": "off",
       "effecttsgo/unsafe-effect-type-assertion": "error",
-      "@nkzw/no-instanceof": "off",
       "no-console": "off",
     },
   },
