@@ -48,6 +48,10 @@ type FixtureRoute = (request: RecordedRequest) => FixtureResponse;
 
 type RepliesInOrderThenRepeatLast = ReadonlyArray<FixtureResponse>;
 
+const isReplyList = (
+  reply: FixtureResponse | RepliesInOrderThenRepeatLast,
+): reply is RepliesInOrderThenRepeatLast => Array.isArray(reply);
+
 const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
 const parseErrorEnvelope = Schema.decodeUnknownSync(
@@ -176,7 +180,7 @@ export const startFixtureApi = async () => {
         return;
       }
 
-      const replies = Array.isArray(reply) ? [...reply] : [reply];
+      const replies = isReplyList(reply) ? [...reply] : [reply];
       routes.set(
         methodAndPath,
         () => (replies.length > 1 ? replies.shift() : replies[0]) ?? notFound,
@@ -265,7 +269,10 @@ export const runPutio = async (
     }).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
 
-  const console_: Console.Console = Object.assign(Object.create(console), {
+  // SAFETY: Object.create(console) inherits every Console method from the global console.
+  const base = Object.create(console) as Console.Console;
+
+  const console_: Console.Console = Object.assign(base, {
     error: capture(stderr),
     log: capture(stdout),
   });

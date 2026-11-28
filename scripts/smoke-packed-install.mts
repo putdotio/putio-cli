@@ -522,7 +522,8 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
   brokenPipe.stdout.once("data", () => brokenPipe.stdout.destroy());
 
   try {
-    const [code, signal] = await once(brokenPipe, "close");
+    const closeArgs: Array<unknown> = await once(brokenPipe, "close");
+    const [code, signal] = closeArgs;
     assert(
       code === 1 && signal === null,
       "Broken pipe did not terminate with the existing failure exit status.",

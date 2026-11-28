@@ -102,7 +102,7 @@ const hasPlainPrototype = (value: unknown): value is object => {
     return false;
   }
 
-  const prototype = Object.getPrototypeOf(value);
+  const prototype: unknown = Object.getPrototypeOf(value);
 
   return prototype === Object.prototype || prototype === null;
 };
