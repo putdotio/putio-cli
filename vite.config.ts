@@ -39,6 +39,12 @@ export default defineConfig({
     },
     overrides: [
       {
+        files: ["scripts/**"],
+        rules: {
+          "no-console": "off",
+        },
+      },
+      {
         files: ["scripts/smoke-packed-install.mts"],
         rules: {
           "typescript/only-throw-error": "off",
@@ -90,7 +96,6 @@ export default defineConfig({
       "effecttsgo/any-unknown-in-error-context": "error",
       "effecttsgo/lazy-effect": "off",
       "effecttsgo/unsafe-effect-type-assertion": "error",
-      "no-console": "off",
     },
   },
   pack: {
