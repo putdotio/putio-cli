@@ -1,12 +1,12 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer, type IncomingMessage } from "node:http";
+import { createServer } from "node:http";
+import type { IncomingMessage } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import * as Stdio from "effect/Stdio";
 import * as Terminal from "effect/Terminal";
 import {
-  type Cause,
   Console,
   ConfigProvider,
   Effect,
@@ -17,10 +17,12 @@ import {
   Schema,
   Stream,
 } from "effect";
+import type { Cause } from "effect";
 
 import { runCli } from "../cli.js";
 import { CliServicesLive } from "../internal/app-layer.js";
-import { CliCrashReporter, type CrashKind } from "../internal/crash-reporting.js";
+import { CliCrashReporter } from "../internal/crash-reporting.js";
+import type { CrashKind } from "../internal/crash-reporting.js";
 import { handleCliCause } from "../internal/main.js";
 import { cliRuntimeLayer } from "../internal/runtime.js";
 

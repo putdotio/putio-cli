@@ -9,7 +9,8 @@ import { Console, Context, Effect, Layer, Match, Option, Predicate, Schema } fro
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";
 import { CliRuntime } from "./runtime.js";
-import { renderCliErrorTerminal, type CliTerminalErrorView } from "./terminal/error-terminal.js";
+import { renderCliErrorTerminal } from "./terminal/error-terminal.js";
+import type { CliTerminalErrorView } from "./terminal/error-terminal.js";
 
 export type OutputMode = "json" | "ndjson" | "terminal";
 

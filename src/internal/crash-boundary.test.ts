@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { installCrashBoundary, type CrashBoundaryRuntime } from "./crash-boundary.js";
+import { installCrashBoundary } from "./crash-boundary.js";
+import type { CrashBoundaryRuntime } from "./crash-boundary.js";
 import type { CrashKind, CrashReporterService } from "./crash-reporting.js";
 
 const makeRuntime = () => {

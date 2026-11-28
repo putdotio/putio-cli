@@ -8,10 +8,8 @@ import {
   CommandDescriptorSchema,
   commandCatalog,
 } from "./cli-contract.js";
-import {
-  CRASH_REPORTING_FLUSH_TIMEOUT_MS,
-  type CrashReportingDecision,
-} from "./crash-reporting.js";
+import { CRASH_REPORTING_FLUSH_TIMEOUT_MS } from "./crash-reporting.js";
+import type { CrashReportingDecision } from "./crash-reporting.js";
 import {
   ENV_API_BASE_URL,
   ENV_CLI_CLIENT_NAME,

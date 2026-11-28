@@ -1,4 +1,5 @@
-import { createServer, type Server } from "node:http";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
 import * as Sentry from "@sentry/core";
 import { Predicate } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -12,8 +13,8 @@ import {
   sanitizeCrashEnvelope,
   sanitizeCrashEvent,
   sendCrashRequest,
-  type SentryAdapter,
 } from "./crash-reporting.js";
+import type { SentryAdapter } from "./crash-reporting.js";
 import type { CrashReportingConfig } from "./crash-reporting-config.js";
 
 const TEST_CRASH_REPORTING_CONFIG = {

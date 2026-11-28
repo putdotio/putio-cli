@@ -4,7 +4,8 @@ import { Layer } from "effect";
 import { CliConfigLive } from "./config.js";
 import { CrashReportingDisabledLive } from "./crash-reporting.js";
 import { CliOutputLive } from "./output-service.js";
-import { CliRuntime, CliRuntimeLive, type CliRuntimeService } from "./runtime.js";
+import { CliRuntime, CliRuntimeLive } from "./runtime.js";
+import type { CliRuntimeService } from "./runtime.js";
 import { CliSdkLive } from "./sdk.js";
 import { CliStateLive } from "./state.js";
 

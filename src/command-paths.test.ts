@@ -12,9 +12,8 @@ import {
   stderrJson,
   stdoutJson,
   stdoutLines,
-  type CliRun,
-  type FixtureApi,
 } from "./test-support/run-cli.js";
+import type { CliRun, FixtureApi } from "./test-support/run-cli.js";
 
 const decodeTopLevelFields = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
 

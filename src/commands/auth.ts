@@ -36,8 +36,8 @@ import {
   jsonInputSpecFromSchema,
   outputFlag,
   stringArgument,
-  type CommandSpec,
 } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
@@ -45,7 +45,6 @@ import { CliRuntime } from "../internal/runtime.js";
 import { provideSdk, sdk } from "../internal/sdk.js";
 import {
   AuthStateError,
-  type AuthStatus,
   clearPersistedState,
   getAuthStatus,
   listProfiles,
@@ -53,6 +52,7 @@ import {
   savePersistedState,
   useProfile,
 } from "../internal/state.js";
+import type { AuthStatus } from "../internal/state.js";
 import {
   renderAuthLoginSuccessTerminal,
   renderAuthLoginTerminal,

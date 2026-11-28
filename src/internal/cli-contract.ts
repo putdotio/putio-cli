@@ -14,8 +14,8 @@ import {
   CommandDescriptorSchema,
   decodeCommandSpecs,
   outputFlag,
-  type CommandSpec,
 } from "./command-specs.js";
+import type { CommandSpec } from "./command-specs.js";
 
 export { CliOutputContractSchema, CommandDescriptorSchema };
 

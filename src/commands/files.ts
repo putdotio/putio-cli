@@ -34,8 +34,8 @@ import {
   jsonInputSpecFromSchema,
   outputFlag,
   pageAllFlag,
-  type CommandSpec,
 } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { inspectLocalUpload, openLocalUploadBlob } from "../internal/local-upload.js";
 import { withTerminalLoader } from "../internal/loader-service.js";

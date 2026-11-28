@@ -8,8 +8,10 @@ import { Context, Layer, Option, Predicate, Schema } from "effect";
 import packageJson from "../../package.json";
 
 import { buildConfigPath } from "./config.js";
-import { installCrashBoundary, type CrashBoundaryOptions } from "./crash-boundary.js";
-import { loadCrashReportingConfig, type CrashReportingConfig } from "./crash-reporting-config.js";
+import { installCrashBoundary } from "./crash-boundary.js";
+import type { CrashBoundaryOptions } from "./crash-boundary.js";
+import { loadCrashReportingConfig } from "./crash-reporting-config.js";
+import type { CrashReportingConfig } from "./crash-reporting-config.js";
 import { ENV_CLI_CONFIG_PATH, ENV_XDG_CONFIG_HOME } from "./env.js";
 import { parsePersistedConfig } from "./state.js";
 

@@ -1,5 +1,6 @@
 import { CliError, Command } from "effect/cli";
-import { Console, Data, Effect, Predicate, Result, type Scope } from "effect";
+import { Console, Data, Effect, Predicate, Result } from "effect";
+import type { Scope } from "effect";
 import packageJson from "../package.json";
 
 import { authCommand, rejectInlineAuthToken } from "./commands/auth.js";

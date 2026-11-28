@@ -10,7 +10,8 @@ import {
   resolveAuthFlowConfig,
   waitForDeviceToken,
 } from "./auth-flow.js";
-import { CliRuntime, makeCliRuntime, type CliRuntimeService } from "./runtime.js";
+import { CliRuntime, makeCliRuntime } from "./runtime.js";
+import type { CliRuntimeService } from "./runtime.js";
 
 const mockRuntime: CliRuntimeService = {
   argv: ["node", "putio"],

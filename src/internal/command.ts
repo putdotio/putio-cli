@@ -10,16 +10,15 @@ import {
   repeatedIntegerFlag,
   repeatedStringFlag,
   stringFlag,
-  type CommandOption,
 } from "./command-specs.js";
+import type { CommandOption } from "./command-specs.js";
 import {
   isStructuredOutputMode,
   normalizeOutputMode,
   renderJson,
   writeOutput,
-  type OutputMode,
-  type RequestedOutputMode,
 } from "./output-service.js";
+import type { OutputMode, RequestedOutputMode } from "./output-service.js";
 import { resolveCliRuntimeConfig } from "./config.js";
 import { ENV_UPLOAD_BASE_URL } from "./env.js";
 import { CliRuntime } from "./runtime.js";

@@ -1,5 +1,6 @@
 import { Command, Flag } from "effect/cli";
-import { TransferAddInputSchema, type Transfer } from "@putdotio/sdk";
+import { TransferAddInputSchema } from "@putdotio/sdk";
+import type { Transfer } from "@putdotio/sdk";
 import { Effect, Option, Schema } from "effect";
 
 import {
@@ -28,13 +29,14 @@ import {
   jsonInputSpecFromSchema,
   outputFlag,
   pageAllFlag,
-  type CommandSpec,
 } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderTransfersTerminal } from "../internal/terminal/transfers-terminal.js";
-import { type TransferWatchResult, watchTransfer } from "../internal/transfer-watch.js";
+import { watchTransfer } from "../internal/transfer-watch.js";
+import type { TransferWatchResult } from "../internal/transfer-watch.js";
 
 const perPageConfig = defineIntegerOption("per-page", { optional: true });
 const callbackUrlConfig = defineTextOption("callback-url", { optional: true });

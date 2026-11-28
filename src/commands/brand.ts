@@ -3,7 +3,8 @@ import { Command } from "effect/cli";
 import packageJson from "../../package.json";
 
 import { getOption, outputOption } from "../internal/command.js";
-import { outputFlag, type CommandSpec } from "../internal/command-specs.js";
+import { outputFlag } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { writeOutput } from "../internal/output-service.js";
 import { renderPutioSignature } from "../internal/terminal/brand.js";
