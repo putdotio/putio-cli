@@ -251,8 +251,8 @@ describe("sanitizeCrashEnvelope", () => {
 
 describe("sendCrashRequest", () => {
   it("uses a bounded POST and returns Sentry rate-limit headers", async () => {
-    const request = vi.fn(async (_url: string, _init: RequestInit) =>
-      Promise.resolve(
+    const request = vi.fn(
+      async (_url: string, _init: RequestInit) =>
         new Response(undefined, {
           headers: {
             "retry-after": "60",
@@ -260,7 +260,6 @@ describe("sendCrashRequest", () => {
           },
           status: 202,
         }),
-      ),
     );
 
     await expect(
@@ -326,7 +325,9 @@ describe("sendCrashRequest", () => {
   });
 
   it("surfaces transport failure to the reporter boundary", async () => {
-    const request = vi.fn(async () => Promise.reject(new Error("offline")));
+    const request = vi.fn(async () => {
+      throw new Error("offline");
+    });
 
     await expect(
       sendCrashRequest(
@@ -464,12 +465,11 @@ describe("makeCrashReporter", () => {
   });
 
   it("sends one allowlisted envelope through the concrete Sentry adapter", async () => {
-    const request = vi.fn(async (_url: string, _init?: RequestInit) =>
-      Promise.resolve(
+    const request = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
         new Response(undefined, {
           status: 202,
         }),
-      ),
     );
 
     vi.stubGlobal("fetch", request);

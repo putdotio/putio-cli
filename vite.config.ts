@@ -86,7 +86,6 @@ export default defineConfig({
       "typescript/no-unsafe-return": "off",
       "typescript/no-unsafe-type-assertion": "off",
       "unicorn/consistent-function-scoping": "off",
-      "unicorn/no-useless-promise-resolve-reject": "off",
     },
   },
   pack: {
