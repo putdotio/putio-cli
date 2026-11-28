@@ -80,7 +80,6 @@ export default defineConfig({
       "import/no-namespace": "off",
       "no-console": "off",
       "no-promise-executor-return": "off",
-      "typescript/no-unnecessary-type-assertion": "off",
       "typescript/no-unsafe-argument": "off",
       "typescript/no-unsafe-assignment": "off",
       "typescript/no-unsafe-member-access": "off",

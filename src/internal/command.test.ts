@@ -309,7 +309,7 @@ describe("collectAllCursorPages", () => {
 
         return page ? Effect.succeed(page) : Effect.die(new Error(`unexpected cursor ${cursor}`));
       },
-      initial: { ...pages[0]!, total: 7 },
+      initial: { ...pages[0], total: 7 },
       itemKey: "files",
       pageAll: true,
     });
@@ -358,7 +358,7 @@ describe("collectAllCursorPages", () => {
         fc.nat(),
         async (pages, pick) => {
           const cursors = pages.flatMap((page) => (page.cursor ? [page.cursor] : []));
-          const repeated = cursors[pick % cursors.length]!;
+          const repeated = cursors[pick % cursors.length];
           const last = pages.length - 1;
 
           const looping = pages.map((page, index) =>
