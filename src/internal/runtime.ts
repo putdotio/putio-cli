@@ -208,7 +208,7 @@ export const makeCliRuntime = (options: CliRuntimeOptions = {}): CliRuntimeServi
         let frameIndex = 0;
 
         const render = () => {
-          process.stdout.write(`\r\x1b[K${spinnerFrames[frameIndex]} ${message}`);
+          process.stdout.write(`\r\u001b[K${spinnerFrames[frameIndex]} ${message}`);
           frameIndex = (frameIndex + 1) % spinnerFrames.length;
         };
 
@@ -225,7 +225,7 @@ export const makeCliRuntime = (options: CliRuntimeOptions = {}): CliRuntimeServi
 
             stopped = true;
             clearInterval(interval);
-            process.stdout.write("\r\x1b[K");
+            process.stdout.write("\r\u001b[K");
           }),
         } satisfies CliSpinner;
       }),

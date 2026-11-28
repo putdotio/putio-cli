@@ -202,7 +202,7 @@ describe("makeCliRuntime", () => {
     vi.advanceTimersByTime(160);
     await Effect.runPromise(spinner.stop);
 
-    expect(writeSpy).toHaveBeenLastCalledWith("\r\x1b[K");
+    expect(writeSpy).toHaveBeenLastCalledWith("\r\u001b[K");
   });
 
   it("exposes process/path helpers through the runtime interface", async () => {
