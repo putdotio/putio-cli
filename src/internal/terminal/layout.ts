@@ -23,7 +23,7 @@ export const renderKeyValueBlock = (
   );
 };
 
-const stripAnsi = (value: string) => value.replace(ANSI_ESCAPE_PATTERN, "");
+const stripAnsi = (value: string) => value.replaceAll(ANSI_ESCAPE_PATTERN, "");
 
 const padVisible = (value: string, width: number) => {
   const visibleLength = stripAnsi(value).length;

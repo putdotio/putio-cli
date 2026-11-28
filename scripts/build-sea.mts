@@ -194,7 +194,7 @@ const resolveOfficialNodeRuntime = async () => {
         "-NoLogo",
         "-NoProfile",
         "-Command",
-        `Expand-Archive -LiteralPath '${archivePath.replace(/'/g, "''")}' -DestinationPath '${runtimeDir.replace(/'/g, "''")}' -Force`,
+        `Expand-Archive -LiteralPath '${archivePath.replaceAll("'", "''")}' -DestinationPath '${runtimeDir.replaceAll("'", "''")}' -Force`,
       ],
     );
   } else {

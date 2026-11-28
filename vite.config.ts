@@ -94,7 +94,6 @@ export default defineConfig({
       "unicorn/no-useless-promise-resolve-reject": "off",
       "unicorn/prefer-number-properties": "off",
       "unicorn/prefer-string-raw": "off",
-      "unicorn/prefer-string-replace-all": "off",
     },
   },
   pack: {
