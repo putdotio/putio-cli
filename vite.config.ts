@@ -81,7 +81,6 @@ export default defineConfig({
       {
         files: ["src/internal/state.ts"],
         rules: {
-          "@nkzw/no-instanceof": "off",
           "effecttsgo/leaking-requirements": "off",
         },
       },

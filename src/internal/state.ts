@@ -410,7 +410,7 @@ const acquireConfigLock = (fs: FileSystem.FileSystem, lockPath: string, token: s
     Effect.retry({
       schedule: Schedule.spaced(CONFIG_LOCK_RETRY_INTERVAL),
       times: CONFIG_LOCK_MAX_RETRIES,
-      while: (error) => error instanceof ConfigLockBusy,
+      while: (error) => Predicate.isTagged(error, "ConfigLockBusy"),
     }),
   );
 
@@ -439,10 +439,9 @@ const withConfigLock = <A, E, R>(
         Effect.mapError(
           (cause) =>
             new AuthStateError({
-              message:
-                cause instanceof ConfigLockBusy
-                  ? `${message} Another putio process is updating the config; if none is running, remove ${lockPath}.`
-                  : message,
+              message: Predicate.isTagged(cause, "ConfigLockBusy")
+                ? `${message} Another putio process is updating the config; if none is running, remove ${lockPath}.`
+                : message,
               cause,
             }),
         ),
