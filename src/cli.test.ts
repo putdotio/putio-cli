@@ -70,8 +70,8 @@ const runProcessArgv = async (
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-parser-"));
   onTestFinished(() => rm(configDir, { force: true, recursive: true }));
   const configPath = join(configDir, "config.json");
-  const stdoutChunks: string[] = [];
-  const stderrChunks: string[] = [];
+  const stdoutChunks: Array<string> = [];
+  const stderrChunks: Array<string> = [];
 
   const consoleLogSpy = vi.spyOn(console, "log").mockImplementation((...args) => {
     stdoutChunks.push(parseCapturedText(args));

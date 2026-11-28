@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vite-plus/test";
 
 import type { CrashBoundaryRuntime } from "./crash-boundary.js";
-import { bootstrapCrashReporting, type SentryAdapter } from "./crash-reporting.js";
+import { bootstrapCrashReporting } from "./crash-reporting.js";
+import type { SentryAdapter } from "./crash-reporting.js";
 
 afterEach(() => {
   vi.unstubAllEnvs();

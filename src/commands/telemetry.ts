@@ -3,7 +3,8 @@ import { Effect } from "effect";
 
 import { translate } from "../i18n/index.js";
 import { getOption, outputOption } from "../internal/command.js";
-import { outputFlag, type CommandSpec } from "../internal/command-specs.js";
+import { outputFlag } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { writeOutput } from "../internal/output-service.js";
 import { getTelemetryStatus, setTelemetryEnabled } from "../internal/state.js";
 

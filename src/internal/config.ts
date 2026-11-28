@@ -12,7 +12,8 @@ import {
   ENV_UPLOAD_BASE_URL,
   ENV_XDG_CONFIG_HOME,
 } from "./env.js";
-import { CliRuntime, type CliRuntimeService } from "./runtime.js";
+import { CliRuntime } from "./runtime.js";
+import type { CliRuntimeService } from "./runtime.js";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 

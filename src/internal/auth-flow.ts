@@ -26,7 +26,7 @@ export const waitForDeviceToken = <E, R>(options: {
   readonly timeoutMs?: number;
 }) =>
   Effect.gen(function* () {
-    const pollIntervalMs = options.pollIntervalMs ?? 2_000;
+    const pollIntervalMs = options.pollIntervalMs ?? 2000;
 
     while (true) {
       const token = yield* options.checkCodeMatch(options.code).pipe(

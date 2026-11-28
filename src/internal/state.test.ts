@@ -2,9 +2,7 @@ import { lstat, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import * as FileSystem from "effect/FileSystem";
-import * as PlatformError from "effect/PlatformError";
-import { Cause, ConfigProvider, Effect, Exit, Option } from "effect";
+import { Cause, ConfigProvider, Effect, Exit, FileSystem, Option, PlatformError } from "effect";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { makeCliAppLayer } from "./app-layer.js";

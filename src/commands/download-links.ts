@@ -1,6 +1,8 @@
 import { Command } from "effect/cli";
-import { DownloadLinksCreateInputSchema, type FilesBulkSelection } from "@putdotio/sdk";
-import { Effect, Option, Predicate, Schema } from "effect";
+import { DownloadLinksCreateInputSchema } from "@putdotio/sdk";
+import type { FilesBulkSelection } from "@putdotio/sdk";
+import type { Schema } from "effect";
+import { Effect, Option, Predicate } from "effect";
 
 import {
   checkCommandInput,
@@ -25,8 +27,8 @@ import {
   jsonFlag,
   jsonInputSpecFromSchema,
   outputFlag,
-  type CommandSpec,
 } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { writeOutput } from "../internal/output-service.js";

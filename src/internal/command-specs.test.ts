@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  decodeCommandSpecs,
-  dryRunFlag,
-  fieldsFlag,
-  jsonFlag,
-  type CommandSpec,
-} from "./command-specs.js";
+import { decodeCommandSpecs, dryRunFlag, fieldsFlag, jsonFlag } from "./command-specs.js";
+import type { CommandSpec } from "./command-specs.js";
 
 describe("decodeCommandSpecs", () => {
   it("rejects duplicate command names", () => {

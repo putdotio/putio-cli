@@ -1,5 +1,6 @@
-import { createServer, type Server } from "node:http";
-import * as Sentry from "@sentry/core";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
+import { close as closeSentry, parseEnvelope } from "@sentry/core";
 import { Predicate } from "effect";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import packageJson from "../../package.json";
@@ -12,8 +13,8 @@ import {
   sanitizeCrashEnvelope,
   sanitizeCrashEvent,
   sendCrashRequest,
-  type SentryAdapter,
 } from "./crash-reporting.js";
+import type { SentryAdapter } from "./crash-reporting.js";
 import type { CrashReportingConfig } from "./crash-reporting-config.js";
 
 const TEST_CRASH_REPORTING_CONFIG = {
@@ -56,7 +57,7 @@ const close = (server: Server) =>
   });
 
 afterEach(async () => {
-  await Sentry.close(0);
+  await closeSentry(0);
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -209,7 +210,7 @@ describe("sanitizeCrashEnvelope", () => {
       throw new Error("Expected the authorized crash envelope to be rebuilt.");
     }
 
-    expect(Sentry.parseEnvelope(sanitized)).toEqual([
+    expect(parseEnvelope(sanitized)).toEqual([
       {
         event_id: expected.eventId,
         sent_at: "1970-01-01T00:02:03.000Z",
@@ -250,8 +251,8 @@ describe("sanitizeCrashEnvelope", () => {
 
 describe("sendCrashRequest", () => {
   it("uses a bounded POST and returns Sentry rate-limit headers", async () => {
-    const request = vi.fn(async (_url: string, _init: RequestInit) =>
-      Promise.resolve(
+    const request = vi.fn(
+      async (_url: string, _init: RequestInit) =>
         new Response(undefined, {
           headers: {
             "retry-after": "60",
@@ -259,7 +260,6 @@ describe("sendCrashRequest", () => {
           },
           status: 202,
         }),
-      ),
     );
 
     await expect(
@@ -325,7 +325,9 @@ describe("sendCrashRequest", () => {
   });
 
   it("surfaces transport failure to the reporter boundary", async () => {
-    const request = vi.fn(async () => Promise.reject(new Error("offline")));
+    const request = vi.fn(async () => {
+      throw new Error("offline");
+    });
 
     await expect(
       sendCrashRequest(
@@ -432,7 +434,7 @@ describe("makeCrashReporter", () => {
   it("bounds a transport that never settles", async () => {
     vi.useFakeTimers();
     const sentry = makeSentryAdapter();
-    sentry.flush.mockReturnValue(new Promise(() => undefined));
+    sentry.flush.mockReturnValue(new Promise(() => {}));
 
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,
@@ -463,12 +465,11 @@ describe("makeCrashReporter", () => {
   });
 
   it("sends one allowlisted envelope through the concrete Sentry adapter", async () => {
-    const request = vi.fn(async (_url: string, _init?: RequestInit) =>
-      Promise.resolve(
+    const request = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
         new Response(undefined, {
           status: 202,
         }),
-      ),
     );
 
     vi.stubGlobal("fetch", request);
@@ -506,7 +507,7 @@ describe("makeCrashReporter", () => {
       throw new Error("Expected a serialized Sentry envelope request body.");
     }
 
-    expect(Sentry.parseEnvelope(body)).toEqual([
+    expect(parseEnvelope(body)).toEqual([
       {
         event_id: "0123456789abcdef0123456789abcdef",
         sent_at: "1970-01-01T00:02:03.000Z",

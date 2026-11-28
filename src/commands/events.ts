@@ -11,7 +11,8 @@ import {
   withAuthedSdk,
   writeReadOutput,
 } from "../internal/command.js";
-import { fieldsFlag, outputFlag, type CommandSpec } from "../internal/command-specs.js";
+import { fieldsFlag, outputFlag } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { translate } from "../i18n/index.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { renderEventsTerminal } from "../internal/terminal/events-terminal.js";

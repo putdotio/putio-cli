@@ -281,6 +281,24 @@ describe("selectTopLevelFields", () => {
   });
 });
 
+const pageChain = (pageSizes: fc.Arbitrary<number>) =>
+  fc
+    .uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), { maxLength: 6 })
+    .chain((cursors) =>
+      fc.tuple(
+        fc.constant(cursors),
+        fc.array(pageSizes, { minLength: cursors.length + 1, maxLength: cursors.length + 1 }),
+      ),
+    )
+    .map(([cursors, sizes]) => {
+      let next = 0;
+
+      return sizes.map((size, index) => ({
+        cursor: cursors[index] ?? null,
+        files: Array.from({ length: size }, () => next++),
+      }));
+    });
+
 describe("collectAllCursorPages", () => {
   type Page = {
     readonly cursor: string | null;
@@ -291,12 +309,14 @@ describe("collectAllCursorPages", () => {
   const MAX_ITEMS = 100_000;
 
   const collect = (pages: ReadonlyArray<Page>) => {
-    const requested: string[] = [];
+    const requested: Array<string> = [];
     const byCursor = new Map<string, Page>();
     pages.forEach((page, index) => {
       const previous = pages[index - 1];
 
-      if (previous?.cursor) byCursor.set(previous.cursor, page);
+      if (previous?.cursor) {
+        byCursor.set(previous.cursor, page);
+      }
     });
 
     const effect = collectAllCursorPages({
@@ -307,31 +327,13 @@ describe("collectAllCursorPages", () => {
 
         return page ? Effect.succeed(page) : Effect.die(new Error(`unexpected cursor ${cursor}`));
       },
-      initial: { ...pages[0]!, total: 7 },
+      initial: { ...pages[0], total: 7 },
       itemKey: "files",
       pageAll: true,
     });
 
     return { effect, requested };
   };
-
-  const pageChain = (pageSizes: fc.Arbitrary<number>) =>
-    fc
-      .uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), { maxLength: 6 })
-      .chain((cursors) =>
-        fc.tuple(
-          fc.constant(cursors),
-          fc.array(pageSizes, { minLength: cursors.length + 1, maxLength: cursors.length + 1 }),
-        ),
-      )
-      .map(([cursors, sizes]) => {
-        let next = 0;
-
-        return sizes.map((size, index) => ({
-          cursor: cursors[index] ?? null,
-          files: Array.from({ length: size }, () => next++),
-        }));
-      });
 
   it("concatenates pages in order and stops at the null cursor", async () => {
     await fc.assert(
@@ -356,7 +358,7 @@ describe("collectAllCursorPages", () => {
         fc.nat(),
         async (pages, pick) => {
           const cursors = pages.flatMap((page) => (page.cursor ? [page.cursor] : []));
-          const repeated = cursors[pick % cursors.length]!;
+          const repeated = cursors[pick % cursors.length];
           const last = pages.length - 1;
 
           const looping = pages.map((page, index) =>
@@ -420,14 +422,14 @@ describe("collectAllCursorPages", () => {
   });
 });
 
+const page = (length: number, cursor: string | null) => ({
+  cursor,
+  files: Array.from({ length }, (_value, index) => index),
+});
+
 describe("writeReadPages", () => {
   it("stops streaming once the item total exceeds the cap", async () => {
-    const lines: string[] = [];
-
-    const page = (length: number, cursor: string | null) => ({
-      cursor,
-      files: Array.from({ length }, (_value, index) => index),
-    });
+    const lines: Array<string> = [];
 
     const exit = await Effect.runPromiseExit(
       writeReadPages({

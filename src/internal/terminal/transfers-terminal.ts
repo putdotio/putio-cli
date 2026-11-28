@@ -1,7 +1,8 @@
 import { translate } from "../../i18n/index.js";
 
 import { formatPercent } from "./format.js";
-import { renderTable, type TerminalColumn } from "./layout.js";
+import { renderTable } from "./layout.js";
+import type { TerminalColumn } from "./layout.js";
 
 type TransferRow = {
   readonly id: number;

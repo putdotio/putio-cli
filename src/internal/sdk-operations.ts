@@ -39,7 +39,7 @@ const operationSegmentPattern = /^[a-z][A-Za-z0-9]*$/u;
 const blockedOperationSegments = new Set(["__proto__", "constructor", "prototype"]);
 
 const hasPlainPrototype = <Value extends object>(value: Value) => {
-  const prototype = Object.getPrototypeOf(value);
+  const prototype: unknown = Object.getPrototypeOf(value);
 
   return prototype === Object.prototype || prototype === null;
 };

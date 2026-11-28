@@ -2,8 +2,10 @@ import { Cause, Effect, Exit } from "effect";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { handleCliCause } from "./main.js";
-import { CliCrashReporter, type CrashReporterService } from "./crash-reporting.js";
-import { CliOutput, type CliOutputService } from "./output-service.js";
+import { CliCrashReporter } from "./crash-reporting.js";
+import type { CrashReporterService } from "./crash-reporting.js";
+import { CliOutput } from "./output-service.js";
+import type { CliOutputService } from "./output-service.js";
 import { CliRuntime, makeCliRuntime } from "./runtime.js";
 
 describe("handleCliCause", () => {

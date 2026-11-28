@@ -15,13 +15,8 @@ import {
   CliCommandInputError,
   checkCommandInput,
 } from "../internal/command.js";
-import {
-  dryRunFlag,
-  jsonFlag,
-  outputFlag,
-  type JsonInputSpec,
-  type CommandSpec,
-} from "../internal/command-specs.js";
+import { dryRunFlag, jsonFlag, outputFlag } from "../internal/command-specs.js";
+import type { JsonInputSpec, CommandSpec } from "../internal/command-specs.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import {
   redactSensitiveStructuredValues,

@@ -1,11 +1,10 @@
-import * as FileSystem from "effect/FileSystem";
-
 import { DEFAULT_PUTIO_API_BASE_URL } from "@putdotio/sdk";
 import {
   Clock,
   Context,
   Data,
   Effect,
+  FileSystem,
   Layer,
   Option,
   Predicate,
@@ -16,7 +15,8 @@ import {
 
 import { normalizeAuthProfileName } from "./auth-profile.js";
 import { CONFIG_FILE_MODE } from "./constants.js";
-import { CliConfig, resolveCliConfigPath, resolveCliRuntimeConfig } from "./config.js";
+import type { CliConfig } from "./config.js";
+import { resolveCliConfigPath, resolveCliRuntimeConfig } from "./config.js";
 import { CliRuntime } from "./runtime.js";
 
 const NonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
