@@ -395,7 +395,7 @@ const integerPattern = /^-?\d+$/;
 export const parseRepeatedIntegers = (
   values: ReadonlyArray<string>,
 ): Option.Option<ReadonlyArray<number>> => {
-  const parsed: number[] = [];
+  const parsed: Array<number> = [];
 
   for (const value of values) {
     if (!integerPattern.test(value)) {

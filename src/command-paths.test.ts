@@ -222,7 +222,7 @@ const putio = (...args: ReadonlyArray<string>) => runPutio(api, args);
 const requestsTo = (method: string, path: string) =>
   api.requests.filter((request) => request.method === method && request.path === path);
 
-const fixtureDirectories: string[] = [];
+const fixtureDirectories: Array<string> = [];
 
 const makeUploadFixture = async (name = "movie.mp4", mode?: number) => {
   const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));

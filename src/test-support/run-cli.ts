@@ -62,7 +62,7 @@ const notFound: FixtureResponse = {
 };
 
 const readBody = async (request: IncomingMessage) => {
-  const chunks: Buffer[] = [];
+  const chunks: Array<Buffer> = [];
 
   for await (const chunk of request) {
     chunks.push(chunk);
@@ -101,8 +101,8 @@ const readBody = async (request: IncomingMessage) => {
  */
 export const startFixtureApi = async () => {
   const routes = new Map<string, FixtureRoute>();
-  const requests: RecordedRequest[] = [];
-  const blocked: string[] = [];
+  const requests: Array<RecordedRequest> = [];
+  const blocked: Array<string> = [];
 
   const server = createServer((request, response) => {
     void (async () => {
@@ -193,7 +193,7 @@ const keyPress = (name: string, input?: string): Terminal.UserInput => ({
   key: { ctrl: false, meta: false, name, shift: false },
 });
 
-const scriptedTerminalLayer = (typed: string, displayed: string[]) =>
+const scriptedTerminalLayer = (typed: string, displayed: Array<string>) =>
   Layer.succeed(
     Terminal.Terminal,
     Terminal.make({
@@ -244,10 +244,10 @@ export const runPutio = async (
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-test-"));
   const configPath = join(configDir, "config.json");
   const argv = ["node", "putio", ...args];
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  const openedUrls: string[] = [];
-  const terminalDisplay: string[] = [];
+  const stdout: Array<string> = [];
+  const stderr: Array<string> = [];
+  const openedUrls: Array<string> = [];
+  const terminalDisplay: Array<string> = [];
   let exitCode = 0;
 
   const env = Object.fromEntries(
@@ -262,7 +262,7 @@ export const runPutio = async (
   );
 
   const capture =
-    (chunks: string[]) =>
+    (chunks: Array<string>) =>
     (...values: ReadonlyArray<unknown>) =>
       chunks.push(`${values.map(String).join(" ")}\n`);
 
@@ -289,7 +289,7 @@ export const runPutio = async (
     writeStdout: (message) => stdout.push(message),
   });
 
-  const crashReports: CrashKind[] = [];
+  const crashReports: Array<CrashKind> = [];
 
   const crashReporterLayer = Layer.succeed(CliCrashReporter, {
     capture: (kind) => {

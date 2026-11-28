@@ -291,7 +291,7 @@ describe("collectAllCursorPages", () => {
   const MAX_ITEMS = 100_000;
 
   const collect = (pages: ReadonlyArray<Page>) => {
-    const requested: string[] = [];
+    const requested: Array<string> = [];
     const byCursor = new Map<string, Page>();
     pages.forEach((page, index) => {
       const previous = pages[index - 1];
@@ -424,7 +424,7 @@ describe("collectAllCursorPages", () => {
 
 describe("writeReadPages", () => {
   it("stops streaming once the item total exceeds the cap", async () => {
-    const lines: string[] = [];
+    const lines: Array<string> = [];
 
     const page = (length: number, cursor: string | null) => ({
       cursor,
