@@ -114,7 +114,7 @@ describe("renderJson", () => {
   });
 
   it("preserves terminal control characters as escaped json data", () => {
-    expect(renderJson({ name: "safe\u001B[2J" })).toContain('"name": "safe\\u001b[2J"');
+    expect(renderJson({ name: "safe\u001B[2J" })).toContain(String.raw`"name": "safe\u001b[2J"`);
   });
 
   it("preserves suspicious api text and attaches machine-readable safety metadata", () => {
