@@ -434,7 +434,7 @@ describe("makeCrashReporter", () => {
   it("bounds a transport that never settles", async () => {
     vi.useFakeTimers();
     const sentry = makeSentryAdapter();
-    sentry.flush.mockReturnValue(new Promise(() => undefined));
+    sentry.flush.mockReturnValue(new Promise(() => {}));
 
     const reporter = makeCrashReporter({
       config: TEST_CRASH_REPORTING_CONFIG,

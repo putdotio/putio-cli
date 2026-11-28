@@ -300,7 +300,9 @@ const waitForExit = async (child: ChildProcess, timeoutMs: number) => {
 
   return Promise.race([
     once(child, "exit").then(() => true),
-    new Promise<false>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+    new Promise<false>((resolve) => {
+      setTimeout(() => resolve(false), timeoutMs);
+    }),
   ]);
 };
 
@@ -468,10 +470,14 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
 
     while (Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text()) === 0) {
       assert(Date.now() - startedAt < 5000, "Streaming CLI never requested its first page.");
-      await new Promise((resolveWait) => setTimeout(resolveWait, 20));
+      await new Promise((resolveWait) => {
+        setTimeout(resolveWait, 20);
+      });
     }
 
-    await new Promise((resolveWait) => setTimeout(resolveWait, 1000));
+    await new Promise((resolveWait) => {
+      setTimeout(resolveWait, 1000);
+    });
     const pausedPages = Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text());
     assert(
       pausedPages < 64,
