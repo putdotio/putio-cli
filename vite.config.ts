@@ -78,7 +78,6 @@ export default defineConfig({
       "effecttsgo/unsafe-effect-type-assertion": "error",
       "@nkzw/no-instanceof": "off",
       "no-console": "off",
-      "typescript/no-unsafe-member-access": "off",
       "typescript/no-unsafe-type-assertion": "off",
     },
   },
