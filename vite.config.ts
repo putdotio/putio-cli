@@ -79,7 +79,6 @@ export default defineConfig({
       "@nkzw/no-instanceof": "off",
       "no-console": "off",
       "typescript/no-unsafe-member-access": "off",
-      "typescript/no-unsafe-return": "off",
       "typescript/no-unsafe-type-assertion": "off",
     },
   },

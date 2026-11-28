@@ -492,10 +492,16 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     const pages = output
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line));
+      .map((line) => {
+        const page: unknown = JSON.parse(line);
+
+        return page;
+      });
+
+    const lastPage = pages.at(-1);
 
     assert(
-      pages.length === 64 && pages.at(-1)?.cursor === null,
+      pages.length === 64 && Predicate.hasProperty(lastPage, "cursor") && lastPage.cursor === null,
       "Streaming CLI did not drain all 64 NDJSON pages.",
     );
     console.log(
