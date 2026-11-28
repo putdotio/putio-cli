@@ -1,4 +1,5 @@
 import { correctness, strict } from "@effect/tsgo/oxlint-presets";
+import uinaf, { env, ignorePatterns, options } from "@uinaf/oxlint-config/effect/vite-plus";
 import { defineConfig } from "vite-plus";
 
 import { resolveCrashReportingBuildDefines } from "./src/internal/crash-reporting-config.ts";
@@ -24,38 +25,25 @@ const coverageConfig: CoverageConfig = {
   reporter: ["text", "lcov"],
 };
 
-const agentToolingIgnores = [
-  ".agent/**",
-  ".agents/**",
-  ".claude/**",
-  ".codex/**",
-  ".continue/**",
-  ".cursor/**",
-  ".gemini/**",
-  ".opencode/**",
-  ".pi/**",
-  ".roo/**",
-  ".windsurf/**",
-  "tools/oxlint/anti-slop/**",
-];
-
 export default defineConfig({
   fmt: {
-    ignorePatterns: agentToolingIgnores,
+    ignorePatterns,
   },
   lint: {
-    extends: [correctness, strict],
+    env,
+    extends: [uinaf, correctness, strict],
+    ignorePatterns,
     options: {
-      typeAware: true,
+      ...options,
       typeCheck: true,
     },
-    ignorePatterns: agentToolingIgnores,
-    jsPlugins: [
-      { name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" },
-      { name: "anti-slop-effect", specifier: "./tools/oxlint/anti-slop/effect/index.ts" },
-      { name: "uinaf", specifier: "@uinaf/oxlint-plugin-no-comments" },
-    ],
     overrides: [
+      {
+        files: ["scripts/smoke-packed-install.mts"],
+        rules: {
+          "typescript/only-throw-error": "off",
+        },
+      },
       {
         files: [
           "**/*.test.ts",
@@ -88,31 +76,28 @@ export default defineConfig({
       "effecttsgo/any-unknown-in-error-context": "error",
       "effecttsgo/lazy-effect": "off",
       "effecttsgo/unsafe-effect-type-assertion": "error",
-      "oxc/no-accumulating-spread": "error",
-      "anti-slop/no-array-filter-map": "error",
-      "anti-slop/no-reduce-accumulator-copy": "error",
-      "anti-slop/no-chained-type-assertions": "error",
-      "anti-slop/no-conditional-empty-object-spread": "error",
-      "anti-slop/no-known-value-widening": "error",
-      "anti-slop/no-module-mocking": "error",
-      "anti-slop/no-object-parameters": "error",
-      "anti-slop/no-reflect-apply": "error",
-      "anti-slop/no-reflect-get": "error",
-      "anti-slop/no-runtime-typeof": "error",
-      "anti-slop/no-shape-in-symbol-names": "error",
-      "anti-slop/no-unknown-parameters": "error",
-      "anti-slop/no-unknown-returns": "error",
-      "anti-slop/no-unknown-type-aliases": "error",
-      "anti-slop/no-unsafe-dictionary-type": "error",
-      "anti-slop/no-widen-then-assert": "error",
-      "anti-slop/require-readable-spacing": "error",
-      "anti-slop/require-safety-comment-for-type-assertion": "error",
-      "anti-slop-effect/no-manual-effect-error-tag": "error",
-      "anti-slop-effect/no-manual-tag-comparison": "error",
-      "anti-slop-effect/no-manual-tagged-construction": "error",
-      "anti-slop-effect/no-service-constructor-imports": "error",
-      "anti-slop-effect/prefer-effect-match": "error",
-      "uinaf/no-comments": "error",
+      "@nkzw/no-instanceof": "off",
+      curly: "off",
+      "import/consistent-type-specifier-style": "off",
+      "import/no-namespace": "off",
+      "no-console": "off",
+      "no-promise-executor-return": "off",
+      "prefer-object-has-own": "off",
+      "typescript/array-type": "off",
+      "typescript/consistent-type-imports": "off",
+      "typescript/no-unnecessary-type-assertion": "off",
+      "typescript/no-unsafe-argument": "off",
+      "typescript/no-unsafe-assignment": "off",
+      "typescript/no-unsafe-member-access": "off",
+      "typescript/no-unsafe-return": "off",
+      "typescript/no-unsafe-type-assertion": "off",
+      "unicorn/consistent-function-scoping": "off",
+      "unicorn/no-hex-escape": "off",
+      "unicorn/no-useless-promise-resolve-reject": "off",
+      "unicorn/numeric-separators-style": "off",
+      "unicorn/prefer-number-properties": "off",
+      "unicorn/prefer-string-raw": "off",
+      "unicorn/prefer-string-replace-all": "off",
     },
   },
   pack: {
