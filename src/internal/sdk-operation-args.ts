@@ -293,7 +293,7 @@ const sdkOperationArgsSchemas = defineArgsSchemas({
       query: Schema.optionalKey(Schema.Record(Schema.String, QueryValueSchema)),
     }),
   ]),
-  "oauth.buildIconUrl": Schema.Tuple([
+  "oauth.buildIconRequest": Schema.Tuple([
     Schema.Struct({
       baseUrl: Schema.optionalKey(Schema.String),
       id: Id,
