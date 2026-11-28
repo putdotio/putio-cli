@@ -418,7 +418,7 @@ describe("formatCliErrorJson", () => {
     expect(metadata).not.toHaveProperty("body");
   });
 
-  it.each([NaN, Infinity, 404.5, 99, 600])("omits invalid HTTP status %s", (status) => {
+  it.each([Number.NaN, Infinity, 404.5, 99, 600])("omits invalid HTTP status %s", (status) => {
     const output = JSON.parse(
       formatCliErrorJson(
         new PutioApiError({ status, body: { status_code: 404 } }, { disableChecks: true }),

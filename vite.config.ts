@@ -88,7 +88,6 @@ export default defineConfig({
       "typescript/no-unsafe-type-assertion": "off",
       "unicorn/consistent-function-scoping": "off",
       "unicorn/no-useless-promise-resolve-reject": "off",
-      "unicorn/prefer-number-properties": "off",
       "unicorn/prefer-string-raw": "off",
     },
   },
