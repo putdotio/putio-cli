@@ -1,10 +1,5 @@
-import {
-  execFile as execFileCallback,
-  execFileSync,
-  spawn,
-  spawnSync,
-  type ChildProcess,
-} from "node:child_process";
+import { execFile as execFileCallback, execFileSync, spawn, spawnSync } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -220,10 +215,16 @@ const smokeStructuredErrors = (binaryPath: string, apiBaseUrl: string) => {
     );
     const parsed: unknown = JSON.parse(result.stderr);
 
-    if (!Predicate.hasProperty(parsed, "error")) throw new Error("Missing error envelope.");
+    if (!Predicate.hasProperty(parsed, "error")) {
+      throw new Error("Missing error envelope.");
+    }
+
     const error = parsed.error;
 
-    if (!Predicate.isObjectOrArray(error)) throw new Error("Missing error metadata.");
+    if (!Predicate.isObjectOrArray(error)) {
+      throw new Error("Missing error metadata.");
+    }
+
     assert(
       "httpStatusCode" in error && error.httpStatusCode === httpStatus,
       "HTTP status was lost or conflated.",
@@ -271,7 +272,9 @@ const startMockApi = () => {
       stdout += String(chunk);
       const newline = stdout.indexOf("\n");
 
-      if (newline < 0) return;
+      if (newline < 0) {
+        return;
+      }
 
       const port = Number(stdout.slice(0, newline));
       clearTimeout(timer);
@@ -291,22 +294,32 @@ const startMockApi = () => {
 };
 
 const waitForExit = async (child: ChildProcess, timeoutMs: number) => {
-  if (child.exitCode !== null || child.signalCode !== null) return true;
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return true;
+  }
 
   return Promise.race([
     once(child, "exit").then(() => true),
-    new Promise<false>((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+    new Promise<false>((resolve) => {
+      setTimeout(() => resolve(false), timeoutMs);
+    }),
   ]);
 };
 
 const stopMockApi = async (child: ChildProcess) => {
-  if (child.exitCode !== null || child.signalCode !== null) return;
+  if (child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
   child.kill("SIGTERM");
 
-  if (await waitForExit(child, 2_000)) return;
+  if (await waitForExit(child, 2000)) {
+    return;
+  }
+
   child.kill("SIGKILL");
 
-  if (!(await waitForExit(child, 2_000))) {
+  if (!(await waitForExit(child, 2000))) {
     throw new Error(`Packed-install API server ${child.pid ?? "unknown"} did not stop.`);
   }
 };
@@ -375,7 +388,7 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
   const malformed = spawnSync(
     binaryPath,
     ["transfers", "list", "--per-page", "998", "--output", "json"],
-    { cwd: installDir, encoding: "utf8", env, timeout: 5_000 },
+    { cwd: installDir, encoding: "utf8", env, timeout: 5000 },
   );
 
   const malformedOutput = malformed.stdout + malformed.stderr;
@@ -408,7 +421,7 @@ const smokeSdkTransport = (binaryPath: string, apiBaseUrl: string) => {
       cwd: installDir,
       encoding: "utf8",
       env: { ...env, PUTIO_CLI_TOKEN: "", PUTIO_SDK_BODY_STATE_PATH: statePath },
-      timeout: 5_000,
+      timeout: 5000,
     },
   );
 
@@ -456,11 +469,15 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     const startedAt = Date.now();
 
     while (Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text()) === 0) {
-      assert(Date.now() - startedAt < 5_000, "Streaming CLI never requested its first page.");
-      await new Promise((resolveWait) => setTimeout(resolveWait, 20));
+      assert(Date.now() - startedAt < 5000, "Streaming CLI never requested its first page.");
+      await new Promise((resolveWait) => {
+        setTimeout(resolveWait, 20);
+      });
     }
 
-    await new Promise((resolveWait) => setTimeout(resolveWait, 1_000));
+    await new Promise((resolveWait) => {
+      setTimeout(resolveWait, 1000);
+    });
     const pausedPages = Number(await (await fetch(`${apiBaseUrl}/fixture/stream-count`)).text());
     assert(
       pausedPages < 64,
@@ -475,10 +492,16 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     const pages = output
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line));
+      .map((line) => {
+        const page: unknown = JSON.parse(line);
+
+        return page;
+      });
+
+    const lastPage = pages.at(-1);
 
     assert(
-      pages.length === 64 && pages.at(-1)?.cursor === null,
+      pages.length === 64 && Predicate.hasProperty(lastPage, "cursor") && lastPage.cursor === null,
       "Streaming CLI did not drain all 64 NDJSON pages.",
     );
     console.log(
@@ -487,7 +510,10 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
   } finally {
     clearTimeout(deadline);
 
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+    }
+
     await completed;
   }
 
@@ -497,12 +523,13 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  const brokenDeadline = setTimeout(() => brokenPipe.kill("SIGKILL"), 5_000);
+  const brokenDeadline = setTimeout(() => brokenPipe.kill("SIGKILL"), 5000);
   brokenPipe.stderr.resume();
   brokenPipe.stdout.once("data", () => brokenPipe.stdout.destroy());
 
   try {
-    const [code, signal] = await once(brokenPipe, "close");
+    const closeArgs: Array<unknown> = await once(brokenPipe, "close");
+    const [code, signal] = closeArgs;
     assert(
       code === 1 && signal === null,
       "Broken pipe did not terminate with the existing failure exit status.",
@@ -510,7 +537,9 @@ const smokeStdout = async (binaryPath: string, apiBaseUrl: string) => {
   } finally {
     clearTimeout(brokenDeadline);
 
-    if (brokenPipe.exitCode === null && brokenPipe.signalCode === null) brokenPipe.kill("SIGKILL");
+    if (brokenPipe.exitCode === null && brokenPipe.signalCode === null) {
+      brokenPipe.kill("SIGKILL");
+    }
   }
 };
 
@@ -809,7 +838,7 @@ try {
         PUTIO_CLI_API_BASE_URL: mockApiBaseUrl,
         PUTIO_CLI_TOKEN: "",
       },
-      timeout: 5_000,
+      timeout: 5000,
     },
   );
 
@@ -818,7 +847,7 @@ try {
     "Expected installed login to exit with failure before the process timeout.",
   );
   assert(
-    Date.now() - loginStartedAt >= 1_000 && timedOutLogin.stderr.includes("Device login failed"),
+    Date.now() - loginStartedAt >= 1000 && timedOutLogin.stderr.includes("Device login failed"),
     "Expected the pending poll to reach its deadline and retain the localized auth-flow error.",
   );
   assert(
@@ -887,16 +916,26 @@ try {
     }
   }
 
-  if (createdInstallDir !== undefined) rmSync(createdInstallDir, { force: true, recursive: true });
+  if (createdInstallDir !== undefined) {
+    rmSync(createdInstallDir, { force: true, recursive: true });
+  }
 
-  for (const [signal, handler] of interruptHandlers) process.off(signal, handler);
+  for (const [signal, handler] of interruptHandlers) {
+    process.off(signal, handler);
+  }
 }
 
 if (interruptedBy !== undefined) {
-  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
+  if (cleanupError !== undefined) {
+    console.error("Packed-install cleanup failed:", cleanupError);
+  }
+
   process.exitCode = interruptedBy === "SIGINT" ? 130 : 143;
 } else if (primaryError !== undefined) {
-  if (cleanupError !== undefined) console.error("Packed-install cleanup failed:", cleanupError);
+  if (cleanupError !== undefined) {
+    console.error("Packed-install cleanup failed:", cleanupError);
+  }
+
   throw primaryError;
 } else if (cleanupError !== undefined) {
   throw cleanupError;

@@ -3,13 +3,31 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 
-import * as Sentry from "@sentry/core";
+import type {
+  BaseTransportOptions,
+  ErrorEvent,
+  Event,
+  EventEnvelope,
+  ServerRuntimeClientOptions,
+} from "@sentry/core";
+import {
+  ServerRuntimeClient,
+  captureEvent,
+  createEnvelope,
+  createTransport,
+  flush,
+  initAndBind,
+  parseEnvelope,
+  serializeEnvelope,
+} from "@sentry/core";
 import { Context, Layer, Option, Predicate, Schema } from "effect";
 import packageJson from "../../package.json";
 
 import { buildConfigPath } from "./config.js";
-import { installCrashBoundary, type CrashBoundaryOptions } from "./crash-boundary.js";
-import { loadCrashReportingConfig, type CrashReportingConfig } from "./crash-reporting-config.js";
+import { installCrashBoundary } from "./crash-boundary.js";
+import type { CrashBoundaryOptions } from "./crash-boundary.js";
+import { loadCrashReportingConfig } from "./crash-reporting-config.js";
+import type { CrashReportingConfig } from "./crash-reporting-config.js";
 import { ENV_CLI_CONFIG_PATH, ENV_XDG_CONFIG_HOME } from "./env.js";
 import { parsePersistedConfig } from "./state.js";
 
@@ -51,7 +69,7 @@ export type CrashReporterService = {
 };
 
 type CrashSentryOptions = {
-  readonly beforeSend: (event: Sentry.Event) => Sentry.ErrorEvent;
+  readonly beforeSend: (event: Event) => ErrorEvent;
   readonly dsn: string;
   readonly environment: string;
   readonly release: string;
@@ -59,15 +77,15 @@ type CrashSentryOptions = {
 };
 
 export type SentryAdapter = {
-  readonly captureEvent: typeof Sentry.captureEvent;
-  readonly flush: typeof Sentry.flush;
+  readonly captureEvent: typeof captureEvent;
+  readonly flush: typeof flush;
   readonly init: (options: CrashSentryOptions) => void;
 };
 
 type CrashFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 export const sendCrashRequest = async (
-  options: Sentry.BaseTransportOptions,
+  options: BaseTransportOptions,
   body: string | Uint8Array,
   request: CrashFetch = fetch,
 ) => {
@@ -89,10 +107,10 @@ export const sendCrashRequest = async (
 };
 
 const makeFetchTransport = (
-  options: Sentry.BaseTransportOptions,
+  options: BaseTransportOptions,
   sanitizeEnvelope: CrashSentryOptions["sanitizeEnvelope"],
 ) =>
-  Sentry.createTransport(options, ({ body }) => {
+  createTransport(options, ({ body }) => {
     const sanitizedBody = sanitizeEnvelope(body);
 
     return sanitizedBody === undefined
@@ -101,22 +119,19 @@ const makeFetchTransport = (
   });
 
 const sentryAdapter: SentryAdapter = {
-  captureEvent: Sentry.captureEvent,
-  flush: Sentry.flush,
+  captureEvent,
+  flush,
   init: ({ sanitizeEnvelope, ...options }) => {
-    Sentry.initAndBind<Sentry.ServerRuntimeClient, Sentry.ServerRuntimeClientOptions>(
-      Sentry.ServerRuntimeClient,
-      {
-        ...options,
-        attachStacktrace: false,
-        integrations: [],
-        maxBreadcrumbs: 0,
-        platform: "node",
-        sendClientReports: false,
-        stackParser: () => [],
-        transport: (transportOptions) => makeFetchTransport(transportOptions, sanitizeEnvelope),
-      },
-    );
+    initAndBind<ServerRuntimeClient, ServerRuntimeClientOptions>(ServerRuntimeClient, {
+      ...options,
+      attachStacktrace: false,
+      integrations: [],
+      maxBreadcrumbs: 0,
+      platform: "node",
+      sendClientReports: false,
+      stackParser: () => [],
+      transport: (transportOptions) => makeFetchTransport(transportOptions, sanitizeEnvelope),
+    });
   },
 };
 
@@ -168,7 +183,7 @@ export const resolveCrashReporting = (
 ): CrashReportingDecision =>
   preference.disabled ? { enabled: false, reason: preference.reason } : { enabled: true };
 
-export const sanitizeCrashEvent = (event: Sentry.Event, kind: CrashKind): Sentry.ErrorEvent => ({
+export const sanitizeCrashEvent = (event: Event, kind: CrashKind): ErrorEvent => ({
   environment: SENTRY_ENVIRONMENT,
   event_id: event.event_id,
   fingerprint: [SENTRY_MESSAGE, kind],
@@ -203,7 +218,7 @@ export const sanitizeCrashEnvelope = (
   },
 ): string | Uint8Array | undefined => {
   try {
-    const [headers, items] = Sentry.parseEnvelope(body);
+    const [headers, items] = parseEnvelope(body);
     const item = items.length === 1 ? items[0] : undefined;
 
     const itemEvent =
@@ -224,11 +239,11 @@ export const sanitizeCrashEnvelope = (
       expected.kind,
     );
 
-    return Sentry.serializeEnvelope(
-      Sentry.createEnvelope<Sentry.EventEnvelope>(
+    return serializeEnvelope(
+      createEnvelope<EventEnvelope>(
         {
           event_id: expected.eventId,
-          sent_at: new Date(expected.timestamp * 1_000).toISOString(),
+          sent_at: new Date(expected.timestamp * 1000).toISOString(),
         },
         [[{ type: "event" }, event]],
       ),
@@ -319,7 +334,7 @@ export const makeCrashReporter = (
           options.createEventIdentity ??
           (() => ({
             eventId: randomUUID().replaceAll("-", ""),
-            timestamp: Date.now() / 1_000,
+            timestamp: Date.now() / 1000,
           }))
         )();
 

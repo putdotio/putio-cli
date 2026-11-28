@@ -24,7 +24,9 @@ const mockStdoutWrite = (onCallback: (callback: (error?: Error | null) => void) 
   vi.spyOn(process.stdout, "write").mockImplementation((_chunk, encodingOrCallback, callback) => {
     const writeCallback = callback ?? encodingOrCallback;
 
-    if (Predicate.isFunction(writeCallback)) onCallback(writeCallback);
+    if (Predicate.isFunction(writeCallback)) {
+      onCallback(writeCallback);
+    }
 
     return false;
   });
@@ -200,7 +202,7 @@ describe("makeCliRuntime", () => {
     vi.advanceTimersByTime(160);
     await Effect.runPromise(spinner.stop);
 
-    expect(writeSpy).toHaveBeenLastCalledWith("\r\x1b[K");
+    expect(writeSpy).toHaveBeenLastCalledWith("\r\u001b[K");
   });
 
   it("exposes process/path helpers through the runtime interface", async () => {

@@ -10,7 +10,8 @@ import {
   resolveAuthFlowConfig,
   waitForDeviceToken,
 } from "./auth-flow.js";
-import { CliRuntime, makeCliRuntime, type CliRuntimeService } from "./runtime.js";
+import { CliRuntime, makeCliRuntime } from "./runtime.js";
+import type { CliRuntimeService } from "./runtime.js";
 
 const mockRuntime: CliRuntimeService = {
   argv: ["node", "putio"],
@@ -91,8 +92,8 @@ describe("waitForDeviceToken", () => {
       const fiber = yield* Effect.forkChild(
         waitForDeviceToken({
           code: "ABCD1234",
-          pollIntervalMs: 1_000,
-          timeoutMs: 5_000,
+          pollIntervalMs: 1000,
+          timeoutMs: 5000,
           checkCodeMatch: () => {
             attempts += 1;
 
@@ -102,7 +103,7 @@ describe("waitForDeviceToken", () => {
       );
 
       yield* Effect.yieldNow;
-      yield* TestClock.adjust(1_000);
+      yield* TestClock.adjust(1000);
 
       assert.strictEqual(yield* Fiber.join(fiber), "token-123");
       assert.strictEqual(attempts, 2);
@@ -115,15 +116,15 @@ describe("waitForDeviceToken", () => {
         Effect.result(
           waitForDeviceToken({
             code: "ABCD1234",
-            pollIntervalMs: 1_000,
-            timeoutMs: 2_000,
+            pollIntervalMs: 1000,
+            timeoutMs: 2000,
             checkCodeMatch: () => Effect.succeed(null),
           }),
         ),
       );
 
       yield* Effect.yieldNow;
-      yield* TestClock.adjust(3_000);
+      yield* TestClock.adjust(3000);
 
       const result = yield* Fiber.join(fiber);
 
@@ -165,11 +166,12 @@ describe("waitForDeviceToken", () => {
       assert.isTrue(interrupted);
       assert.strictEqual(result._tag, "Failure");
 
-      if (Result.isFailure(result))
+      if (Result.isFailure(result)) {
         assert.strictEqual(
           result.failure.message,
           "Timed out waiting for device authorization to complete.",
         );
+      }
     }),
   );
 
@@ -182,7 +184,7 @@ describe("waitForDeviceToken", () => {
           waitForDeviceToken({
             code: "fixture-code",
             timeoutMs: 100,
-            pollIntervalMs: 5_000,
+            pollIntervalMs: 5000,
             checkCodeMatch: () =>
               Effect.sync(() => {
                 attempts++;

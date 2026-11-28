@@ -1,7 +1,8 @@
 import { Effect } from "effect";
 
 import { CliRuntime } from "./runtime.js";
-import { normalizeOutputMode, type RequestedOutputMode } from "./output-service.js";
+import { normalizeOutputMode } from "./output-service.js";
+import type { RequestedOutputMode } from "./output-service.js";
 
 export const shouldUseTerminalLoader = (
   output: RequestedOutputMode,

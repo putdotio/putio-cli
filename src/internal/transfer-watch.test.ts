@@ -32,8 +32,8 @@ describe("watchTransfer", () => {
     Effect.gen(function* () {
       const { updates, watch } = watchUntil({
         doneAfterPolls: 1,
-        intervalMs: 2_000,
-        timeoutMs: 5_000,
+        intervalMs: 2000,
+        timeoutMs: 5000,
       });
 
       expect(yield* watch).toEqual({ timedOut: false, transfer: "COMPLETED" });
@@ -45,7 +45,7 @@ describe("watchTransfer", () => {
     Effect.gen(function* () {
       const { polledAt, watch } = watchUntil({
         doneAfterPolls: 3,
-        intervalMs: 2_000,
+        intervalMs: 2000,
         timeoutMs: 60_000,
       });
 
@@ -55,7 +55,7 @@ describe("watchTransfer", () => {
       yield* TestClock.adjust("4 seconds");
 
       expect(yield* Fiber.join(fiber)).toEqual({ timedOut: false, transfer: "COMPLETED" });
-      expect(polledAt.map((at) => at - start)).toEqual([0, 2_000, 4_000]);
+      expect(polledAt.map((at) => at - start)).toEqual([0, 2000, 4000]);
     }),
   );
 
@@ -64,7 +64,7 @@ describe("watchTransfer", () => {
       const { polledAt, updates, watch } = watchUntil({
         doneAfterPolls: Number.POSITIVE_INFINITY,
         intervalMs: 60_000,
-        timeoutMs: 3_000,
+        timeoutMs: 3000,
       });
 
       const start = yield* Clock.currentTimeMillis;
@@ -73,7 +73,7 @@ describe("watchTransfer", () => {
       yield* TestClock.adjust("3 seconds");
 
       expect(yield* Fiber.join(fiber)).toEqual({ timedOut: true, transfer: "DOWNLOADING" });
-      expect(polledAt.map((at) => at - start)).toEqual([0, 3_000]);
+      expect(polledAt.map((at) => at - start)).toEqual([0, 3000]);
       expect(updates).toEqual([false, true]);
     }),
   );

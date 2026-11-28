@@ -26,6 +26,8 @@ const buildRateLimitResolutionUrl = (
 const isNonEmptyString = (value: unknown): value is string =>
   Predicate.isString(value) && value.length > 0;
 
+const pad = (part: number) => String(part).padStart(2, "0");
+
 const formatResetTimestamp = (seconds: number | undefined): string | undefined => {
   if (seconds === undefined || !Number.isFinite(seconds)) {
     return undefined;
@@ -36,8 +38,6 @@ const formatResetTimestamp = (seconds: number | undefined): string | undefined =
   if (Number.isNaN(date.getTime())) {
     return undefined;
   }
-
-  const pad = (part: number) => String(part).padStart(2, "0");
 
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())} UTC`;
 };

@@ -10,7 +10,8 @@ import {
   withAuthedSdk,
   writeReadOutput,
 } from "../internal/command.js";
-import { fieldsFlag, outputFlag, type CommandSpec } from "../internal/command-specs.js";
+import { fieldsFlag, outputFlag } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { renderWhoamiTerminal } from "../internal/terminal/whoami-terminal.js";
 
 export const whoamiCommand = Command.make(

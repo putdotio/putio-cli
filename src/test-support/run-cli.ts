@@ -1,26 +1,29 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer, type IncomingMessage } from "node:http";
+import { createServer } from "node:http";
+import type { IncomingMessage } from "node:http";
 import { tmpdir } from "node:os";
+import { buffer } from "node:stream/consumers";
 import { join } from "node:path";
 
-import * as Stdio from "effect/Stdio";
-import * as Terminal from "effect/Terminal";
 import {
-  type Cause,
-  Console,
   ConfigProvider,
+  Console,
   Effect,
   Layer,
   Option,
   Predicate,
   Queue,
   Schema,
+  Stdio,
   Stream,
+  Terminal,
 } from "effect";
+import type { Cause } from "effect";
 
 import { runCli } from "../cli.js";
 import { CliServicesLive } from "../internal/app-layer.js";
-import { CliCrashReporter, type CrashKind } from "../internal/crash-reporting.js";
+import { CliCrashReporter } from "../internal/crash-reporting.js";
+import type { CrashKind } from "../internal/crash-reporting.js";
 import { handleCliCause } from "../internal/main.js";
 import { cliRuntimeLayer } from "../internal/runtime.js";
 
@@ -45,6 +48,10 @@ type FixtureRoute = (request: RecordedRequest) => FixtureResponse;
 
 type RepliesInOrderThenRepeatLast = ReadonlyArray<FixtureResponse>;
 
+const isReplyList = (
+  reply: FixtureResponse | RepliesInOrderThenRepeatLast,
+): reply is RepliesInOrderThenRepeatLast => Array.isArray(reply);
+
 const parseJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
 const parseErrorEnvelope = Schema.decodeUnknownSync(
@@ -62,13 +69,12 @@ const notFound: FixtureResponse = {
 };
 
 const readBody = async (request: IncomingMessage) => {
-  const chunks: Buffer[] = [];
-
-  for await (const chunk of request) chunks.push(chunk);
-  const raw = Buffer.concat(chunks);
+  const raw = await buffer(request);
   const contentType = request.headers["content-type"] ?? "";
 
-  if (raw.length === 0) return {};
+  if (raw.length === 0) {
+    return {};
+  }
 
   if (contentType.startsWith("application/x-www-form-urlencoded")) {
     return Object.fromEntries(new URLSearchParams(raw.toString("utf8")));
@@ -96,8 +102,8 @@ const readBody = async (request: IncomingMessage) => {
  */
 export const startFixtureApi = async () => {
   const routes = new Map<string, FixtureRoute>();
-  const requests: RecordedRequest[] = [];
-  const blocked: string[] = [];
+  const requests: Array<RecordedRequest> = [];
+  const blocked: Array<string> = [];
 
   const server = createServer((request, response) => {
     void (async () => {
@@ -123,7 +129,9 @@ export const startFixtureApi = async () => {
     })();
   });
 
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
   const address = server.address();
 
   if (address === null || Predicate.isString(address)) {
@@ -138,7 +146,10 @@ export const startFixtureApi = async () => {
   globalThis.fetch = (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
 
-    if (url.origin === baseUrl || url.origin === uploadBaseUrl) return realFetch(input, init);
+    if (url.origin === baseUrl || url.origin === uploadBaseUrl) {
+      return realFetch(input, init);
+    }
+
     blocked.push(url.origin);
 
     return Promise.reject(new Error(`Fixture API blocks network access to ${url.origin}`));
@@ -169,7 +180,7 @@ export const startFixtureApi = async () => {
         return;
       }
 
-      const replies = Array.isArray(reply) ? [...reply] : [reply];
+      const replies = isReplyList(reply) ? [...reply] : [reply];
       routes.set(
         methodAndPath,
         () => (replies.length > 1 ? replies.shift() : replies[0]) ?? notFound,
@@ -185,7 +196,7 @@ const keyPress = (name: string, input?: string): Terminal.UserInput => ({
   key: { ctrl: false, meta: false, name, shift: false },
 });
 
-const scriptedTerminalLayer = (typed: string, displayed: string[]) =>
+const scriptedTerminalLayer = (typed: string, displayed: Array<string>) =>
   Layer.succeed(
     Terminal.Terminal,
     Terminal.make({
@@ -218,6 +229,11 @@ export type CliRun = {
   readonly terminalDisplay: string;
 };
 
+const capture =
+  (chunks: Array<string>) =>
+  (...values: ReadonlyArray<unknown>) =>
+    chunks.push(`${values.map(String).join(" ")}\n`);
+
 /**
  * Runs the CLI entry the way `bin.ts` composes it, with captured streams,
  * a scratch config, and the API and upload base URLs pointed at the fixture API.
@@ -236,10 +252,10 @@ export const runPutio = async (
   const configDir = await mkdtemp(join(tmpdir(), "putio-cli-test-"));
   const configPath = join(configDir, "config.json");
   const argv = ["node", "putio", ...args];
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  const openedUrls: string[] = [];
-  const terminalDisplay: string[] = [];
+  const stdout: Array<string> = [];
+  const stderr: Array<string> = [];
+  const openedUrls: Array<string> = [];
+  const terminalDisplay: Array<string> = [];
   let exitCode = 0;
 
   const env = Object.fromEntries(
@@ -253,12 +269,10 @@ export const runPutio = async (
     }).filter((entry): entry is [string, string] => entry[1] !== undefined),
   );
 
-  const capture =
-    (chunks: string[]) =>
-    (...values: ReadonlyArray<unknown>) =>
-      chunks.push(`${values.map(String).join(" ")}\n`);
+  // SAFETY: Object.create(console) inherits every Console method from the global console.
+  const base = Object.create(console) as Console.Console;
 
-  const console_: Console.Console = Object.assign(Object.create(console), {
+  const console_: Console.Console = Object.assign(base, {
     error: capture(stderr),
     log: capture(stdout),
   });
@@ -281,7 +295,7 @@ export const runPutio = async (
     writeStdout: (message) => stdout.push(message),
   });
 
-  const crashReports: CrashKind[] = [];
+  const crashReports: Array<CrashKind> = [];
 
   const crashReporterLayer = Layer.succeed(CliCrashReporter, {
     capture: (kind) => {

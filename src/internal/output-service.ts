@@ -4,12 +4,13 @@ import {
   isPutioOperationError,
   isPutioRateLimitError,
 } from "@putdotio/sdk";
-import { LocalizedError } from "@putdotio/sdk/utilities";
+import type { LocalizedError } from "@putdotio/sdk/utilities";
 import { Console, Context, Effect, Layer, Match, Option, Predicate, Schema } from "effect";
 
 import { isLocalizedError, localizeCliError } from "./localize-error.js";
 import { CliRuntime } from "./runtime.js";
-import { renderCliErrorTerminal, type CliTerminalErrorView } from "./terminal/error-terminal.js";
+import { renderCliErrorTerminal } from "./terminal/error-terminal.js";
+import type { CliTerminalErrorView } from "./terminal/error-terminal.js";
 
 export type OutputMode = "json" | "ndjson" | "terminal";
 
@@ -101,7 +102,7 @@ const hasPlainPrototype = (value: unknown): value is object => {
     return false;
   }
 
-  const prototype = Object.getPrototypeOf(value);
+  const prototype: unknown = Object.getPrototypeOf(value);
 
   return prototype === Object.prototype || prototype === null;
 };
@@ -112,34 +113,34 @@ const redactSensitiveString = (value: string) =>
   SAFE_SENSITIVE_SENTINEL_VALUES.has(value) ? value : REDACTED_VALUE;
 
 const isSensitiveKey = (key: string) => {
-  const normalized = key.replace(/([a-z0-9])([A-Z])/gu, "$1_$2").toLowerCase();
+  const normalized = key.replaceAll(/([a-z0-9])([A-Z])/gu, "$1_$2").toLowerCase();
 
   return SENSITIVE_KEY_PATTERN.test(normalized);
 };
 
 const redactSensitiveText = (value: string) =>
   value
-    .replace(
+    .replaceAll(
       /(Authorization\s*:\s*Bearer\s+)([A-Za-z0-9._~+/=-]+)/gi,
       (_match, prefix: string) => `${prefix}${REDACTED_VALUE}`,
     )
-    .replace(
+    .replaceAll(
       /((?:auth_?token|access_?token|refresh_?token|oauth_?token|token|password|secret|cookie)["']?\s*[:=]\s*["']?)([^"'&,\s}]+)/gi,
       (_match, prefix: string) => `${prefix}${REDACTED_VALUE}`,
     )
-    .replace(
+    .replaceAll(
       /(Bearer\s+)([A-Za-z0-9._~+/=-]+)/gi,
       (_match, prefix: string) => `${prefix}${REDACTED_VALUE}`,
     )
-    .replace(
+    .replaceAll(
       /([?&](?:auth_?token|access_?token|refresh_?token|oauth_?token|token)=)([^&\s]+)/gi,
       (_match, prefix: string) => `${prefix}${REDACTED_VALUE}`,
     );
 
 export const sanitizeTerminalText = (value: string) =>
   redactSensitiveText(value)
-    .replace(TERMINAL_ESCAPE_PATTERN, "")
-    .replace(TERMINAL_CONTROL_PATTERN, "");
+    .replaceAll(TERMINAL_ESCAPE_PATTERN, "")
+    .replaceAll(TERMINAL_CONTROL_PATTERN, "");
 
 export const sanitizeTerminalValue = <A>(value: A): A => {
   if (Predicate.isString(value)) {

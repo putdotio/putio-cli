@@ -1,5 +1,6 @@
 import { CliError, Command } from "effect/cli";
-import { Console, Data, Effect, Predicate, Result, type Scope } from "effect";
+import { Console, Data, Effect, Predicate, Result } from "effect";
+import type { Scope } from "effect";
 import packageJson from "../package.json";
 
 import { authCommand, rejectInlineAuthToken } from "./commands/auth.js";
@@ -54,7 +55,8 @@ const command = Command.make("putio", {}, () => Console.log(translate("cli.root.
 type BufferedConsoleEntry = (console: Console.Console) => void;
 
 const makeBufferedConsole = (entries: Array<BufferedConsoleEntry>): Console.Console => ({
-  assert: (condition, ...args) => entries.push((console) => console.assert(condition, ...args)),
+  assert: (condition, ...args: ReadonlyArray<unknown>) =>
+    entries.push((console) => console.assert(condition, ...args)),
   clear: () => entries.push((console) => console.clear()),
   count: (label) =>
     entries.push((console) => (label === undefined ? console.count() : console.count(label))),
@@ -62,18 +64,19 @@ const makeBufferedConsole = (entries: Array<BufferedConsoleEntry>): Console.Cons
     entries.push((console) =>
       label === undefined ? console.countReset() : console.countReset(label),
     ),
-  debug: (...args) => entries.push((console) => console.debug(...args)),
+  debug: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.debug(...args)),
   dir: (item, options) =>
     entries.push((console) =>
       options === undefined ? console.dir(item) : console.dir(item, options),
     ),
-  dirxml: (...args) => entries.push((console) => console.dirxml(...args)),
-  error: (...args) => entries.push((console) => console.error(...args)),
-  group: (...args) => entries.push((console) => console.group(...args)),
-  groupCollapsed: (...args) => entries.push((console) => console.groupCollapsed(...args)),
+  dirxml: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.dirxml(...args)),
+  error: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.error(...args)),
+  group: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.group(...args)),
+  groupCollapsed: (...args: ReadonlyArray<unknown>) =>
+    entries.push((console) => console.groupCollapsed(...args)),
   groupEnd: () => entries.push((console) => console.groupEnd()),
-  info: (...args) => entries.push((console) => console.info(...args)),
-  log: (...args) => entries.push((console) => console.log(...args)),
+  info: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.info(...args)),
+  log: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.log(...args)),
   table: (tabularData, properties) =>
     entries.push((console) =>
       properties === undefined
@@ -86,10 +89,11 @@ const makeBufferedConsole = (entries: Array<BufferedConsoleEntry>): Console.Cons
     entries.push((console) => (label === undefined ? console.timeEnd() : console.timeEnd(label))),
   timeLog: (label, ...args) =>
     entries.push((console) =>
+      // oxlint-disable-next-line typescript/no-unsafe-argument -- replays the untyped Effect Console.timeLog arguments unchanged
       label === undefined ? console.timeLog(...args) : console.timeLog(label, ...args),
     ),
-  trace: (...args) => entries.push((console) => console.trace(...args)),
-  warn: (...args) => entries.push((console) => console.warn(...args)),
+  trace: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.trace(...args)),
+  warn: (...args: ReadonlyArray<unknown>) => entries.push((console) => console.warn(...args)),
 });
 
 const replayBufferedConsole = (

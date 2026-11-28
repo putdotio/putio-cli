@@ -10,6 +10,8 @@ minimumReleaseAgeExclude:
   - "@putdotio/*"
   - "@effect/tsgo"
   - "@effect/tsgo-*"
+  - "@uinaf/oxlint-config"
+  - "@uinaf/oxlint-plugin-no-comments"
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@8.3.8001
   vitest: 5.1.1

@@ -12,9 +12,8 @@ import {
   stderrJson,
   stdoutJson,
   stdoutLines,
-  type CliRun,
-  type FixtureApi,
 } from "./test-support/run-cli.js";
+import type { CliRun, FixtureApi } from "./test-support/run-cli.js";
 
 const decodeTopLevelFields = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
 
@@ -93,7 +92,7 @@ const accountInfo = {
   account_status: "active",
   avatar_url: "https://example.invalid/avatar.png",
   can_create_sub_account: false,
-  disk: { avail: 700, size: 1_000, used: 300 },
+  disk: { avail: 700, size: 1000, used: 300 },
   files_will_be_deleted_at: null,
   is_eligible_for_friend_invitation: false,
   is_sub_account: false,
@@ -222,7 +221,7 @@ const putio = (...args: ReadonlyArray<string>) => runPutio(api, args);
 const requestsTo = (method: string, path: string) =>
   api.requests.filter((request) => request.method === method && request.path === path);
 
-const fixtureDirectories: string[] = [];
+const fixtureDirectories: Array<string> = [];
 
 const makeUploadFixture = async (name = "movie.mp4", mode?: number) => {
   const directory = await mkdtemp(join(tmpdir(), "putio-cli-upload-"));
@@ -248,15 +247,32 @@ afterEach(async () => {
 
 afterAll(() => api.close());
 
-describe("auth", () => {
-  const routeDeviceLink = () => {
-    api.route(
-      "GET /v2/oauth2/oob/code",
-      ok({ code: "PUTIO1", qr_code_url: "https://example.invalid/qr" }),
-    );
-    api.route("GET /v2/oauth2/oob/code/PUTIO1", ok({ oauth_token: "linked-token" }));
-  };
+const routeDeviceLink = () => {
+  api.route(
+    "GET /v2/oauth2/oob/code",
+    ok({ code: "PUTIO1", qr_code_url: "https://example.invalid/qr" }),
+  );
+  api.route("GET /v2/oauth2/oob/code/PUTIO1", ok({ oauth_token: "linked-token" }));
+};
 
+const routeTokenValidation = (validToken: string) => {
+  api.route("GET /v2/oauth2/validate", (request) =>
+    ok({
+      result: request.query["oauth_token"] === validToken,
+      token_id: null,
+      token_scope: "default",
+      user_id: request.query["oauth_token"] === validToken ? 1 : null,
+    }),
+  );
+};
+
+const anonymousLogin = (args: ReadonlyArray<string>, options: Parameters<typeof runPutio>[2]) =>
+  runPutio(api, ["auth", "login", ...args], {
+    ...options,
+    env: { PUTIO_CLI_TOKEN: undefined },
+  });
+
+describe("auth", () => {
   it("logs in through the device link and saves the token", async () => {
     routeDeviceLink();
 
@@ -314,23 +330,6 @@ describe("auth", () => {
       profiles: { automation: { auth_token: "linked-token" } },
     });
   });
-
-  const routeTokenValidation = (validToken: string) => {
-    api.route("GET /v2/oauth2/validate", (request) =>
-      ok({
-        result: request.query["oauth_token"] === validToken,
-        token_id: null,
-        token_scope: "default",
-        user_id: request.query["oauth_token"] === validToken ? 1 : null,
-      }),
-    );
-  };
-
-  const anonymousLogin = (args: ReadonlyArray<string>, options: Parameters<typeof runPutio>[2]) =>
-    runPutio(api, ["auth", "login", ...args], {
-      ...options,
-      env: { PUTIO_CLI_TOKEN: undefined },
-    });
 
   const rateLimited = {
     body: {

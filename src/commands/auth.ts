@@ -1,8 +1,18 @@
 import { Argument, Command, Prompt } from "effect/cli";
 import { isPutioRateLimitError } from "@putdotio/sdk";
-import * as Stdio from "effect/Stdio";
-import * as Terminal from "effect/Terminal";
-import { Cause, Console, Effect, Fiber, Option, Queue, Redacted, Schema, Stream } from "effect";
+import {
+  Cause,
+  Console,
+  Effect,
+  Fiber,
+  Option,
+  Queue,
+  Redacted,
+  Schema,
+  Stdio,
+  Stream,
+  Terminal,
+} from "effect";
 
 import { translate } from "../i18n/index.js";
 import {
@@ -36,8 +46,8 @@ import {
   jsonInputSpecFromSchema,
   outputFlag,
   stringArgument,
-  type CommandSpec,
 } from "../internal/command-specs.js";
+import type { CommandSpec } from "../internal/command-specs.js";
 import { resolveCliRuntimeConfig } from "../internal/config.js";
 import { withTerminalLoader } from "../internal/loader-service.js";
 import { normalizeOutputMode, writeOutput } from "../internal/output-service.js";
@@ -45,7 +55,6 @@ import { CliRuntime } from "../internal/runtime.js";
 import { provideSdk, sdk } from "../internal/sdk.js";
 import {
   AuthStateError,
-  type AuthStatus,
   clearPersistedState,
   getAuthStatus,
   listProfiles,
@@ -53,6 +62,7 @@ import {
   savePersistedState,
   useProfile,
 } from "../internal/state.js";
+import type { AuthStatus } from "../internal/state.js";
 import {
   renderAuthLoginSuccessTerminal,
   renderAuthLoginTerminal,
@@ -352,7 +362,7 @@ const authLogin = Command.make(
 
       const selectedProfile = yield* checkCommandInput(() => resolveProfileInput(profile));
 
-      const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1_000;
+      const timeoutMs = Option.getOrElse(timeoutSeconds, () => 120) * 1000;
       const authFlow = yield* resolveAuthFlowConfig();
 
       const { code } = yield* provideSdk(

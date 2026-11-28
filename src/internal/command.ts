@@ -10,20 +10,20 @@ import {
   repeatedIntegerFlag,
   repeatedStringFlag,
   stringFlag,
-  type CommandOption,
 } from "./command-specs.js";
+import type { CommandOption } from "./command-specs.js";
 import {
   isStructuredOutputMode,
   normalizeOutputMode,
   renderJson,
   writeOutput,
-  type OutputMode,
-  type RequestedOutputMode,
 } from "./output-service.js";
+import type { OutputMode, RequestedOutputMode } from "./output-service.js";
 import { resolveCliRuntimeConfig } from "./config.js";
 import { ENV_UPLOAD_BASE_URL } from "./env.js";
 import { CliRuntime } from "./runtime.js";
-import { CliSdk, sdk } from "./sdk.js";
+import type { sdk } from "./sdk.js";
+import { CliSdk } from "./sdk.js";
 import { resolveAuthState } from "./state.js";
 
 export const outputOption = Flag.Literals("output", ["json", "text", "ndjson"] as const).pipe(
@@ -233,7 +233,7 @@ type ReadOutputControls = {
 const PATH_TRAVERSAL_PATTERN = /(?:^|[\\/])\.\.(?:[\\/]|$)|%2e/iu;
 const QUERY_OR_FRAGMENT_PATTERN = /[?#]/u;
 const TOP_LEVEL_FIELD_PATTERN = /^[A-Za-z0-9_-]+$/u;
-const MAX_CURSOR_PAGES = 1_000;
+const MAX_CURSOR_PAGES = 1000;
 const MAX_CURSOR_ITEMS = 100_000;
 
 const isControlCodePoint = (codePoint: number | undefined) =>
@@ -334,7 +334,7 @@ const readPageItems = <A extends Record<string, unknown>>(
   value: A,
   itemKey: string,
   command: string,
-) => {
+): ReadonlyArray<unknown> => {
   const items = value[itemKey];
 
   if (!Array.isArray(items)) {
@@ -395,7 +395,7 @@ const integerPattern = /^-?\d+$/;
 export const parseRepeatedIntegers = (
   values: ReadonlyArray<string>,
 ): Option.Option<ReadonlyArray<number>> => {
-  const parsed: number[] = [];
+  const parsed: Array<number> = [];
 
   for (const value of values) {
     if (!integerPattern.test(value)) {
@@ -538,7 +538,7 @@ export const selectTopLevelFields = <A extends Record<string, unknown>>(input: {
       const validFields = Object.keys(input.value).sort((left, right) => left.localeCompare(right));
 
       const unknownFields = input.requestedFields.filter(
-        (field) => !Object.prototype.hasOwnProperty.call(input.value, field),
+        (field) => !Object.hasOwn(input.value, field),
       );
 
       if (unknownFields.length > 0) {
@@ -636,7 +636,7 @@ export const collectAllCursorPages = <A extends Record<string, unknown>, E, R>(i
       [input.itemKey]: collectedItems,
     };
 
-    if (!Object.prototype.hasOwnProperty.call(input.initial, "cursor")) {
+    if (!Object.hasOwn(input.initial, "cursor")) {
       return collected;
     }
 
